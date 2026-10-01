@@ -1,0 +1,566 @@
+# Real-number work as modules do it: floor/ceiling/round(to), .abs,
+# .sign, min/max as infixes and assignments, sqrt/log/exp, Inf and NaN,
+# approximate equality.
+
+=== num-floor-fraction
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:9
+license: Artistic-2.0
+feature: method floor
+--- code
+sub frac(\x) { x - x.floor }
+say frac(3.75);
+say frac(-3.75);
+say frac(2.5e0);
+--- expect
+0.75
+0.25
+0.5
+
+=== num-floor-percentage
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:443
+license: Artistic-2.0
+feature: method floor
+--- code
+for 0.5, 2/3, 0.999, 1 -> $frac {
+    my $pct  = ($frac * 100).floor;
+    say "$pct% {$pct.^name}";
+}
+--- expect
+50% Int
+66% Int
+99% Int
+100% Int
+
+=== num-floor-ceiling-hyper
+from: Dan 0.0.3 lib/Dan.rakumod:258
+license: Artistic-2.0
+feature: method ceiling
+--- code
+my @x = 10, 20, 30, 40;
+my @d = 0.5, 1.5, 2;
+say ( @x[@d».floor] Z+ @x[@d».ceiling] ) »/» 2;
+--- expect
+(15 25 30)
+
+=== num-floor-offset-hours
+from: DateTime::Format 0.1.5 lib/DateTime/Format.rakumod:103
+license: Artistic-2.0
+feature: method floor
+--- code
+for 19800, -12600, 0 -> $o {
+    say $o
+        ?? sprintf('%s%02d%02d',
+               $o < 0 ?? '-' !! '+',
+               ($o.abs / 60 / 60).floor,
+               ($o.abs / 60 % 60).floor)
+        !! 'Z';
+}
+--- expect
++0530
+-0330
+Z
+
+=== num-floor-split-time
+from: Net::OSC 0.2.2 lib/Net/OSC/Bundle.pm6:66
+license: Artistic-2.0
+feature: method floor
+--- code
+my $time = 1234.75;
+given ($time.floor, $time - $time.floor) -> ($int, $fraction) {
+    say $int;
+    say $fraction;
+    say ($fraction * 2**32).Int;
+}
+--- expect
+1234
+0.75
+3221225472
+
+=== num-ceiling-progress-bar
+from: Collection 0.18.0 lib/Collection/Progress.rakumod:63
+license: Artistic-2.0
+feature: method ceiling
+--- code
+my $bar-len = 10;
+for 0, 3.2, 7.5, 10 -> $done {
+    my $bar = '#' x $done.ceiling ~ '.' x ($bar-len - $done ) ;
+    say $bar;
+}
+--- expect
+..........
+####......
+########..
+##########
+
+=== num-ceiling-block-count
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Support/Crypto.rakumod:47
+license: Artistic-2.0
+feature: method ceiling
+--- code
+my $hash-len = 32;
+for 1, 32, 33, 64, 100 -> $length {
+    my $blocks   = ($length / $hash-len).ceiling;
+    print "$blocks ";
+}
+say '';
+--- expect
+1 1 2 2 4 
+
+=== num-floor-ceiling-nice-ticks
+from: Selkie 0.16.0 lib/Selkie/Plot/Ticks.rakumod:159
+license: Artistic-2.0
+feature: method ceiling
+--- code
+my ($min, $max, $step) = 3.7, 47.2, 10;
+my $nice-min = ($min / $step).floor * $step;
+my $nice-max = ($max / $step).ceiling * $step;
+say "$nice-min .. $nice-max";
+say ($nice-min, * + $step ... $nice-max).join(' ');
+--- expect
+0 .. 50
+0 10 20 30 40 50
+
+=== num-ceiling-floor-power-of-two
+from: Crypt::LibScrypt 0.0.9 lib/Crypt/LibScrypt.rakumod:18
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset PowTwo of Int where { $_ > 1 && (ceiling(log2($_)) == floor(log2($_))) };
+say 1024 ~~ PowTwo;
+say 1000 ~~ PowTwo;
+say 1 ~~ PowTwo;
+say (1..20).grep(PowTwo);
+--- expect
+True
+False
+False
+(2 4 8 16)
+
+=== num-ceiling-log10-digits
+from: Data::Generators 0.1.11 lib/Data/Generators/RandomTabularDataset.rakumod:184
+license: Artistic-2.0
+feature: method ceiling
+--- code
+for 9, 10, 11, 250 -> $elems {
+    my Str $nd = ceiling(log10($elems)).Str;
+    say "$elems -> width $nd: {sprintf('%0' ~ $nd ~ 'd', 7)}";
+}
+--- expect
+9 -> width 1: 7
+10 -> width 1: 7
+11 -> width 2: 07
+250 -> width 3: 007
+
+=== num-floor-log-magnitude
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Helpers/Number.rakumod:51
+license: Artistic-2.0
+feature: method floor
+--- code
+for 7, 1234, 0.05, -98765 -> $value {
+    my $magnitude = floor(log($value.abs) / log(10));
+    say "$value: $magnitude";
+}
+--- expect
+7: 0
+1234: 3
+0.05: -2
+-98765: 4
+
+=== num-round-to-step
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Calculator.rakumod:73
+license: Artistic-2.0
+feature: method round
+--- code
+my $em = 1;
+for ^4 {
+    $em = ($em * 1.2).round: 0.5;
+    print "$em ";
+}
+say '';
+say 2.345.round(.01), ' ', 1234.round(100), ' ', 0.5.round, ' ', (-0.5).round;
+--- expect
+1 1 1 1 
+2.35 1200 1 0
+
+=== num-round-to-hex-digit
+from: Color 1.004001 lib/Color.rakumod:135
+license: Artistic-2.0
+feature: method round
+--- code
+for 0, 100, 128, 250 {
+    print ($_ min 247).round(16).base(16).substr(0,1);
+}
+say '';
+--- expect
+068F
+
+=== num-round-map-components
+from: Color 1.004001 lib/Color.rakumod:126
+license: Artistic-2.0
+feature: method round
+--- code
+my class RGB {
+    has $.r; has $.g; has $.b;
+    method rgb()   { map { .round }, $.r, $.g, $.b      }
+}
+say RGB.new(r => 254.6, g => 127.5, b => 0.4).rgb;
+say RGB.new(r => 1e0, g => 2.5e0, b => -0.5e0).rgb.map(*.^name);
+--- expect
+(255 128 0)
+(Int Int Int)
+
+=== num-round-version-fixed
+from: Font::FreeType 0.5.16 lib/Font/FreeType/Raw/TT_Sfnt.rakumod:66
+license: Artistic-2.0
+feature: method round
+--- code
+my class Header {
+    has $.version;
+    method version { Version.new: ($!version / (2  ** 16 )).round(.01) }
+}
+say Header.new(version => 0x00010000).version;
+say Header.new(version => 0x00028000).version;
+--- expect
+v1
+v2.5
+
+=== num-round-duration-ms
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Instrumentation/LogSubscriber.rakumod:46
+license: Artistic-2.0
+feature: method round
+--- code
+for 0.01234, Nil, 1.5 -> $d {
+    my %payload = duration => $d;
+    my $ms = ((%payload<duration> // 0) * 1000).round(0.1);
+    say "{$ms}ms";
+}
+--- expect
+12.3ms
+0ms
+1500ms
+
+=== num-round-sub-form
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:125
+license: Artistic-2.0
+feature: sub round
+--- code
+my @data = ^10;
+for 2, 3, 4 -> $ncol {
+    my $nrow = round(@data.elems / $ncol);
+    say "$ncol cols -> $nrow rows";
+}
+say round(0.4567, 0.01);
+--- expect
+2 cols -> 5 rows
+3 cols -> 3 rows
+4 cols -> 3 rows
+0.46
+
+=== num-round-int-percent
+from: Selkie 0.16.0 lib/Selkie/Widget/ProgressBar.rakumod:189
+license: Artistic-2.0
+feature: method round
+--- code
+for 0.333, 0.5e0, 1 -> $value {
+    my $pct = ($value * 100).round.Int;
+    say "$pct {$pct.^name}";
+}
+--- expect
+33 Int
+50 Int
+100 Int
+
+=== num-int-truncates-midpoint
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:56
+license: Artistic-2.0
+feature: method Int
+--- code
+for (0, 9), (3, 4), (-5, 0) -> ($low, $high) {
+    my $index = (( $high + $low ) / 2).Int;
+    say $index;
+}
+say 7.9e0.Int, ' ', (-7.9).Int;
+--- expect
+4
+3
+-2
+7 -7
+
+=== num-sign-abs-assign
+from: Math::FractionalPart 0.0.6 lib/Math/FractionalPart.rakumod:97
+license: Artistic-2.0
+feature: method abs
+--- code
+for -2.5, 0, 17, -1e3 -> $n {
+    my $x = $n;
+    $x .= Real;
+    my $sign = $x.sign;
+    $x .= abs;
+    $x .= Str;
+    say "$sign $x";
+}
+--- expect
+-1 2.5
+0 0
+1 17
+-1 1000
+
+=== num-abs-threshold-map
+from: Graph 0.1.3 lib/Graph.rakumod:492
+license: Artistic-2.0
+feature: method abs
+--- code
+my %d = a => -0.05, b => 0.7, c => -3, d => 0.1;
+my $threshold = 0.1;
+my %adj = %d.map({ $_.key => $_.value.abs ≤ $threshold ?? 0 !! 1 }).Hash;
+say %adj.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+a=0 b=1 c=1 d=0
+
+=== num-infix-min-clamp
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DocExtractor.rakumod:164
+license: Artistic-2.0
+feature: infix min
+--- code
+for 1, 3, 9 -> $heading-level {
+    my $hashes = '#' x ($heading-level min 6);
+    say $hashes;
+}
+--- expect
+#
+###
+######
+
+=== num-infix-max-floor
+from: CRoaring 0.2.3 lib/CRoaring.rakumod:162
+license: Artistic-2.0
+feature: infix max
+--- code
+my ($card, $offset) = 10, 2;
+for 3, 20 -> $count {
+    my Int:D $actual = ($card - $offset) min $count;
+    my Int:D $start = ($card - $offset - $count) max 0;
+    say "$actual $start";
+}
+--- expect
+3 5
+8 0
+
+=== num-sub-max-list
+from: Anolis 1.0.0 lib/Anolis.rakumod:161
+license: Artistic-2.0
+feature: sub max
+--- code
+my $cursor-x = 1;
+for ^3 {
+    $cursor-x = max $cursor-x - 1, 0;
+    print "$cursor-x ";
+}
+say '';
+my ($r, $g, $b) = 0.2, 0.9, 0.4;
+my $k := 1 - max $r, $g, $b;
+say $k;
+--- expect
+0 0 0 
+0.1
+
+=== num-max-assign-widest
+from: Text::MiscUtils 0.0.13 lib/Text/MiscUtils/Layout.rakumod:172
+license: Artistic-2.0
+feature: infix max
+--- code
+my $width = 0;
+$width max= .chars for <a abcd ab>;
+say $width;
+my $size = 100;
+$size min= 64;
+say $size;
+my $w2 = -5;
+$w2 max= 1;
+say $w2;
+--- expect
+4
+64
+1
+
+=== num-minmax-range
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:197
+license: Artistic-2.0
+feature: method minmax
+--- code
+my @values = 4, -2, 9, 0.5;
+my $r = @values.minmax;
+say $r;
+say $r.min, ' ', $r.max;
+say ((.min,.max) with @values.minmax);
+--- expect
+-2..9
+-2 9
+(-2 9)
+
+=== num-sqrt-norm
+from: Math::DistanceFunctions 0.1.4 lib/Math/DistanceFunctionish.rakumod:117
+license: Artistic-2.0
+feature: sub sqrt
+--- code
+sub norm(@vector) { sqrt(sum(@vector <<*>> @vector)) }
+say norm([3, 4]);
+say norm([1, 1]).round(1e-6);
+say 16.sqrt, ' ', 16.sqrt.^name;
+say [1..9].elems.sqrt.Int;
+--- expect
+5
+1.4142139999999999
+4 Num
+3
+
+=== num-log-ratio-exponent
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/Packer.rakumod:107
+license: Artistic-2.0
+feature: method log
+--- code
+for 1.5, 10, 0.1 -> $f {
+    my $abs = $f.abs;
+    my $exp = ($abs.log / 2.log).Int;
+    my $mantissa = $abs / 2**$exp;
+    say "$exp {$mantissa.round(1e-9)}";
+}
+--- expect
+0 1.5
+3 1.25
+-3 0.8
+
+=== num-exp-log-root
+from: Digest 1.1.0 lib/Digest/SHA2.rakumod:17
+license: Artistic-2.0
+feature: sub exp
+--- code
+for 2, 3 -> $p {
+    my $n = 1000;
+    say exp(log($n)/$p).round(1e-9);
+}
+say e.round(0.0001), ' ', exp(1) == e;
+--- expect
+31.622776602000002
+10
+2.7183 True
+
+=== num-inf-abs-finite-check
+from: Data::Transformers 0.0.2 lib/Data/Transformers/Rescale.rakumod:104
+license: Artistic-2.0
+feature: term Inf
+--- code
+for (0, 10, 0, 1), (-Inf, 10, 0, 1) -> ($min, $max, $vmin, $vmax) {
+    if $min.abs < Inf && $max.abs < Inf && $vmin.abs < Inf && $vmax.abs < Inf {
+        say 'finite';
+    }
+    else {
+        say 'infinite';
+    }
+}
+--- expect
+finite
+infinite
+
+=== num-inf-nan-json
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:1370
+license: Artistic-2.0
+feature: method isNaN
+--- code
+sub JS-Num($v) {
+    $v.isNaN   ??  'NaN'      !!
+    $v ==  Inf ??  'Infinity' !!
+    $v == -Inf ?? '-Infinity' !! ~$v
+}
+say JS-Num($_) for NaN, Inf, -Inf, 1.5e0, 1e300 * 1e300, 0e0 / 1;
+--- expect
+NaN
+Infinity
+-Infinity
+1.5
+Infinity
+0
+
+=== num-inf-nan-string-check
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/JsonEvents.rakumod:24
+license: Artistic-2.0
+feature: term NaN
+--- code
+for NaN, Inf, -Inf, 3.25, 10 -> $v {
+    given $v {
+        when Real { my $s = $v.Str; say $s eq 'NaN' || $s eq 'Inf' || $s eq '-Inf' ?? 'null' !! $s }
+    }
+}
+say NaN == NaN, ' ', NaN === NaN;
+--- expect
+null
+null
+null
+3.25
+10
+False True
+
+=== num-inf-multiplier
+from: Config::TOML 0.1.3 lib/Config/TOML/Parser/Actions.rakumod:241
+license: Unlicense
+feature: term Inf
+--- code
+for '+', '-' -> $pm {
+    my Int:D $multiplier = $pm eq '+' ?? 1 !! -1;
+    my $v = Inf * $multiplier;
+    say "$v {$v.^name} {$v ~~ Inf}";
+}
+say (-Inf) < -1e308, ' ', Inf > 2**2000;
+--- expect
+Inf Num True
+-Inf Num False
+True False
+
+=== num-inf-whatever-size
+from: Data::Generators 0.1.11 lib/Data/Generators/RandomFunctions.rakumod:70
+license: Artistic-2.0
+feature: term Inf
+--- code
+for 3, Inf -> $s {
+    my $size = $s;
+    if $size ~~ Inf { $size = Whatever; }
+    say $size.^name;
+}
+say (1..Inf).is-lazy, ' ', ~Inf;
+--- expect
+Int
+Whatever
+True Inf
+
+=== num-approx-equal-zero
+from: PDF::Content 0.9.11 lib/PDF/Content/Matrix.rakumod:66
+license: Artistic-2.0
+feature: infix =~=
+--- code
+for 0e0, 1e-16, 0.1e0 + 0.2e0 - 0.3e0, 0.001 -> $det {
+    if $det =~= 0 {
+        say "singular";
+    }
+    else {
+        say "ok";
+    }
+}
+say 0.1e0 + 0.2e0 =~= 0.3e0;
+--- expect
+singular
+singular
+singular
+ok
+True
+
+=== num-approx-equal-round
+from: FontConfig 0.1.9 lib/FontConfig/Raw.rakumod:28
+license: Artistic-2.0
+feature: infix =~=
+--- code
+for 2.0e0..5.0e0, 2.5e0..5e0 {
+    say .min =~= .min.round && .max =~= .max.round;
+}
+--- expect
+True
+False

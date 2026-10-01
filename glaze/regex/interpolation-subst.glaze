@@ -1,0 +1,423 @@
+# Interpolation into regexes, s/// forms, subst with match closures, regexes in when, split :v.
+
+=== rx-interp-string-as-regex
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/FuzzyMatching.rakumod:253
+license: Artistic-2.0
+feature: regex make
+--- code
+my @knownRegexes = 'data \s* frame', 'tib+le';
+for 'data  frame', 'my dataframe here', 'tibbble', 'table' -> $candidate {
+    for False, True -> $contains {
+        for @knownRegexes -> $rx {
+            if $candidate ~~ ( $contains ?? / (<$rx>) / !! / ^ (<$rx>) $ / ) {
+                say "$candidate ({$contains ?? 'contains' !! 'whole'}): $0";
+            }
+        }
+    }
+}
+--- expect
+data  frame (whole): data  frame
+data  frame (contains): data  frame
+my dataframe here (contains): dataframe
+tibbble (whole): tibbble
+tibbble (contains): tibbble
+
+=== rx-interp-string-literal-vs-regex
+from: Term::Choose 2.0.6 lib/Term/Choose.rakumod:1643
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my $search_str = 'a.c';
+my Regex $regex = rx:i/<$search_str>/;
+my Regex $literal = rx:i/$search_str/;
+for <ABC a.c xa.cy> -> $s {
+    say "$s: ", so($s ~~ $regex), ' ', so($s ~~ $literal);
+}
+--- expect
+ABC: True False
+a.c: True True
+xa.cy: True True
+
+=== rx-interp-closure-assertion
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DocExtractor.rakumod:102
+license: Artistic-2.0
+feature: method match
+--- code
+sub description-matches-pattern(Str $description, Str $pattern --> Bool) {
+    if $pattern.chars > 2
+       && $pattern.starts-with('/')
+       && $pattern.ends-with('/') {
+        my $body = $pattern.substr(1, $pattern.chars - 2);
+        my $rx = / <{ $body }> /;
+        return so $description.match($rx);
+    }
+    $description.contains($pattern);
+}
+say description-matches-pattern('adds two numbers', '/ \d+ | two /');
+say description-matches-pattern('adds 2 numbers', '/^ subtract/');
+say description-matches-pattern('adds 2 numbers', 'adds');
+--- expect
+True
+False
+True
+
+=== rx-interp-array-in-subset
+from: Base58 0.0.5 lib/Base58.rakumod:10
+license: MIT
+feature: decl subset
+--- code
+my @alphabet = <
+  1 2 3 4 5 6 7 8 9
+  A B C D E F G H   J K L M N   P Q R S T U V W X Y Z
+  a b c d e f g h i j k   m n o p q r s t u v w x y z
+>;
+my subset Base58Str of Str where /^<@alphabet>*$/;
+for <3mJr7AoUXx2Wqd 0OIl abc> -> $s {
+    say "$s: ", $s ~~ Base58Str;
+}
+--- expect
+3mJr7AoUXx2Wqd: True
+0OIl: False
+abc: True
+
+=== rx-interp-array-literal-alternation
+from: Collection 0.18.0 lib/Collection.rakumod:459
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my @withs = <post- .md>;
+my @files = <post-1.md index.html post-2.txt about.md>;
+@files .= grep({ $_ ~~ / @withs / }) if +@withs;
+say @files;
+my @safe-terminals = <xterm screen>;
+say <xterm-256color dumb tmux-screen>.map({ so $_ ~~ / @safe-terminals / }).join(',');
+--- expect
+[post-1.md post-2.txt about.md]
+True,False,True
+
+=== rx-interp-array-negated-lookahead
+from: Path::Finder 0.4.7 lib/Path/Finder.rakumod:196
+license: Artistic-2.0
+feature: regex !before
+--- code
+sub class-rx($not, @class) {
+    $not ?? /<!before @class> ./ !! /@class/;
+}
+my $in  = class-rx('', <a b c>);
+my $out = class-rx('!', <a b c>);
+say 'xbyaz'.comb($in).join;
+say 'xbyaz'.comb($out).join;
+--- expect
+ba
+xyz
+
+=== rx-interp-array-alias-dynamic
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure/CommandParser.rakumod:20
+license: Artistic-2.0
+feature: regex ident
+--- code
+my class Context { has @.items; has @.exits }
+my grammar Cmd {
+    rule TOP { ^ <command> $ }
+    proto rule command          {*}
+    rule command:sym<lock>      { <sym> <thing=@($*ctx.items)> }
+    rule command:sym<go>        { <sym>? <exit=@($*ctx.exits)> }
+}
+my $*ctx = Context.new(items => <door chest>, exits => <north south>);
+for 'lock chest', 'go north', 'south', 'lock window' -> $in {
+    with Cmd.parse($in) { say "$in -> {.<command><thing> // .<command><exit>}" }
+    else { say "$in -> ?" }
+}
+--- expect
+lock chest -> chest
+go north -> north
+south -> south
+lock window -> ?
+
+=== rx-interp-array-make-regex
+from: IO::Glob 0.9.0 lib/IO/Glob.pm6:184
+license: Artistic-2.0
+feature: regex !before
+--- code
+my grammar G {
+    token TOP { <match> }
+    proto token match {*}
+    token match:character-class {
+        <!after "\\"> '['
+            $<not>   = [ "!"? ]
+            $<class> = [ <-[ \] ]>+ ]
+        ']'
+        {
+            my @class = $<class>.Str.comb;
+            make $<not> ?? rx{@class} !! rx{<!before @class> .}
+        }
+    }
+}
+for '[abc]', '[!abc]' -> $glob {
+    my $rx = G.parse($glob)<match>.made;
+    say $glob, ': ', <a d c z>.map({ so $_ ~~ /^ $rx $/ }).join(' ');
+}
+--- expect
+[abc]: True False True False
+[!abc]: True False True False
+
+=== rx-s-global-backreference-double
+from: Color 1.004001 lib/Color/Utilities.rakumod:26
+license: Artistic-2.0
+feature: quote s///
+--- code
+for <f80 abcd 112233> -> $hex is copy {
+    3 <= $hex.chars <= 4 and $hex ~~ s:g/(.)/$0$0/;
+    say $hex;
+}
+--- expect
+ff8800
+aabbccdd
+112233
+
+=== rx-s-global-interpolated-pattern
+from: Distribution::Builder::MakeFromJSON 0.6 lib/Distribution/Builder/MakeFromJSON.pm6:76
+license: Artistic-2.0
+feature: quote s///
+--- code
+my $makefile = "CC=%CC%\nLIB=%DESTDIR%/lib %CC%\n";
+my %vars = CC => 'clang', DESTDIR => '/opt';
+for %vars.kv -> $k, $v {
+    $makefile ~~ s:g/\%$k\%/$v/;
+}
+print $makefile;
+--- expect
+CC=clang
+LIB=/opt/lib clang
+
+=== rx-s-global-not-before-capture
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance.rakumod:194
+license: MIT
+feature: quote s///
+--- code
+my $optstring = 'ab:c';
+$optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
+say $optstring;
+--- expect
+a=b;b:c=b;
+
+=== rx-s-brackets-assign-form
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/SafeString.rakumod:59
+license: Artistic-2.0
+feature: quote s///
+--- code
+my $clean = 'Hi <SCRIPT type="x">alert(1)</script> there <style>p{}</ style >!';
+$clean ~~ s:g:i[ '<' (script | style) <-[>]>* '>' .*? '</' \s* $0 \s* '>' ] = '';
+say $clean;
+--- expect
+Hi <SCRIPT type="x">alert(1)</script> there !
+
+=== rx-s-ignorecase-delete
+from: QueryOS 0.1.2 lib/QueryOS.rakumod:139
+license: Artistic-2.0
+feature: quote s///
+--- code
+my $vshort = '22.04 LTS';
+$vshort ~~ s:i/lts//;
+say $vshort.trim;
+my $other = '9 lts lts';
+say ($other ~~ s:i/lts//).Str;
+say $other;
+--- expect
+22.04
+lts
+9  lts
+
+=== rx-s-optional-frugal-fraction
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:526
+license: Artistic-2.0
+feature: quote s///
+--- code
+for '2024-05-01T10:20:30.123Z', '2024-05-01T10:20:30Z' -> $ts is copy {
+    $ts ~~ s/ ['.' \d+?]? 'Z' //;
+    say $ts;
+}
+--- expect
+2024-05-01T10:20:30
+2024-05-01T10:20:30
+
+=== rx-s-code-block-replacement
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:157
+license: Artistic-2.0
+feature: quote s///
+--- code
+my $x = "a\tb";
+$x ~~ s:g/(<:C>)/{ "<" ~ ord($0) ~ ">" }/;
+say $x;
+my $y = 'none';
+say ($y ~~ s:g/(<:C>)/{ '?' }/).raku;
+--- expect
+a<9>b
+()
+
+=== rx-subst-pointy-slash-param
+from: Template::HAML 0.9.6 lib/Template/HAML/Actions.rakumod:34
+license: Artistic-2.0
+feature: method subst
+--- code
+my $s = Q{a\#b\\c\.};
+say $s.subst(/'\\' (.)/, -> $/ { $0.Str }, :g);
+--- expect
+a#b\c.
+
+=== rx-subst-pointy-encode-bytes
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Filters.rakumod:166
+license: Artistic-2.0
+feature: method subst
+--- code
+my $s = 'a b&c/é';
+say $s.subst(/<-[a..zA..Z0..9\-_.~]>/, -> $/ { '%' ~ $/.Str.encode('utf-8').list.map(*.fmt('%02X')).join('%') }, :g);
+--- expect
+a%20b%26c%2F%C3%A9
+
+=== rx-subst-named-g-first-rx
+from: Pod::To::Markdown 0.2.2 lib/Pod/To/Markdown.rakumod:63
+license: Artistic-2.0
+feature: method subst
+--- code
+my $text = 'Copy E&lt;0x00a9&gt; and E&lt;0x2014&gt; done';
+say $text.subst(:g, rx/ 'E&lt;0x' (<.xdigit> ** 4) '&gt;' /, { "&#x{$0};" });
+--- expect
+Copy &#x00a9; and &#x2014; done
+
+=== rx-subst-percent-decode
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Support/DatabaseUrl.rakumod:5
+license: Artistic-2.0
+feature: method subst
+--- code
+sub unescape($s) { $s.subst(/'%' (<xdigit><xdigit>)/, { :16(~$0).chr }, :g) }
+say unescape('p%40ss%2Fw%C3rd');
+say unescape('plain');
+--- expect
+p@ss/wÃrd
+plain
+
+=== rx-subst-whatever-capture-quoted
+from: Data::Translators 0.1.18 lib/Data/Translators/R.rakumod:19
+license: Artistic-2.0
+feature: method subst
+--- code
+for '(Whatever)', '(WhateverCode)', 'NULL' -> $node {
+    say $node.subst(/ ^ ('(Whatever)' | '(WhateverCode)') $/, {"\"{$0.Str}\""});
+}
+--- expect
+"(Whatever)"
+"(WhateverCode)"
+NULL
+
+=== rx-when-prefix-push
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:76
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my (@execs, @rest);
+for <--exec=prove6 --fix --exec-other lib> {
+    when /^'--exec'/ { push @execs, $_ }
+    default { push @rest, $_ }
+}
+say @execs;
+say @rest;
+--- expect
+[--exec=prove6 --exec-other]
+[--fix lib]
+
+=== rx-when-anchored-alternatives
+from: CSS::Properties 0.10.9 lib/CSS/Box.rakumod:166
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+for <padding-top border-left margin-bottom margin padding-x> {
+    when /^ (padding|border|margin)'-'(top|right|bottom|left) $/ {
+        say "$_: box={$0} edge={$1}";
+    }
+    default { say "$_: -" }
+}
+--- expect
+padding-top: box=padding edge=top
+border-left: box=border edge=left
+margin-bottom: box=margin edge=bottom
+margin: -
+padding-x: -
+
+=== rx-when-long-option-captures
+from: Crust 0.0.1 lib/Crust/Runner.pm6:54
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my %opts;
+for <--port=5000 --host=0.0.0.0 -v app.psgi> {
+    when /^\-\-(<-[\=]>+)\=(.*)$/ {
+        %opts{$0} = ~$1;
+    }
+    default { %opts<args>.push: $_ }
+}
+say %opts.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+args=-v app.psgi host=0.0.0.0 port=5000
+
+=== rx-split-v-named-captures
+from: Template6 0.16.0 lib/Template6/Parser.rakumod:215
+license: Artistic-2.0
+feature: method split
+--- code
+my $template = "Hello [% name %]!\n[%# note %]Bye";
+my @segments = $template.split(/ $<prefix-linebreak>=(\n?) '[%' $<comment-signature>=('#'?) \s* $<tokens>=(.*?) \s* '%]' /, :v);
+for @segments -> $segment {
+    if $segment ~~ Stringy {
+        say "text: {$segment.raku}";
+    }
+    elsif $segment ~~ Match && !~$segment<comment-signature> {
+        say "tag: {$segment<tokens>}";
+    }
+    else {
+        say "comment: {$segment<tokens>}";
+    }
+}
+--- expect
+text: "Hello "
+tag: name
+text: "!"
+comment: note
+text: "Bye"
+
+=== rx-split-v-alternation-capture
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:463
+license: MIT
+feature: method split
+--- code
+my $str = "one\ntwo\rthree";
+for $str.split(/(\n|\r)/, :v) -> $part {
+    say $part ~~ Match ?? "<{$part.Str.ord}>" !! $part;
+}
+--- expect
+one
+<10>
+two
+<13>
+three
+
+=== rx-flipflop-regex-sections
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:423
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my @lines = 'Header x', 'StartKernData', 'KPX A V -80', 'KPX T o -18', 'EndKernData', 'Trailer';
+for @lines {
+    if /^StartKernData/ ff /^EndKernData/ {
+        say "kern: $_";
+        next;
+    }
+    say "other: $_";
+}
+--- expect
+other: Header x
+kern: StartKernData
+kern: KPX A V -80
+kern: KPX T o -18
+kern: EndKernData
+other: Trailer

@@ -192,7 +192,7 @@ sub check() {
                 unless permissive($s.meta<license> // '');
             complain('a line of code starts with === or ---')
                 if $s.code.lines.first({ .starts-with('=== ' | '--- ') });
-            complain('code calls exit') if $s.code ~~ /« exit »/;
+            complain('code calls exit') if $s.code ~~ / <!after <[\w$@%&:.\<-]>> exit <!before <[\w-]> || \s* '=>'> /;
         }
     }
     say $bad ?? "$bad problem(s)" !! 'clean';

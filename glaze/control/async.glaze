@@ -1,0 +1,346 @@
+# react/whenever, supply blocks with LAST/QUIT, start/await, Promise
+# combinators and a closed Channel — all over finite, deterministic input.
+
+=== ctl-supply-whenever-last-emit
+from: Cro::CBOR 0.0.7 lib/Cro/CBOR.rakumod:34
+license: Artistic-2.0
+feature: phaser LAST
+--- code
+sub parse(Supply $body-byte-stream --> Promise) {
+    Promise(supply {
+        my $payload = Blob.new;
+        whenever $body-byte-stream -> $blob {
+            $payload ~= $blob;
+            LAST emit $payload.decode;
+        }
+    })
+}
+say await parse(Supply.from-list(Blob.new(104, 105), Blob.new(33)));
+--- expect
+hi!
+
+=== ctl-supply-transformer-last-quit
+from: Cro::Core 0.8.10 lib/Cro.rakumod:375
+license: Artistic-2.0
+feature: phaser QUIT
+--- code
+my @trace;
+sub transformer(Supply:D $in --> Supply) {
+    supply {
+        whenever $in -> \msg {
+            @trace.push: "EMIT {msg}";
+            emit msg;
+            LAST {
+                @trace.push: "DONE";
+            }
+            QUIT {
+                @trace.push: "QUIT {.message}";
+            }
+        }
+    }
+}
+say transformer(Supply.from-list(<a b>)).list;
+.say for @trace;
+@trace = ();
+my $bad = supply { emit 'x'; die 'upstream broke' };
+try transformer($bad).list;
+.say for @trace;
+say $! // q[no error escaped];
+--- expect
+(a b)
+EMIT a
+EMIT b
+DONE
+EMIT x
+QUIT upstream broke
+no error escaped
+
+=== ctl-supply-whenever-shorthand
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Auth/Basic.rakumod:18
+license: Artistic-2.0
+feature: prefix supply
+--- code
+my class Req { has %.headers; has $.auth is rw = 'unset'; method header($h) { %!headers{$h} } }
+sub process-requests(Supply $requests --> Supply) {
+    supply whenever $requests -> $req {
+        with $req.header('Authorization') {
+            my $part = $_.split(' ')[1];
+            with $part { $req.auth = "user:$_" } else { $req.auth = Nil }
+        } else {
+            $req.auth = Nil;
+        }
+        emit $req;
+    }
+}
+my @reqs = Req.new(headers => { Authorization => 'Basic abc' }), Req.new(headers => { Authorization => 'Basic' }), Req.new;
+say process-requests(Supply.from-list(@reqs)).list.map(*.auth.raku);
+--- expect
+("user:abc" Any Any)
+
+=== ctl-react-whenever-last-done
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Async.rakumod:41
+license: Artistic-2.0
+feature: prefix react
+--- code
+sub collect($source, Int :$max-count) {
+    my @collected;
+    my Bool $completed = False;
+    react {
+        whenever $source -> $value {
+            @collected.push($value);
+            done if $max-count.defined && @collected.elems >= $max-count;
+            LAST {
+                $completed = True;
+                done;
+            }
+        }
+    }
+    "{@collected} completed=$completed"
+}
+say collect(Supply.from-list(1..5));
+say collect(Supply.from-list(1..5), :max-count(2));
+--- expect
+1 2 3 4 5 completed=True
+1 2 completed=False
+
+=== ctl-react-whenever-quit
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Async.rakumod:45
+license: Artistic-2.0
+feature: phaser QUIT
+--- code
+my @collected;
+my $quit-cause;
+react {
+    whenever supply { emit 1; emit 2; die 'stream failed' } -> $value {
+        @collected.push($value);
+        QUIT {
+            $quit-cause = $_;
+            done;
+        }
+    }
+}
+say @collected;
+say $quit-cause.message;
+--- expect
+[1 2]
+stream failed
+
+=== ctl-promise-result-cause
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Async.rakumod:16
+license: Artistic-2.0
+feature: method result
+--- code
+sub capture-cause(Promise:D $promise --> Mu) {
+  my $cause;
+  try {
+    $promise.result;
+    CATCH { default { $cause = $_; } }
+  }
+  $cause;
+}
+say capture-cause(start { die 'worker died' }).message;
+say capture-cause(Promise.kept(1)).raku;
+my $p = Promise.broken('nope');
+say $p.status;
+say $p.cause.message;
+--- expect
+worker died
+Any
+Broken
+nope
+
+=== ctl-promise-kept-attribute
+from: TAP 0.3.15 lib/TAP.rakumod:792
+license: Artistic-2.0
+feature: method kept
+--- code
+my enum Status <Ok Failed>;
+my class Source {
+    has Promise:D $!process is built = Promise.kept(Ok);
+    method status { $!process.status }
+    method wait { await $!process }
+}
+my $s = Source.new;
+say $s.status;
+say $s.wait;
+say Source.new(process => Promise.kept(Failed)).wait;
+--- expect
+Kept
+Ok
+Failed
+
+=== ctl-promise-broken-return
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:178
+license: Artistic-2.0
+feature: method broken
+--- code
+my class X::PipelineClosed is Exception { method message { 'pipeline closed before headers' } }
+sub request($broken) {
+    return Promise.broken(X::PipelineClosed.new) if $broken;
+    Promise.kept('200 OK')
+}
+say await request(False);
+my $p = request(True);
+say $p.status;
+say $p.cause.^name;
+try await $p;
+say $!.message;
+--- expect
+200 OK
+Broken
+X::PipelineClosed
+pipeline closed before headers
+
+=== ctl-start-await-list
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel.rakumod:624
+license: Artistic-2.0
+feature: prefix start
+--- code
+my @promises;
+for 1..4 -> $n {
+    @promises.push: start {
+        $n * $n
+    }
+}
+say await @promises;
+say (await start { 'single' });
+say @promises.map(*.status).unique;
+--- expect
+(1 4 9 16)
+single
+(Kept)
+
+=== ctl-channel-closed-workers
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel.rakumod:620
+license: Artistic-2.0
+feature: method close
+--- code
+my $queue = Channel.new;
+for <a.t b.t c.t>.kv -> $idx, $file {
+    $queue.send({ :$idx, :$file });
+}
+$queue.close;
+my @promises;
+for ^2 -> $slot {
+    @promises.push: start {
+        my @done;
+        loop {
+            my %job = $queue.receive;
+            CATCH { when X::Channel::ReceiveOnClosed { last } }
+            @done.push: "%job<idx>:%job<file>";
+        }
+        @done
+    }
+}
+say (await @promises).map(|*).sort;
+--- expect
+(0:a.t 1:b.t 2:c.t)
+
+=== ctl-channel-list-drain
+from: Log::Any 0.9.5 lib/Log/Any/Pipeline.pm6:26
+license: Artistic-2.0
+feature: method send
+--- code
+my $channel = Channel.new;
+$channel.send($_) for <info warn error>;
+$channel.close;
+say $channel.list;
+say $channel.closed.status;
+say $channel.poll.raku;
+--- expect
+(info warn error)
+Kept
+Nil
+
+=== ctl-promise-allof-then
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Queue.rakumod:168
+license: Artistic-2.0
+feature: method then
+--- code
+my $start-promise = Promise.kept(0);
+my $stdout-done = start { 'out' };
+my $stderr-done = start { 'err' };
+my $all = Promise.allof($start-promise, $stdout-done, $stderr-done).then({
+    "finished: {$stdout-done.result} {$stderr-done.result}"
+});
+say await $all;
+--- expect
+finished: out err
+
+=== ctl-promise-then-result
+from: CPAN::Uploader::Tiny 0.1.0 lib/CPAN/Uploader/Tiny.rakumod:89
+license: Artistic-2.0
+feature: method then
+--- code
+my &cb = -> $r { "callback got $r" };
+sub post($url) { start { "posted $url" } }
+my $p = post('/upload').then: -> $p { &cb($p.result) };
+say await $p;
+my $f = start { die 'refused' };
+say (await $f.then(-> $p { $p.status ~ ': ' ~ $p.cause.message }));
+--- expect
+callback got posted /upload
+Broken: refused
+
+=== ctl-promise-vow-keep
+from: DBIish::Pool 1.1.0 lib/DBIish/Pool.rakumod:182
+license: CC0-1.0
+feature: method vow
+--- code
+my $connection-promise = Promise.new;
+my $v = $connection-promise.vow();
+say $connection-promise.status;
+$v.keep('dbh#1');
+say $connection-promise.status;
+say await $connection-promise;
+try $connection-promise.keep('again');
+say $!.^name;
+--- expect
+Planned
+Kept
+dbh#1
+X::Promise::Vowed
+
+=== ctl-lock-protect-counter
+from: Cro::Core 0.8.10 lib/Cro.rakumod:489
+license: Artistic-2.0
+feature: method protect
+--- code
+my $next-label-lock = Lock.new;
+my $next-label = 0;
+sub label { $next-label-lock.protect: { $next-label++ } }
+my @labels = await (^8).map: { start { label() } };
+say @labels.sort;
+say $next-label;
+--- expect
+(0 1 2 3 4 5 6 7)
+8
+
+=== ctl-supply-from-list-flat
+from: HTTP::Server::Ogre 0.0.4 lib/HTTP/Server/Ogre/HTTP2/ResponseSerializer.pm6:39
+license: Artistic-2.0
+feature: method from-list
+--- code
+my $body = (<a b>, <c>);
+my $body-supply = Supply.from-list($body.flat);
+my @got;
+$body-supply.tap: -> $v { @got.push: $v };
+say @got;
+say Supply.from-list(1..3).map(* * 2).grep(* > 2).list;
+--- expect
+[a b c]
+(4 6)
+
+=== ctl-supplier-tap-emit
+from: Crust 0.0.1 lib/HTTP/Message/P6W.pm6:11
+license: Artistic-2.0
+feature: method tap
+--- code
+my $supplier = Supplier.new;
+my @seen;
+my $tap = $supplier.Supply.tap: -> $v { @seen.push: "got $v" }, done => { @seen.push: 'done' };
+$supplier.emit($_) for 1, 2;
+$supplier.done;
+say @seen;
+--- expect
+[got 1 got 2 done]

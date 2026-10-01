@@ -197,13 +197,22 @@ from: PostCocoon::Url 1.1 lib/PostCocoon/Url.rakumod:34
 license: Artistic-2.0
 feature: regex adverb :c
 --- code
-my $data = 'a b/Č';
-for $data ~~ m:c:g:i/<-[a .. z 0 .. 9 \- \. _]>/ -> $match {
-    my $current-match = ~$match;
-    say $match.from, '..', $match.to, ' ',
-        $current-match.encode("utf-8")>>.base(16).map({ "%" ~ $_ }).join;
+sub url-encode(Str:D $data --> Str:D) {
+    my $start = 0;
+    my @out;
+    for $data ~~ m:c:g:i/<-[a .. z 0 .. 9 \- \. _]>/ -> $match {
+        my $current-start = $start + $match.from;
+        my $current-end = $start + $match.to;
+        my $current-match = ~$match;
+        @out.push: "$current-start..$current-end " ~ $current-match.encode("utf-8")>>.base(16).map({ "%" ~ $_ }).join;
+    }
+    @out.join("\n");
 }
+say url-encode('a b/Č');
 --- expect
+1..2 %20
+3..4 %2F
+4..5 %C4%8C
 
 === rx-match-rx-g-pointy-slash
 from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:63

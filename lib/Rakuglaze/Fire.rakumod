@@ -17,7 +17,12 @@ my $serial = 0;
 sub declared-names(Str $code --> List) is export {
     $code.lines
         .grep({ !/^ \s* my \s/ })
-        .map({ ~$0 if /^ \s* [our \s+]? [class|role|grammar|module|package|enum|subset] \s+ (<[\w:'-]>+)/ })
+        .map({
+            # a package-scoped type, or an `our` routine: both are installed
+            # where the next snippet in the process would collide with them
+            ~$0 if /^ \s* [our \s+]? [class|role|grammar|module|package|enum|subset] \s+ (<[\w:'-]>+)/
+                || /^ \s* our \s+ [proto \s+ | multi \s+]? [sub|method|regex|token|rule] \s+ (<[\w:'-]>+)/
+        })
         .grep(*.defined).List
 }
 

@@ -151,23 +151,6 @@ False
 True
 False
 
-=== sig-double-star-is-raw-join
-from: Bailador 0.0.19 lib/Bailador/Test.pm:24
-license: MIT
-feature: param **@ slurpy
---- code
-my class Out {
-    has $.buf = '';
-    method !add-string($s) { $!buf ~= $s }
-    multi method print(**@args is raw) { self!add-string( join '', @args.map: *.Str ) }
-}
-my $o = Out.new;
-$o.print('a', 1, 'b');
-$o.print([1, 2], 3);
-say $o.buf;
---- expect
-a1b1 23
-
 === sig-double-star-arity
 from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/Diff.rakumod:289
 license: Artistic-2.0

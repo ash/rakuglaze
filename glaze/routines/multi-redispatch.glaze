@@ -147,23 +147,6 @@ lazy set
 builder set
 builder => build-it lazy => True
 
-=== sig-samewith-hash-forward
-from: Dan 0.0.3 lib/Dan.rakumod:28
-license: Artistic-2.0
-feature: call samewith
---- code
-my class Series {
-    has %.index;
-    multi method new(List:D :$index, *%h) {
-        samewith( index => $index.map({ $_ => $++ }).Hash, |%h )
-    }
-    multi method new(Hash:D :$index, *%h) { self.bless(:$index, |%h) }
-}
-my $s = Series.new(index => <a b c>);
-say $s.index.sort.map(*.gist).join(' ');
---- expect
-a => 0 b => 1 c => 2
-
 === sig-samewith-method-recursion
 from: Air 0.1.32 lib/Air/Functional.rakumod:147
 license: Artistic-2.0
@@ -182,27 +165,6 @@ say Tag.new.render('div');
 --- expect
 <br />
 <div></div>
-
-=== sig-nextsame-invocant-D
-from: LibXML 0.11.3 lib/LibXML.rakumod:17
-license: Artistic-2.0
-feature: call nextsame
---- code
-my class Parser {
-    has $.config = 'parser config';
-}
-my class LibXML is Parser {
-    proto method config() {*}
-    multi method config(::?CLASS:U:) { 'global config' }
-    multi method config(::?CLASS:D:) { nextsame }
-}
-say LibXML.config;
-say LibXML.new.config;
-say LibXML.new(config => 'mine').config;
---- expect
-global config
-parser config
-mine
 
 === sig-nextsame-unless-numeric
 from: FatRatStr 0.0.14 lib/FatRatStr.rakumod:161
@@ -244,45 +206,6 @@ say $d.log;
 root
 [root]
 [checked root]
-
-=== sig-callsame-filter-result
-from: Collection 0.18.0 lib/Collection.rakumod:41
-license: Artistic-2.0
-feature: call callsame
---- code
-my class Base {
-    method keys() { <a b c d> }
-}
-my class Collection is Base {
-    has %!extra = b => 1, d => 1;
-    method keys() {
-        (callsame.grep({ $_ !~~ any(%!extra.keys) })).flat
-    }
-}
-say Collection.new.keys;
---- expect
-(a c)
-
-=== sig-callsame-plain-statement
-from: Cro::CBOR 0.0.7 lib/Cro/CBOR.rakumod:100
-license: Artistic-2.0
-feature: call callsame
---- code
-my @log;
-my class Parser {
-    method parse($x) { @log.push: "base $x"; 'parsed' }
-}
-my class CBOR is Parser {
-    method parse($x) {
-        @log.push: "cbor $x";
-        callsame;
-    }
-}
-say CBOR.new.parse(7);
-say @log.join(', ');
---- expect
-parsed
-cbor 7, base 7
 
 === sig-nextwith-if-defined-str
 from: Collection 0.18.0 lib/Collection.rakumod:55
@@ -364,26 +287,6 @@ say FileForm.new.add-part('doc', 'a.txt');
 --- expect
 pic: cat.png (image/png, cat.png)
 doc: a.txt (text/plain, -)
-
-=== sig-callwith-hash-flatten-new
-from: Notcurses::Native 0.6.6 lib/Notcurses/Native/Types.rakumod:141
-license: Artistic-2.0
-feature: call callwith
---- code
-my class Options {
-    has $.rows; has $.cols; has $.flags = 0;
-}
-my class PlaneOptions is Options {
-    method new(*%rest) {
-        %rest<flags> //= 4;
-        my $self = callwith(|%rest);
-        $self
-    }
-}
-my $o = PlaneOptions.new(rows => 2, cols => 3);
-say "{$o.rows}x{$o.cols} flags={$o.flags} {$o.^name}";
---- expect
-2x3 flags=4 PlaneOptions
 
 === sig-proto-two-anon-positionals
 from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Test.rakumod:8

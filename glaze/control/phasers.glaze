@@ -1,0 +1,360 @@
+# Block phasers as modules use them: LEAVE for cleanup, KEEP/UNDO around
+# a transaction, BEGIN/INIT values, plus `return` from nested blocks.
+
+=== ctl-leave-block-cleanup
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Coverable/CoverableOutliner.rakumod:15
+license: Artistic-2.0
+feature: phaser LEAVE
+--- code
+my class Out { has $.closed is rw = False; method close { $!closed = True } }
+my class Proc { has $.out = Out.new }
+my $proc;
+sub outline($fail) {
+    $proc = Proc.new;
+    LEAVE { $proc.out.close if $proc && $proc.out }
+    die 'outline failed' if $fail;
+    'outlined'
+}
+say outline(False);
+say $proc.out.closed;
+try outline(True);
+say $!.message;
+say $proc.out.closed;
+--- expect
+outlined
+True
+outline failed
+True
+
+=== ctl-leave-statement-modifier
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:37
+license: Artistic-2.0
+feature: phaser LEAVE
+--- code
+my @removed;
+my class Cov {
+    has $.keep = False;
+    method run($io) {
+        LEAVE @removed.push($io) unless $!keep;
+        "ran $io"
+    }
+}
+say Cov.new.run('a.cov');
+say Cov.new(:keep).run('b.cov');
+say @removed;
+--- expect
+ran a.cov
+ran b.cov
+[a.cov]
+
+=== ctl-leave-try-unlink
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel.rakumod:139
+license: Artistic-2.0
+feature: phaser LEAVE
+--- code
+my class Report { has $.name; method unlink { die "cannot unlink $!name" if $!name eq 'locked'; say "unlinked $!name" } }
+sub run-pass($name) {
+    my $report = Report.new(:$name);
+    LEAVE { try $report.unlink }
+    "pass $name"
+}
+say run-pass('r1');
+say run-pass('locked');
+--- expect
+unlinked r1
+pass r1
+pass locked
+
+=== ctl-leave-method-if-flag
+from: DB::SQLite 0.7 lib/DB/SQLite/Connection.rakumod:22
+license: BSD-2-Clause
+feature: phaser LEAVE
+--- code
+my class Conn {
+    has @.log;
+    method finish { @!log.push: 'finish' }
+    method query($sql, Bool :$finish = False) {
+        LEAVE $.finish if $finish;
+        @!log.push: "run $sql";
+        @!log.elems
+    }
+}
+my $c = Conn.new;
+say $c.query('a');
+say $c.query('b', :finish);
+say $c.log;
+--- expect
+1
+2
+[run a run b finish]
+
+=== ctl-leave-sees-final-state
+from: Bailador 0.0.19 lib/Bailador/App.pm:352
+license: MIT
+feature: phaser LEAVE
+--- code
+my class App {
+    has $.code is rw = 200;
+    has @.log;
+    method dispatch($uri) {
+        LEAVE {
+            my $http-code = $.code;
+            @!log.push: "$uri -> $http-code";
+        }
+        if $uri eq '/missing' { $.code = 404; return 'not found' }
+        'ok'
+    }
+}
+my $app = App.new;
+say $app.dispatch('/');
+say $app.dispatch('/missing');
+.say for $app.log;
+--- expect
+ok
+not found
+/ -> 200
+/missing -> 404
+
+=== ctl-keep-undo-transaction
+from: Red 0.2.5 lib/MetamodelX/Red/Model.rakumod:528
+license: Artistic-2.0
+feature: phaser KEEP
+--- code
+my class DB {
+    has @.log;
+    method begin { @!log.push: 'begin'; self }
+    method commit { @!log.push: 'commit' }
+    method rollback { @!log.push: 'rollback' }
+}
+sub create($db is copy, $value, :$trans = False) {
+    $db   .= begin        unless $trans;
+    KEEP $db.commit       unless $trans;
+    UNDO try $db.rollback unless $trans;
+    $value // Nil
+}
+my $db = DB.new;
+say create($db, 42);
+say create($db, Nil).raku;
+say create($db, 7, :trans);
+say $db.log;
+--- expect
+42
+Nil
+7
+[begin commit begin rollback]
+
+=== ctl-undo-with-close
+from: DB::SQLite 0.7 lib/DB/SQLite/Native.rakumod:209
+license: BSD-2-Clause
+feature: phaser UNDO
+--- code
+my @closed;
+my class Handle { has $.name; method close { @closed.push: $!name } }
+sub open-db(Str:D $filename) {
+    my Handle $handle .= new(name => $filename);
+    UNDO .close with $handle;
+    die "cannot open $filename" if $filename.ends-with('.bad');
+    $handle
+}
+say open-db('a.db').name;
+try open-db('b.bad');
+say $!.message;
+say @closed;
+--- expect
+a.db
+cannot open b.bad
+[b.bad]
+
+=== ctl-undo-in-grep-block
+from: zef 1.1.4 lib/Zef/Client.rakumod:910
+license: Artistic-2.0
+feature: phaser UNDO
+--- code
+my @warnings;
+my @to = <site home vendor>;
+my @curs = @to.grep: -> $cur {
+    UNDO {
+        @warnings.push: "install target is not writeable/installable: {$cur}";
+    }
+    KEEP {
+        @warnings.push: "install target is valid: {$cur}";
+    }
+    ($cur ne q[vendor]) || next();
+}
+say @curs;
+.say for @warnings;
+--- expect
+[site home]
+install target is valid: site
+install target is valid: home
+install target is not writeable/installable: vendor
+
+=== ctl-keep-in-method
+from: zef 1.1.4 lib/Zef/Client.rakumod:804
+license: Artistic-2.0
+feature: phaser KEEP
+--- code
+my @events;
+my class Client {
+    method fetch($what) {
+        KEEP @events.push({ message => "fetched $what" });
+        $what eq 'missing' ?? Nil !! "dist:$what"
+    }
+}
+say Client.new.fetch('JSON::Fast');
+say Client.new.fetch('missing').raku;
+say @events.map(*<message>);
+--- expect
+dist:JSON::Fast
+Nil
+(fetched JSON::Fast)
+
+=== ctl-begin-map-value
+from: CLI::Version 0.0.10 lib/CLI/Version.rakumod:48
+license: Artistic-2.0
+feature: phaser BEGIN
+--- code
+sub EXPORTISH {
+    BEGIN Map.new   # doesn't actually export anything
+}
+say EXPORTISH().^name;
+say EXPORTISH().elems;
+--- expect
+Map
+0
+
+=== ctl-begin-empty-list-fallback
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:185
+license: Artistic-2.0
+feature: phaser BEGIN
+--- code
+my class Unit {
+    has @!warnings;
+    method add($w) { @!warnings.push: $w; self }
+    method warnings { @!warnings ?? @!warnings.splice.List !! BEGIN () }
+}
+my $u = Unit.new;
+say $u.warnings.raku;
+say $u.add('w1').add('w2').warnings.raku;
+say $u.warnings.raku;
+--- expect
+()
+("w1", "w2")
+()
+
+=== ctl-begin-our-hash
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:12
+license: Artistic-2.0
+feature: phaser BEGIN
+--- code
+BEGIN our %known-type =
+    num => 'Numeric', int => 'Int', str => 'Str';
+sub type-of($t) { %known-type{$t} // 'unknown' }
+say type-of('num');
+say type-of('rgb');
+say %known-type.elems;
+--- expect
+Numeric
+unknown
+3
+
+=== ctl-begin-block-compute
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/X.rakumod:62
+license: Artistic-2.0
+feature: phaser BEGIN
+--- code
+my %ops;
+BEGIN {
+    %ops = <store clear fetch>.map({ $_ => .chars });
+}
+say %ops.keys.sort;
+say %ops<store>;
+--- expect
+(clear fetch store)
+5
+
+=== ctl-init-default-param
+from: Intl::Format::Number 0.4.0 lib/Intl/Format/Number.rakumod:12
+license: Artistic-2.0
+feature: phaser INIT
+--- code
+my $calls = 0;
+sub user-language { $calls++; 'en' }
+sub format-number(Numeric() $number, :$language = INIT {user-language}) {
+    "$number in $language"
+}
+say format-number(3);
+say format-number('4.5');
+say format-number(5, language => 'fr');
+say $calls;
+--- expect
+3 in en
+4.5 in en
+5 in fr
+0
+
+=== ctl-init-statement-value
+from: Cro::Core 0.8.10 lib/Cro/TCP/NoDelay.rakumod:6
+license: Artistic-2.0
+feature: phaser INIT
+--- code
+INIT my $is-win = $*DISTRO.is-win;
+say $is-win ~~ Bool;
+my $x = INIT 6 * 7;
+say $x;
+--- expect
+True
+42
+
+=== ctl-return-from-for-in-sub
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:122
+license: Artistic-2.0
+feature: sub return
+--- code
+sub first-big(@points) {
+    return %() if @points.elems == 0;
+    for @points -> $p {
+        if $p > 10 {
+            return %(point => $p);
+        }
+    }
+    %(point => Nil)
+}
+say first-big([]).elems;
+say first-big([1, 20, 30])<point>;
+say first-big([1, 2])<point>.raku;
+--- expect
+0
+20
+Any
+
+=== ctl-return-from-map-block
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:479
+license: Artistic-2.0
+feature: sub return
+--- code
+sub coerce-str($v) { $v ~~ Str ?? $v !! Nil }
+sub join-all(@values) {
+    @values.map({ coerce-str($_) // return }).join: ' ';
+}
+say join-all(<a b c>);
+say join-all(['a', 1, 'c']).raku;
+--- expect
+a b c
+Nil
+
+=== ctl-return-rw-element
+from: AlgorithmsIT 0.0.4 lib/AlgorithmsIT/Classes.rakumod:60
+license: Artistic-2.0
+feature: sub return-rw
+--- code
+my class Heap {
+    has @!arr = 5, 3, 8;
+    method at($i) is rw { return-rw @!arr[$i]; }
+    method all { @!arr }
+}
+my $h = Heap.new;
+$h.at(1) = 99;
+say $h.all;
+--- expect
+[5 99 8]

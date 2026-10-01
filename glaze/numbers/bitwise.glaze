@@ -1,0 +1,341 @@
+# Bitwise integer operators as binary-format modules use them:
+# +& +| +^ +< +>, their assignment forms, prefix +^, and ?^.
+
+=== num-bitand-low-bit
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:534
+license: Artistic-2.0
+feature: infix +&
+--- code
+my class Hunk {
+    has $._Same = 0;
+    has $._Pos;
+    method same { return 0 if $._Same == ( 1 +& $._Pos ); 1 }
+}
+say Hunk.new(_Pos => 4).same;
+say Hunk.new(_Pos => 5).same;
+--- expect
+0
+1
+
+=== num-bitxor-fnv-hash
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:164
+license: Artistic-2.0
+feature: infix +^
+--- code
+sub fnv1a(Str $s) {
+    my $h = 0x811C9DC5;
+    for $s.encode.list -> $byte {
+        $h = (($h +^ $byte) * 0x01000193) +& 0xFFFFFFFF;
+    }
+    $h
+}
+say fnv1a('');
+say fnv1a('a');
+say fnv1a('spec/foo.rakutest') % 4;
+--- expect
+2166136261
+3826002220
+0
+
+=== num-shift-sextets
+from: Base64 0.1.0 lib/Base64.rakumod:24
+license: Artistic-2.0
+feature: infix +>
+--- code
+my @alpha = flat 'A'..'Z', 'a'..'z', 0..9, '+', '/';
+my $n := [+] (77, 97, 110).pairs.map: -> $c {
+    $c.value +< ((state $m = 24) -= 8)
+}
+my $res := (18, 12, 6, 0).map({ $n +> $_ +& 63 });
+say $res;
+say @alpha[$res[*]].join;
+--- expect
+(19 22 5 46)
+TWFu
+
+=== num-bitor-assign-set-clear
+from: BitEnum 0.5 lib/BitEnum.rakumod:37
+license: Artistic-2.0
+feature: infix +|
+--- code
+my enum Perm (Read => 4, Write => 2, Exec => 1);
+my class Bits {
+    has Int $.value = 0;
+    method set(*@bits --> Nil)   { for @bits { $!value +|= .value } }
+    method clear(*@bits --> Nil) { for @bits { $!value +&= +^ .value } }
+    method toggle(*@bits --> Nil) { for @bits { $!value +^= .value } }
+}
+my $b = Bits.new;
+$b.set(Read, Write, Exec);  say $b.value;
+$b.clear(Write);            say $b.value;
+$b.toggle(Read, Write);     say $b.value;
+--- expect
+7
+5
+3
+
+=== num-bitand-mask-shift
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:141
+license: Artistic-2.0
+feature: infix +&
+--- code
+my @mtypes = <? p c ? d ? b ? f ? l ? s>;
+for 0o100644, 0o040755, 0o120777, 0o020620 -> $mode {
+    my $type = @mtypes[($mode +& 0o170000) +> 12];
+    say "{$mode.base(8)} $type";
+}
+--- expect
+100644 f
+40755 d
+120777 l
+20620 c
+
+=== num-bitand-flag-bool
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/Frame.rakumod:36
+license: Artistic-2.0
+feature: infix +&
+--- code
+my class Frame {
+    has int $.flags;
+    method end-stream(--> Bool) { $!flags +& 0x1 != 0 }
+    method end-headers(--> Bool) { $!flags +& 0x4 != 0 }
+}
+my $f = Frame.new(flags => 5);
+say $f.end-stream, ' ', $f.end-headers;
+say Frame.new(flags => 4).end-stream;
+--- expect
+True True
+False
+
+=== num-bitor-constants
+from: Archive::Libarchive::Raw 0.1.5 lib/Archive/Libarchive/Constants.rakumod:38
+license: Artistic-2.0
+feature: infix +|
+--- code
+my constant ARCHIVE_FORMAT_CPIO = 0x10000;
+my constant ARCHIVE_FORMAT_CPIO_POSIX = (ARCHIVE_FORMAT_CPIO +| 1);
+my constant ARCHIVE_FORMAT_CPIO_BIN_LE = (ARCHIVE_FORMAT_CPIO +| 2);
+say ARCHIVE_FORMAT_CPIO_POSIX.base(16);
+say ARCHIVE_FORMAT_CPIO_BIN_LE;
+--- expect
+10001
+65538
+
+=== num-shift-flag-pairs
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:822
+license: Artistic-2.0
+feature: infix +<
+--- code
+my %filters =
+    Active => (1 +< 0x0E),
+    Play => ((1 +< 0x0A) +| (1 +< 0x0C) +| (1 +< 0x0B)),
+    Tick => (1 +< 0x09);
+for %filters.sort(*.key) {
+    say .key, ' ', .value, ' ', .value.base(2);
+}
+--- expect
+Active 16384 100000000000000
+Play 7168 1110000000000
+Tick 512 1000000000
+
+=== num-shift-be-length
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/FrameParser.rakumod:52
+license: Artistic-2.0
+feature: infix +<
+--- code
+my $data = Buf.new(0x00, 0x40, 0x10, 0x01);
+my $length = ($data[0] +< 16) +| ($data[1] +< 8) +| $data[2];
+say $length;
+say (($data[1] +< 8) +| $data[2]).base(16);
+--- expect
+16400
+4010
+
+=== num-rotate-left-uint32
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:14
+license: Artistic-2.0
+feature: infix +<
+--- code
+my &rotl = -> uint32 \x, \n { ((x +< n) +| (x +> (32-n))) mod 2**32 };
+say rotl(0x80000001, 1).base(16);
+say rotl(0x12345678, 8).base(16);
+my &F = { ($^x +& $^y) +| (+^$x +& $^z) };
+say F(0b1100, 0b1010, 0b0101) +& 0xF;
+--- expect
+3
+34567812
+9
+
+=== num-bitxor-assign-toggle
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/Foldable.rakumod:291
+license: Artistic-2.0
+feature: infix +^
+--- code
+my constant FOLDED = 1;
+my @folds = [0, 0], [0, 1];
+for 0, 1, 0 -> $line {
+    my $state = @folds[$line][FOLDED] +^= 1 ;
+    say "line $line folded=$state";
+}
+--- expect
+line 0 folded=1
+line 1 folded=0
+line 0 folded=0
+
+=== num-bitxor-clear-flag
+from: LibXML 0.11.3 lib/LibXML/_Options.rakumod:38
+license: Artistic-2.0
+feature: infix +^
+--- code
+my %OPTS = recover => 1, noent => 2, dtdload => 4;
+my $flags = 7;
+for <noent dtdload> -> $k {
+    with %OPTS{$k} {
+        $flags = $flags +& (0xffffffff +^ $_)
+        if $flags +& $_;
+    }
+}
+say $flags;
+--- expect
+1
+
+=== num-prefix-bitnot-negative
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:208
+license: Artistic-2.0
+feature: prefix +^
+--- code
+for 10, -1, -500, -2**64 {
+    say $_ >= 0 ?? "uint $_" !! "nint {+^$_}";
+}
+--- expect
+uint 10
+nint 0
+nint 499
+nint 18446744073709551615
+
+=== num-shift-assign-leb128
+from: LEB128 1.0 lib/LEB128.pm6:8
+license: Artistic-2.0
+feature: infix +>
+--- code
+sub encode-leb128-signed(Int $value is copy, Buf $target, int $offset = 0 --> int) {
+    my int $cur-offset = $offset;
+    my Bool $more;
+    repeat while $more {
+        my uint $byte = $value +& 0b0111_1111;
+        $value +>= 7;
+        $more = not (($value == 0 && $byte +& 0x40 == 0) ||
+                 ($value == -1 && $byte +& 0x40 != 0));
+        $byte +|= 0b1000_0000 if $more;
+        $target[$cur-offset++] = $byte;
+    }
+    $cur-offset - $offset
+}
+for 2, -2, 127, -123456 {
+    my $b = Buf.new;
+    my $n = encode-leb128-signed($_, $b);
+    say "$_: $n {$b.list.fmt('%02x')}";
+}
+--- expect
+2: 1 02
+-2: 1 7e
+127: 2 ff 00
+-123456: 3 c0 bb 78
+
+=== num-shift-mask-fields
+from: IRC::Log 0.0.26 lib/IRC/Log.rakumod:36
+license: Artistic-2.0
+feature: infix +>
+--- code
+my sub hmon2hour(      uint32 $hmon) { $hmon +> 27 +&      0x001f }
+my sub hmon2minute(    uint32 $hmon) { $hmon +> 21 +&      0x003f }
+my sub hmon2ordinal(   uint32 $hmon) { $hmon +> 12 +&      0x01ff }
+my sub hmon2nick-index(uint32 $hmon) { $hmon       +&      0x0fff }
+my uint32 $hmon = 13 +< 27 +| 42 +< 21 +| 300 +< 12 +| 77;
+say hmon2hour($hmon), ':', hmon2minute($hmon);
+say hmon2ordinal($hmon), ' ', hmon2nick-index($hmon);
+--- expect
+13:42
+300 77
+
+=== num-shift-make-mask
+from: Util::Bitfield 0.1.0 lib/Util/Bitfield.rakumod:141
+license: Artistic-2.0
+feature: infix +<
+--- code
+sub make-mask(Int $bits, Int $start = 0, Int $word-size = 32, Bool :$invert) {
+    my $ret = (((1 +< $bits) - 1) +< ($word-size - ($bits + $start)));
+    if $invert {
+        $ret = ((2 ** $word-size) - 1) +^ $ret;
+    }
+    $ret;
+}
+sub extract-bits(Int $value, Int $bits, Int $start = 0, Int $word-size = 32) {
+    ($value +& make-mask($bits, $start, $word-size)) +> ( $word-size - ( $bits + $start));
+}
+say make-mask(4, 0, 8).base(2);
+say make-mask(4, 0, 8, :invert).base(2);
+say extract-bits(0b1011_0110, 3, 1, 8);
+--- expect
+11110000
+1111
+3
+
+=== num-shift-assign-accumulate
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/StreamingUnpacker.rakumod:97
+license: Artistic-2.0
+feature: infix +<
+--- code
+my $elems = 0;
+for 0x01, 0x02, 0x03 -> $byte {
+    $elems +<= 8; $elems += $byte;
+}
+say $elems, ' ', $elems.base(16);
+my $mod = 0x000A0018;
+my $prec = ($mod +& 0xffff) - 4;
+$mod +>= 16;
+say "$prec,$mod";
+--- expect
+66051 10203
+20,10
+
+=== num-binary-literal-mask
+from: Unicode::UTF8-Parser 0.3 lib/Unicode/UTF8-Parser.rakumod:10
+license: Artistic-2.0
+feature: infix +&
+--- code
+for 'aé€'.encode.list -> $byte {
+    if !($byte +& 0b10000000) {
+        say "$byte ascii {chr($byte)}";
+    }
+    elsif $byte +& 0b01000000 {
+        say "$byte lead";
+    }
+    else {
+        say "$byte continuation";
+    }
+}
+--- expect
+97 ascii a
+195 lead
+169 continuation
+226 lead
+130 continuation
+172 continuation
+
+=== num-boolxor-endianness
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:787
+license: Artistic-2.0
+feature: infix ?^
+--- code
+for (True, True), (True, False), (False, True), (False, False) -> ($is-little-endian, $on-little-endian) {
+    my $is-same-endian   = !($is-little-endian ?^ $on-little-endian);
+    say "$is-little-endian $on-little-endian -> $is-same-endian";
+}
+say (1 ?^ 0).^name;
+--- expect
+True True -> True
+True False -> False
+False True -> False
+False False -> True
+Bool

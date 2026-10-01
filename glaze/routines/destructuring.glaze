@@ -1,0 +1,219 @@
+# Sub-signatures and destructuring as modules write them: pairs unpacked in
+# pointy blocks, `[$a, $b]` and `($a, $b)` element unpacking, `@ (...)` and
+# `% (...)` parameter sub-signatures, and `my :(...) :=` binding.
+
+=== sig-destructure-pair-pointy-map
+from: Terminal::ANSI 0.0.25 lib/Terminal/ANSI/OO.rakumod:10
+license: MIT
+feature: sub-signature pair
+--- code
+my %colornums = red => 1, green => 2;
+my %bg = %colornums.map: -> (:$key, :$value) { "bg-$key" => $value}
+say %bg.sort.map(*.gist).join(' ');
+--- expect
+bg-green => 2 bg-red => 1
+
+=== sig-destructure-array-param-is-copy
+from: Color 1.004001 lib/Color/Conversion.rakumod:49
+license: Artistic-2.0
+feature: sub-signature list
+--- code
+sub cmyk2rgb( @ ($c is copy, $m is copy, $y is copy, $k is copy) )  {
+    $_ /= 100 for $c, $m, $y, $k;
+    (255 * (1 - $c) * (1 - $k), 255 * (1 - $m) * (1 - $k), 255 * (1 - $y) * (1 - $k))».round
+}
+say cmyk2rgb([0, 100, 100, 0]);
+say cmyk2rgb((0, 0, 0, 50));
+cmyk2rgb([1, 2]);
+--- expect
+(255 0 0)
+(128 128 128)
+!! X::AdHoc
+
+=== sig-destructure-head-and-rest
+from: Config::TOML 0.1.3 lib/Config/TOML/Parser/Actions.rakumod:892
+license: Unlicense
+feature: sub-signature list
+--- code
+multi sub pwd(Associative:D $container, @ ($step, *@rest) --> Array:D)
+{
+    my @path = $step;
+    @path.append: pwd($container{$step}, @rest) if @rest;
+    @path
+}
+multi sub pwd($container, @ ()) { [] }
+my %t = a => { b => { c => 1 } };
+say pwd(%t, <a b c>);
+say pwd(%t, ['a']);
+--- expect
+[a b c]
+[a]
+
+=== sig-destructure-if-pointy-errors
+from: TAP 0.3.15 lib/TAP.rakumod:457
+license: Artistic-2.0
+feature: sub-signature list
+--- code
+my class Result { has @.errors }
+for Result.new(errors => <first second third>), Result.new -> $result {
+    if $result.errors -> @ ($head, *@tail) {
+        say "$head (+{@tail.elems} more)";
+    }
+    else {
+        say 'clean';
+    }
+}
+--- expect
+first (+2 more)
+clean
+
+=== sig-destructure-bind-colon-signature
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Calculator.rakumod:145
+license: Artistic-2.0
+feature: sub-signature bind
+--- code
+my %misc = font-size => '12pt';
+my :($prop, $value) := %misc.kv;
+say "$prop = $value";
+my :($a, $b) := (1, 2, 3);
+--- expect
+font-size = 12pt
+!! X::AdHoc
+
+=== sig-destructure-bind-from-call
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:152
+license: Artistic-2.0
+feature: sub-signature bind
+--- code
+sub grok-AnB-expr(@expr) { @expr[0] eq 'odd' ?? (2, 1) !! (@expr[0].Int, @expr[1].Int) }
+my @expr = 'odd';
+my :($a, $b) := @expr.&grok-AnB-expr;
+say "{$a}n+$b";
+@expr = 3, 2;
+my :($c, $d) := @expr.&grok-AnB-expr;
+say "{$c}n+$d";
+--- expect
+2n+1
+3n+2
+
+=== sig-destructure-hash-param-defaults
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:92
+license: Artistic-2.0
+feature: sub-signature hash
+--- code
+my class XPath {
+    has $!prefix = 'html';
+    method xpath-qname(% (:$element-name!, :$ns-prefix = $!prefix)) {
+        "$ns-prefix:$element-name"
+    }
+}
+say XPath.new.xpath-qname({ element-name => 'div' });
+say XPath.new.xpath-qname({ element-name => 'svg', ns-prefix => 'svg' });
+XPath.new.xpath-qname({ ns-prefix => 'x' });
+--- expect
+html:div
+svg:svg
+!! X::AdHoc
+
+=== sig-destructure-hash-where-literal
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:157
+license: Artistic-2.0
+feature: sub-signature hash
+--- code
+my class Writer {
+    multi method write-at-rule(% (:$at-keyw! where 'charset', :$string!) ) {
+        "\@charset \"$string\";"
+    }
+    multi method write-at-rule(% (:$at-keyw!, *%)) { "\@$at-keyw ..." }
+}
+say Writer.new.write-at-rule({ at-keyw => 'charset', string => 'utf-8' });
+say Writer.new.write-at-rule({ at-keyw => 'media', rules => [] });
+--- expect
+@charset "utf-8";
+@media ...
+
+=== sig-destructure-nested-hash-anon
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/Values_and_Units.rakumod:72
+license: Artistic-2.0
+feature: sub-signature hash
+--- code
+multi sub type( % ( :%func!  ( :ident($)! where 'calc', :@expr! )) ) {
+    "calc of {@expr.elems} terms"
+}
+multi sub type( % ( :%func! ) ) { "function {%func<ident>}" }
+say type({ func => { ident => 'calc', expr => [1, '+', 2] } });
+say type({ func => { ident => 'rgb', expr => [] } });
+--- expect
+calc of 3 terms
+function rgb
+
+=== sig-destructure-coerce-from-hash
+from: HarfBuzz::Font::FreeType 0.0.10 lib/HarfBuzz/Font/FreeType.rakumod:66
+license: Artistic-2.0
+feature: method COERCE
+--- code
+my class Face { has $.family }
+my class Font {
+    has $.face;
+    has %.etc;
+    multi method COERCE(% ( Face:D :$ft-face!, |etc) --> ::?CLASS:D) {
+        self.new: :face($ft-face), :etc(etc.hash)
+    }
+}
+sub shape(Font() $font) { "{$font.face.family} {$font.etc.keys.sort}" }
+say shape({ ft-face => Face.new(family => 'Serif'), size => 12 });
+--- expect
+Serif size
+
+=== sig-destructure-named-slurpy-subsig
+from: Config::TOML 0.1.3 lib/Config/TOML.rakumod:9
+license: Unlicense
+feature: sub-signature hash
+--- code
+sub from-toml(
+    Str:D $content,
+    *%opts (Int :date-local-offset($))
+) {
+    "parse {$content.chars} chars, offset {%opts<date-local-offset> // 0}"
+}
+say from-toml('a = 1');
+say from-toml('a = 1', :date-local-offset(3600));
+from-toml('a = 1', :date-local-offset<x>);
+--- expect
+parse 5 chars, offset 0
+parse 5 chars, offset 3600
+!! X::TypeCheck::Binding::Parameter
+
+=== sig-destructure-positional-defaults-group
+from: Data::Generators 0.1.11 lib/Data/Generators.rakumod:110
+license: Artistic-2.0
+feature: sub-signature list
+--- code
+my $minDateTime = Date.new(2000, 1, 1);
+my $maxDateTime = Date.new(2030, 1, 1);
+multi random-date-time((Date $min = $minDateTime, Date $max = $maxDateTime), UInt $size = 1) {
+    "$size between $min and $max"
+}
+say random-date-time((Date.new(2024, 1, 1), Date.new(2024, 12, 31)), 3);
+say random-date-time(());
+--- expect
+3 between 2024-01-01 and 2024-12-31
+1 between 2000-01-01 and 2030-01-01
+
+=== sig-destructure-slurpy-at-least-one
+from: zef 1.1.4 lib/Zef/Client.rakumod:68
+license: Artistic-2.0
+feature: sub-signature list
+--- code
+my class Client {
+    method find-candidates(*@identities ($, *@)) {
+        @identities.map(*.uc).List
+    }
+}
+say Client.new.find-candidates('json', 'test');
+say Client.new.find-candidates('one');
+Client.new.find-candidates();
+--- expect
+(JSON TEST)
+(ONE)
+!! X::AdHoc

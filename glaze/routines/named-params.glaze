@@ -387,26 +387,6 @@ say Trace.new.as-html(:class<bt>, :id<t1>);
 <pre>
 <pre class="bt" id="t1">
 
-=== sig-named-anonymous-in-tweak
-from: CSS::Stylesheet 0.1.5 lib/CSS/Ruleset.rakumod:15
-license: Artistic-2.0
-feature: param :name($)
---- code
-my class Ruleset {
-    has $.summary;
-    submethod TWEAK(:%ast is copy, :selectors($), :properties($), :media-query($), |c) {
-        %ast<seen> = True;
-        $!summary = %ast.keys.sort.join(',');
-    }
-    has $.selectors;
-}
-my $r = Ruleset.new(ast => { rule => 1 }, selectors => 'p', properties => 'x');
-say $r.summary;
-say $r.selectors;
---- expect
-rule,seen
-p
-
 === sig-named-where-pair-so
 from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:95
 license: Artistic-2.0

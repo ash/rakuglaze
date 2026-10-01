@@ -1,0 +1,411 @@
+# Integer arithmetic as modules write it: div, mod, %%, **, .polymod,
+# .is-prime — medians, byte splitting, base conversion, hashing.
+
+=== num-div-median-index
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:125
+license: Artistic-2.0
+feature: infix div
+--- code
+my @points = (3, 1), (5, 2), (9, 4), (2, 8), (7, 7);
+my $median = @points.elems div 2;
+say $median;
+say @points.sort(*[0])[$median];
+say 7 div 2, ' ', -7 div 2;
+--- expect
+2
+(5 2)
+3 -4
+
+=== num-div-median-even-odd
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark.rakumod:22
+license: Artistic-2.0
+feature: infix %%
+--- code
+sub median(@timings) {
+    my @sorted = @timings.sort;
+    my $n = @sorted.elems;
+    $n %% 2
+      ?? (@sorted[$n div 2 - 1] + @sorted[$n div 2]) / 2
+      !! @sorted[$n div 2];
+}
+say median([5, 1, 4, 2]);
+say median([5, 1, 4]);
+say median([0.5, 0.25]).^name;
+--- expect
+3
+4
+Rat
+
+=== num-div-round-up-blocks
+from: Base64::Native 0.0.10 lib/Base64/Native.rakumod:14
+license: Artistic-2.0
+feature: infix div
+--- code
+for 0, 1, 3, 4, 10 -> $bytes {
+    my \out-blocks = ($bytes + 2) div 3;
+    say "$bytes -> {out-blocks} blocks, {out-blocks * 4} chars";
+}
+--- expect
+0 -> 0 blocks, 0 chars
+1 -> 1 blocks, 4 chars
+3 -> 1 blocks, 4 chars
+4 -> 2 blocks, 8 chars
+10 -> 4 blocks, 16 chars
+
+=== num-div-hours-minutes
+from: Collection 0.18.0 lib/Collection/Progress.rakumod:66
+license: Artistic-2.0
+feature: infix div
+--- code
+for 59, 754, 7384 -> $d {
+    my @t = $d div 3600 , ;
+    @t[1] = ($d - @t[0] * 3600) div 60;
+    @t[2] = $d - @t[0] * 3600 - @t[1] * 60;
+    my $ts = @t[0] > 0 ?? sprintf("%dh:%dm:%ds", @t) !! sprintf("%dm:%ds",@t[1,2]);
+    say $ts;
+}
+--- expect
+0m:59s
+12m:34s
+2h:3m:4s
+
+=== num-mod-string-hash
+from: Air 0.1.32 lib/Air/Form.rakumod:291
+license: Artistic-2.0
+feature: infix mod
+--- code
+sub hash-msg(Str $msg) {
+    my $h = 5381;
+    for $msg.encode.list -> $byte { $h = ($h * 33 + $byte) mod (2**31) }
+    $h
+}
+say hash-msg('');
+say hash-msg('hello');
+say hash-msg('a much longer message that overflows');
+--- expect
+5381
+261238937
+1429333463
+
+=== num-mod-year-century
+from: DBIish 0.6.9 lib/DBDish/Oracle/StatementHandle.rakumod:110
+license: BSD-2-Clause
+feature: infix mod
+--- code
+my $v = Date.new(2024, 2, 29);
+my $b = Blob.new($v.year div 100 + 100, $v.year mod 100 + 100,
+                 $v.month, $v.day, 1, 1, 1);
+say $b.list.join(',');
+say $b.elems;
+--- expect
+120,124,2,29,1,1,1
+7
+
+=== num-mod-timezone-offset
+from: Git::Blame::File 0.0.11 lib/Git/Blame/File.rakumod:11
+license: Artistic-2.0
+feature: infix mod
+--- code
+for 19800, -18000, 0, 3600 * 5 + 45 * 60 -> int $tz {
+    say sprintf '%s%02d%02d',
+      $tz < 0 ?? '-' !! '+',
+      $tz.abs div 3600,
+      ($tz.abs mod 3600) div 60;
+}
+--- expect
++0530
+-0500
++0000
++0545
+
+=== num-mod-div-varint
+from: HTTP::HPACK 1.0.3 lib/HTTP/HPACK.rakumod:459
+license: Artistic-2.0
+feature: infix mod
+--- code
+sub encode-int(uint $value, int $prefix, $target = Buf.new, int $upper = 0) {
+    my int $limit = 2 ** $prefix - 1;
+    if $value < $limit {
+        $target.push($value +| $upper);
+    }
+    else {
+        $target.push($limit +| $upper);
+        my uint $cur-value = $value - $limit;
+        while $cur-value > 128 {
+            $target.push($cur-value mod 128 + 128);
+            $cur-value = $cur-value div 128;
+        }
+        $target.push($cur-value);
+    }
+    $target
+}
+say encode-int(10, 5).list;
+say encode-int(1337, 5).list;
+--- expect
+(10)
+(31 154 10)
+
+=== num-mod-div-assign-tag
+from: HarfBuzz 0.1.7 lib/HarfBuzz/Raw/Defs.rakumod:57
+license: Artistic-2.0
+feature: infix mod
+--- code
+sub hb-tag-dec(UInt $enc is copy) {
+    my @c;
+    for 1..4 {
+        @c.unshift: ($enc mod 256).chr
+            if $enc;
+        $enc div= 256;
+    }
+    @c.join;
+}
+say hb-tag-dec(1801810542);
+say hb-tag-dec(0x6C696761);
+--- expect
+kern
+liga
+
+=== num-mod-batch-count
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/CommandProcessing.rakumod:139
+license: Artistic-2.0
+feature: infix mod
+--- code
+for (10, 3), (9, 3), (2, 5) -> ($elems, $degree) {
+    my $batch = $elems div $degree;
+    if $elems mod $degree { $batch++ }
+    say "$elems / $degree -> $batch";
+}
+--- expect
+10 / 3 -> 4
+9 / 3 -> 3
+2 / 5 -> 1
+
+=== num-divisible-alternate
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:38
+license: Artistic-2.0
+feature: infix %%
+--- code
+my int $on;
+my @out;
+for <a b c d e> -> $x {
+    @out.push: $on++ %% 2 ?? "key:$x" !! "value:$x";
+}
+say @out.join(' ');
+--- expect
+key:a value:b key:c value:d key:e
+
+=== num-divisible-by-one-int
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:132
+license: Artistic-2.0
+feature: infix %%
+--- code
+for 3.0, 2.5, 12e0, -4/2 -> $n {
+    my $num = $n;
+    $num .= Int if $num %% 1;
+    say "$num {$num.^name}";
+}
+--- expect
+3 Int
+2.5 Rat
+12 Int
+-2 Int
+
+=== num-divisible-reduce-and
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:474
+license: Artistic-2.0
+feature: infix %%
+--- code
+sub write-rgb-mask(@mask) {
+    my $reducable = [&&] @mask.map: { $_ %% 17 };
+    my @hex-digits = $reducable
+        ?? @mask.map: {($_ div 17).fmt: "%X"}
+        !! @mask.map: {.fmt: "%02X"};
+    [~] '#', @hex-digits.Slip;
+}
+say write-rgb-mask([170, 119, 255]);
+say write-rgb-mask([170, 120, 255]);
+--- expect
+#A7F
+#AA78FF
+
+=== num-divisible-where-blob
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/Cipher.rakumod:158
+license: Artistic-2.0
+feature: infix %%
+--- code
+my class Cipher {
+    has $.blklen = 4;
+    multi method encrypt(Blob:D $in where *.bytes %% $!blklen --> Blob) {
+        Blob.new: $in.list.map(* +^ 0xFF)
+    }
+    multi method encrypt(Blob:D $in) { "unpadded: {$in.bytes} bytes" }
+}
+say Cipher.new.encrypt(Blob.new(1, 2, 3, 4)).list;
+say Cipher.new.encrypt(Blob.new(1, 2, 3));
+--- expect
+(254 253 252 251)
+unpadded: 3 bytes
+
+=== num-polymod-base58
+from: Base58 0.0.5 lib/Base58.rakumod:19
+license: MIT
+feature: method polymod
+--- code
+my @alphabet = <1 2 3 4 5 6 7 8 9 A B C D E F G H J K L M N P Q R S T U V W X Y Z a b c d e f g h i j k m n o p q r s t u v w x y z>;
+sub encode(blob8 $b) {
+    ($b.map(+(* == 0)).join.match(/^1*/)) ~
+    $b
+    .Array
+    .reduce(256 * * + *)
+    .polymod(58 xx *)
+    .reverse
+    .map({@alphabet[$_]})
+    .join;
+}
+say encode('Hello World!'.encode);
+say encode(blob8.new(0, 0, 1));
+--- expect
+2NEpo7TZRRrLZSi2U
+112
+
+=== num-polymod-bytes-bigint
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:218
+license: Artistic-2.0
+feature: method polymod
+--- code
+given 2 ** 70 + 255 {
+    my @bytes = .polymod(256 xx *).reverse;
+    say @bytes.elems;
+    say @bytes.join(' ');
+}
+--- expect
+9
+64 0 0 0 0 0 0 0 255
+
+=== num-polymod-fixed-words
+from: Digest 1.1.0 lib/Digest/RIPEMD.rakumod:17
+license: Artistic-2.0
+feature: method polymod
+--- code
+my @words = 0x67452301, 0xEFCDAB89;
+say blob8.new(map |*.polymod(256 xx 3), @words).list.fmt('%02x', '');
+say 0x01020304.polymod(256 xx 3);
+--- expect
+0123456789abcdef
+(4 3 2 1)
+
+=== num-polymod-timezone
+from: Email::Simple 2.1.4 lib/Email/Simple.rakumod:18
+license: CC0-1.0
+feature: method polymod
+--- code
+my sub percent02i($value) { $value < 10 ?? "0$value" !! $value.Str }
+my sub timezone(Int() $timezone) {
+    my str $tz =
+      $timezone.abs.polymod(60,60).skip.reverse.map(&percent02i).join;
+    $timezone < 0 ?? "-$tz" !! "+$tz"
+}
+say timezone(3600);
+say timezone(-16200);
+say timezone("19800");
+--- expect
++0100
+-0430
++0530
+
+=== num-is-prime-lazy-constant
+from: Digest 1.1.0 lib/Digest/SHA2.rakumod:14
+license: Artistic-2.0
+feature: method is-prime
+--- code
+my constant @primes = grep *.is-prime, 2 .. *;
+say @primes[^8];
+say @primes[8..^16];
+sub frac(Real $x, UInt $n --> Int) { (($x - $x.floor)*2**$n).floor }
+say frac(sqrt(2), 32).base(16);
+--- expect
+(2 3 5 7 11 13 17 19)
+(23 29 31 37 41 43 47 53)
+6A09E667
+
+=== num-pow-negative-exponent
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:1139
+license: Artistic-2.0
+feature: infix **
+--- code
+for (27315, -2), (5, 3), (1, -20) -> ($man, $exp) {
+    my $v = $exp >= 0 ?? $man * 10 ** $exp !! do {
+        my $de = 10 ** -$exp;
+        $de <= 2**64 - 1 ?? Rat.new(   $man, $de)
+                         !! FatRat.new($man, $de)
+    }
+    say "{$v} {$v.^name}";
+}
+--- expect
+273.15 Rat
+5000 Int
+0.00000000000000000001 FatRat
+
+=== num-pow-signed-bound
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:567
+license: Artistic-2.0
+feature: infix **
+--- code
+sub fits(Int $v, Int $bits) {
+    my $bound = 2 ** ($bits - 1);
+    -$bound <= $v < $bound
+}
+say fits(127, 8), ' ', fits(128, 8), ' ', fits(-128, 8);
+say fits(2**62, 64), ' ', fits(2**63, 64);
+--- expect
+True False True
+True False
+
+=== num-pow-chained-range
+from: DBIish 0.6.9 lib/DBDish/mysql/StatementHandle.rakumod:120
+license: BSD-2-Clause
+feature: infix **
+--- code
+for 42, 2**63, -2**63, 2**63 - 1 {
+    if -2**63 <= $_ <= 2**63 -1 {
+        say "$_ is a bigint";
+    }
+    else {
+        say "$_ needs a decimal";
+    }
+}
+--- expect
+42 is a bigint
+9223372036854775808 needs a decimal
+-9223372036854775808 is a bigint
+9223372036854775807 is a bigint
+
+=== num-pow-two-halves
+from: Duckie 0.0.12 lib/Duckie/DuckDB/Native.rakumod:142
+license: MIT
+feature: infix **
+--- code
+my class HugeInt {
+    has $.upper;
+    has $.lower;
+    method Int { return $!upper * 2**64 + $!lower }
+}
+say HugeInt.new(upper => 1, lower => 5).Int;
+say HugeInt.new(upper => -1, lower => 2**64 - 1).Int;
+--- expect
+18446744073709551621
+-1
+
+=== num-pow-fractional-root
+from: Math::SpecialFunctions 0.1.1 lib/Math/SpecialFunctions.rakumod:103
+license: Artistic-2.0
+feature: infix **
+--- code
+for 4, 8, 16 -> $precision {
+    my $n = ceiling( (1e0 / (10e0 ** -$precision)) ** (1/4e0) );
+    say "$precision: $n";
+}
+--- expect
+4: 10
+8: 100
+16: 10000

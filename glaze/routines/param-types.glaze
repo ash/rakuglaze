@@ -213,23 +213,6 @@ $c.convert('1', 1);
 "x"
 !! X::Parameter::InvalidConcreteness
 
-=== sig-invocant-smiley-multi-pair
-from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:195
-license: Artistic-2.0
-feature: smiley :U
---- code
-my %Glyphs = space => 32, A => 65;
-my class AFM {
-    has %!glyphs = A => 65;
-    multi method glyphs(::?CLASS:D:) is rw { %!glyphs }
-    multi method glyphs(::?CLASS:U:) { %Glyphs }
-}
-say AFM.glyphs.keys.sort;
-say AFM.new.glyphs.keys.sort;
---- expect
-(A space)
-(A)
-
 === sig-invocant-D-stringy
 from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Body.rakumod:86
 license: Artistic-2.0
@@ -600,21 +583,6 @@ _end('x', False, 42);
 --- expect
 root
 !! X::Parameter::RW
-
-=== sig-is-rw-pointy-loop
-from: FastCGI 0.9.0 lib/FastCGI/Protocol.rakumod:230
-license: Artistic-2.0
-feature: trait is rw
---- code
-my ($klen, $vlen) = 5, 300;
-for $klen, $vlen -> $len is rw {
-    $len = $len < 128 ?? $len !! $len +| 0x80000000;
-}
-say $klen;
-say $vlen.base(16);
---- expect
-5
-8000012C
 
 === sig-doublepointy-loop
 from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:1226

@@ -1,0 +1,1025 @@
+# Routines as values, as modules use them: `.assuming`, signature and arity
+# introspection, `&?ROUTINE`, pointy blocks and WhateverCode, `&infix:<...>`,
+# `.&sub`, `state`, `wrap`, and the `return`/`fail` idioms.
+
+=== sig-assuming-whatever-holes
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:593
+license: Artistic-2.0
+feature: method assuming
+--- code
+sub data-callback($chunk, %response, $total) { "{%response<status>}: {$chunk.chars}/$total" }
+my %response = status => 200;
+my &on-content;
+&on-content = &data-callback.assuming( *, %response, * );
+say on-content('abcd', 10);
+say &on-content.arity;
+--- expect
+200: 4/10
+2
+
+=== sig-assuming-trailing-constant
+from: Math::Trig 0.5.1 lib/Math/Trig.rakumod:129
+license: Artistic-2.0
+feature: method assuming
+--- code
+sub great-circle-waypoint($lon0, $lat0, $lon1, $lat1, $point) {
+    ($lon0 + ($lon1 - $lon0) * $point, $lat0 + ($lat1 - $lat0) * $point)
+}
+our &great-circle-midpoint = &great-circle-waypoint.assuming(*,*,*,*,0.5);
+say great-circle-midpoint(0, 0, 10, 20);
+say &great-circle-midpoint.signature.params.elems;
+--- expect
+(5 10)
+4
+
+=== sig-assuming-by-arity
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:1049
+license: Artistic-2.0
+feature: method arity
+--- code
+sub wrap-cb(&cb) {
+    my &callback = &cb.arity == 1 ?? &cb !! &cb.assuming: *, Nil;
+    callback('chunk')
+}
+say wrap-cb(-> $c { "one: $c" });
+say wrap-cb(-> $c, $r { "two: $c {$r.raku}" });
+--- expect
+one: chunk
+two: chunk Nil
+
+=== sig-assuming-method-object-self
+from: Math::DistanceFunctions 0.1.4 lib/Math/DistanceFunctionish.rakumod:55
+license: Artistic-2.0
+feature: method assuming
+--- code
+my %distance-functions = euclid => 'euclidean', city => 'manhattan';
+my class Dist {
+    method euclidean(@a, @b) { sqrt [+] (@a Z- @b) X** 2 }
+    method manhattan(@a, @b) { [+] (@a Z- @b)».abs }
+    method get-distance-function($spec) {
+        return self.^lookup(%distance-functions{$spec}).assuming(self);
+    }
+}
+my &d = Dist.new.get-distance-function('city');
+say d([1, 2], [4, 6]);
+say Dist.new.get-distance-function('euclid')([0, 0], [3, 4]);
+--- expect
+7
+5
+
+=== sig-signature-one-positional
+from: Crane 0.1.2 lib/Crane/Utils.rakumod:10
+license: Unlicense
+feature: method signature
+--- code
+sub is-valid-callable-signature(&c --> Bool:D)
+{
+    &c.signature.params.elems == 1
+        && &c.signature.params.grep({ .positional }).elems == 1;
+}
+say is-valid-callable-signature(-> $x { $x });
+say is-valid-callable-signature(-> $x, $y { $x });
+say is-valid-callable-signature(-> :$x { $x });
+say is-valid-callable-signature({ $_ });
+--- expect
+True
+False
+False
+True
+
+=== sig-signature-any-named
+from: DBIish 0.6.9 lib/DBDish.rakumod:51
+license: BSD-2-Clause
+feature: method signature
+--- code
+sub call-converter(&converter, $datum) {
+    if (&converter.signature.params.any ~~ .named) {
+        converter($datum, :type<varchar>)
+    }
+    else {
+        converter($datum)
+    }
+}
+say call-converter(-> $d, :$type { "$d as $type" }, 'x');
+say call-converter(-> $d { "$d plain" }, 'y');
+--- expect
+x as varchar
+y plain
+
+=== sig-signature-usage-names
+from: LLM::Functions 0.5.10 lib/LLM/Functions.rakumod:447
+license: Artistic-2.0
+feature: method usage-name
+--- code
+sub queryFunc($text, :$model, :@stop, *%args) { }
+my @queryFuncParamNames = &queryFunc.signature.params.map({ $_.usage-name });
+say @queryFuncParamNames;
+--- expect
+[text model stop args]
+
+=== sig-signature-named-names-flatmap
+from: Path::Finder 0.4.7 lib/Path/Finder.rakumod:624
+license: Artistic-2.0
+feature: method named_names
+--- code
+my class Finder {
+    method in(*@dirs, :$follow-symlinks, :d(:$depth), :$sorted = True) { }
+}
+sub in-arguments() {
+    state @in-arguments = Finder.^lookup('in').signature.params.flatmap(*.named_names);
+    @in-arguments
+}
+say in-arguments().sort;
+--- expect
+(d depth follow-symlinks sorted)
+
+=== sig-signature-param-flags
+from: LLM::Functions 0.5.10 lib/LLM/Tooling.rakumod:41
+license: Artistic-2.0
+feature: method slurpy
+--- code
+sub tool($query, Int $count = 3, :$lang!, *@rest) { }
+for &tool.signature.params -> $param {
+    my $named = $param.named;
+    my $slurpy = $param.slurpy;
+    my $optional = $param.optional;
+    say "{$param.name} named=$named slurpy=$slurpy optional=$optional type={$param.type.^name}";
+}
+--- expect
+$query named=False slurpy=False optional=False type=Any
+$count named=False slurpy=False optional=True type=Int
+$lang named=True slurpy=False optional=False type=Any
+@rest named=False slurpy=True optional=False type=Positional
+
+=== sig-signature-returns-name
+from: Duckie 0.0.12 lib/Duckie.rakumod:744
+license: MIT
+feature: method returns
+--- code
+my %RAKU2DUCKIE = Int => 'BIGINT', Str => 'VARCHAR', Num => 'DOUBLE';
+sub register(&function) {
+    my $name    = &function.name.subst('-', '_', :g);
+    my @params  = &function.signature.params.map: { %RAKU2DUCKIE{.type.^name} // 'VARCHAR' };
+    my $returns = %RAKU2DUCKIE{&function.signature.returns.^name} // 'VARCHAR';
+    "{$name}({@params.join(', ')}) -> $returns"
+}
+sub add-one(Int $x --> Int) { $x + 1 }
+sub greet(Str $who, $times) { }
+say register(&add-one);
+say register(&greet);
+--- expect
+add_one(BIGINT) -> BIGINT
+greet(VARCHAR, VARCHAR) -> VARCHAR
+
+=== sig-signature-sigil-element-type
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:398
+license: Artistic-2.0
+feature: method sigil
+--- code
+sub opts(Int :@ids, Str :$name, Num :%weights) { }
+for &opts.signature.params -> $param {
+    my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
+    say $param.name, ' ', $element-type.^name;
+}
+--- expect
+@ids Int
+$name Str
+%weights Num
+
+=== sig-signature-smartmatch-literal
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/NonOption.rakumod:99
+license: MIT
+feature: signature literal
+--- code
+sub non-option(&callback where .signature ~~ :($, @) | :(@) | :()) {
+    &callback.signature.params.elems
+}
+say non-option(-> $a, @b { });
+say non-option(-> @b { });
+say non-option(-> { });
+non-option(-> $a, $b { });
+--- expect
+2
+1
+0
+!! X::TypeCheck::Binding::Parameter
+
+=== sig-signature-accepts-capture
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:710
+license: Artistic-2.0
+feature: method ACCEPTS
+--- code
+my @handlers = -> Str $text { "text: $text" }, -> Int $n { "num: $n" }, -> $a, $b { 'pair' };
+my $text = 'hello';
+for @handlers {
+    say .signature.ACCEPTS: \($text)
+}
+--- expect
+True
+False
+False
+
+=== sig-routine-name-for-registry
+from: LLM::Functions 0.5.10 lib/LLM/Tooling.rakumod:15
+license: Artistic-2.0
+feature: method name
+--- code
+sub sub-info(&sub) {
+    my $sub-name = &sub.name;
+    my $signature = &sub.signature;
+    "$sub-name/{$signature.arity}"
+}
+sub get-weather($city, $unit) { }
+say sub-info(&get-weather);
+say sub-info(-> $x { }).raku;
+--- expect
+get-weather/2
+"/1"
+
+=== sig-current-routine-name
+from: Test::Output 1.001006 lib/Test/Output.rakumod:69
+license: Artistic-2.0
+feature: term &?ROUTINE
+--- code
+sub test(*@args) { @args.join(' ') }
+sub output-is   (*@args) { test |<all is>,   &?ROUTINE.name, |@args }
+sub stdout-like (*@args) { test |<out like>, &?ROUTINE.name, |@args }
+say output-is('code', 'expected');
+say stdout-like('x');
+--- expect
+all is output-is code expected
+out like stdout-like x
+
+=== sig-current-routine-in-message
+from: CompUnit::Util 0.7.0 lib/CompUnit/Util.rakumod:230
+license: MIT
+feature: term &?ROUTINE
+--- code
+sub re-export($name) {
+    die "{&?ROUTINE.name} can only be called at BEGIN time" unless $*W;
+    "exported $name"
+}
+try re-export('x');
+say $!.message;
+--- expect
+re-export can only be called at BEGIN time
+
+=== sig-callframe-caller-name
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/ErrorHandling.rakumod:27
+license: Artistic-2.0
+feature: call callframe
+--- code
+my $*LASTRULE;
+sub record() { $*LASTRULE = callframe(1).code.name; }
+sub number-rule() { record(); 'parsed' }
+sub word-rule() { record() }
+say number-rule();
+say $*LASTRULE;
+word-rule();
+say $*LASTRULE;
+--- expect
+parsed
+number-rule
+word-rule
+
+=== sig-arity-gate-call
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model/Callbacks.rakumod:37
+license: Artistic-2.0
+feature: method arity
+--- code
+my class Model {
+    has $.valid = True;
+    method check($cond) {
+        given $cond {
+            when Block { return so $cond(self) if $cond.arity > 0; return so $cond() }
+            default { so self."$cond"() }
+        }
+    }
+}
+my $m = Model.new;
+say $m.check(-> $r { $r.valid });
+say $m.check({ False });
+say $m.check('valid');
+--- expect
+True
+False
+True
+
+=== sig-arity-range-fail
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:797
+license: Artistic-2.0
+feature: call fail
+--- code
+my class Matrix {
+    has @.rows = [1, 2], [3, 4];
+    method map-with-index(&coderef) {
+        fail "block has to receive between one and three arguments" unless &coderef.arity ~~ 1..3;
+        @!rows.kv.map(-> $i, @r { @r.kv.map(-> $j, $v { coderef($v, $i, $j) }).List }).List
+    }
+}
+say Matrix.new.map-with-index(-> $v, $i, $j { $v * 10 + $i + $j });
+my $r = Matrix.new.map-with-index({ 1 });
+say $r.defined;
+say $r.exception.message;
+--- expect
+((10 21) (31 42))
+False
+block has to receive between one and three arguments
+
+=== sig-arity-whatevercode-args
+from: Dan 0.0.3 lib/Dan.rakumod:866
+license: Artistic-2.0
+feature: method arity
+--- code
+my $elems = 5;
+for * - 1, * + * -> $p {
+    my @s = $p( |($elems xx $p.arity) );
+    say $p.arity, ' ', @s;
+}
+--- expect
+1 [4]
+2 [10]
+
+=== sig-pointy-ampersand-with
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Dispatcher.rakumod:35
+license: Artistic-2.0
+feature: pointy block
+--- code
+my class Match { has &.callable }
+for Match.new(callable => { 'routed' }), Match.new -> $match {
+    with $match.callable -> &block {
+        say block();
+    }
+    else {
+        say 'no route';
+    }
+}
+--- expect
+routed
+no route
+
+=== sig-pointy-sigilless-recursive
+from: MUGS::Core 0.1.4 lib/MUGS/Util/StructureValidator.rakumod:23
+license: Artistic-2.0
+feature: pointy block
+--- code
+my &validate = -> \data, \schema, \path {
+    given schema {
+        when Hash { schema.keys.sort.map({ validate(data{$_}, schema{$_}, "{path}.$_") }).flat.List }
+        default   { data ~~ schema ?? () !! ("{path}: expected {schema.^name}",) }
+    }
+}
+my %schema = name => Str, age => Int;
+say validate({ name => 'Ann', age => 'x' }, %schema, 'user');
+say validate({ name => 'Bo', age => 3 }, %schema, 'user').elems;
+--- expect
+(user.age: expected Int)
+0
+
+=== sig-my-amp-sub-literal
+from: CPAN::Uploader::Tiny 0.1.0 lib/CPAN/Uploader/Tiny.rakumod:83
+license: Artistic-2.0
+feature: node Sub
+--- code
+my &cb = sub (%res) {
+    return True if %res<success>;
+    die "upload failed: %res<status>";
+};
+say cb({ success => True });
+try cb({ success => False, status => 500 });
+say $!.message;
+--- expect
+True
+upload failed: 500
+
+=== sig-pointy-default-slurpy-named
+from: LLM::Functions 0.5.10 lib/LLM/Functions.rakumod:433
+license: Artistic-2.0
+feature: pointy block
+--- code
+my class Evaluator {
+    method eval($text, *%args) { "eval '$text' " ~ %args.sort.map({ "{.key}={.value}" }).join(',') }
+}
+my $llm-evaluator = Evaluator.new;
+my &func = -> $text = '', *%args { $llm-evaluator.eval($text, |%args) };
+say func();
+say func('hi', :temperature(0.5), :max-tokens(10));
+--- expect
+eval '' 
+eval 'hi' max-tokens=10,temperature=0.5
+
+=== sig-pointy-default-and-optional-hash
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/View.rakumod:304
+license: Artistic-2.0
+feature: pointy block
+--- code
+sub button-tag($content, %opts) { "<button{%opts.sort.map({ " {.key}=\"{.value}\"" }).join}>{$content}</button>" }
+my %helpers =
+    button_tag   => -> $content = 'Button', %opts? { ~button-tag($content, (%opts // {})) },
+;
+say %helpers<button_tag>();
+say %helpers<button_tag>('Save', { type => 'submit' });
+--- expect
+<button>Button</button>
+<button type="submit">Save</button>
+
+=== sig-pointy-named-callable-forward
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/View.rakumod:308
+license: Artistic-2.0
+feature: pointy block
+--- code
+sub atom-feed(:$url, :&content) { "<feed href=\"$url\">{content()}</feed>" }
+my %helpers =
+    atom_feed    => -> :$url, :&content        { ~atom-feed(:$url, :&content) },
+;
+say %helpers<atom_feed>(url => '/f', content => { '<entry/>' });
+--- expect
+<feed href="/f"><entry/></feed>
+
+=== sig-pointy-default-inf
+from: OpenSSL 0.2.9 lib/OpenSSL.rakumod:129
+license: MIT
+feature: pointy block
+--- code
+my class Socket {
+    has $.data = 'abcdefghij';
+    method recv($n, :$bin) { $!data.substr(0, $n == Inf ?? * !! $n) }
+}
+my $s = Socket.new;
+my $net-read = -> $n = Inf { $s.recv($n, :bin) }
+say $net-read(3);
+say $net-read();
+--- expect
+abc
+abcdefghij
+
+=== sig-whatevercode-method-with-args
+from: Color 1.004001 lib/Color.rakumod:130
+license: Artistic-2.0
+feature: node Whatever
+--- code
+my class Color {
+    has ($.r, $.g, $.b);
+    method hex()   { ($.r, $.g, $.b).map: *.fmt('%02X') }
+}
+say Color.new(r => 255, g => 128, b => 0).hex;
+--- expect
+(FF 80 00)
+
+=== sig-whatevercode-indexed-call
+from: Air::Plugin::Hilite 0.0.10 lib/Air/Plugin/Hilite.rakumod:51
+license: Artistic-2.0
+feature: node Whatever
+--- code
+my class Hilite {
+    has @.js-links = 'src=a.js', 'src=b.js';
+    method TWEAK() {
+        @!js-links  .= map: *.split('=')[1];
+    }
+}
+say Hilite.new.js-links;
+--- expect
+[a.js b.js]
+
+=== sig-compose-operator-chain
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:21
+license: Artistic-2.0
+feature: infix o
+--- code
+my @T = map &floor ∘ * * 2**32 ∘ &abs ∘ &sin ∘ * + 1, ^4;
+say @T.map(*.base(16));
+--- expect
+(D76AA478 E8C7B756 242070DB C1BDCEEE)
+
+=== sig-placeholder-sort-two-keys
+from: Crust 0.0.1 lib/Crust/App/URLMap.pm6:26
+license: Artistic-2.0
+feature: placeholder $^a
+--- code
+my $mapping = [
+    { host => 'a.com', loc => '/' },
+    { host => 'www.a.com', loc => '/x' },
+    { host => 'www.a.com', loc => '/' },
+];
+my @sorted-mapping = $mapping.sort: { -$^a<host>.chars,-$^a<loc>.chars };
+say @sorted-mapping.map({ "{.<host>}{.<loc>}" }).join(' ');
+--- expect
+www.a.com/x www.a.com/ a.com/
+
+=== sig-placeholder-three-xor
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:18
+license: Artistic-2.0
+feature: placeholder $^a
+--- code
+my @F = { ($^x +& $^y) +| (+^$^x +& $^z) },
+    { $^x +^ $^y +^ $^z },
+;
+say @F.map(*.arity);
+say @F[1](0b1100, 0b1010, 0b0110).base(2);
+--- expect
+(3 3)
+0
+
+=== sig-infix-ref-pick-op
+from: Terminal::UI 0.1.14 lib/Terminal/UI.rakumod:125
+license: MIT
+feature: term &infix:<>
+--- code
+sub focus($pane, $current) {
+    my $op = $pane eq 'next' ?? &infix:<+> !! &infix:<->;
+    $op($current, 1) mod 3
+}
+say focus('next', 2);
+say focus('prev', 2);
+say focus('prev', 0);
+--- expect
+0
+1
+2
+
+=== sig-sort-with-sub-refs
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:112
+license: Artistic-2.0
+feature: method sort
+--- code
+sub version($id) { $id.split(':').tail.Version }
+sub short-name($id) { $id.split(':').head }
+my @identities = <JSON:1.2 JSON:1.10 Base:0.9 JSON:1.2 Base:1.0>;
+say @identities.unique.sort(&version).reverse.sort(&short-name);
+--- expect
+(Base:1.0 Base:0.9 JSON:1.10 JSON:1.2)
+
+=== sig-dot-amp-with-topic
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:26
+license: Artistic-2.0
+feature: postfix .&
+--- code
+sub display-string($s) { "'{$s.subst("'", "\\'", :g)}'" }
+my class Actions {
+    has $.str;
+    submethod TWEAK(:$str, :$explanation ) {
+        $!str = .&display-string with $str;
+    }
+}
+say Actions.new(str => "it's").str;
+say Actions.new.str.raku;
+--- expect
+'it\'s'
+Any
+
+=== sig-dot-amp-with-named-arg
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Optimizer.rakumod:209
+license: Artistic-2.0
+feature: postfix .&
+--- code
+sub optimizable($prop, :%props) { so %props{$prop}:exists }
+my %props = margin => 1, padding => 2;
+for <margin border> -> \container-prop {
+    if container-prop.&optimizable(:%props) {
+        say "{container-prop} can be optimized";
+    }
+    else {
+        say "{container-prop} stays";
+    }
+}
+--- expect
+margin can be optimized
+border stays
+
+=== sig-our-amp-alias-export
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:10
+license: Artistic-2.0
+feature: trait is export
+--- code
+sub abbreviations(*@words) { @words.map(*.substr(0, 3)).List }
+our &abbrevs is export         = &abbreviations;
+say abbrevs(<Monday Tuesday>);
+say &abbrevs.name;
+--- expect
+(Mon Tue)
+abbreviations
+
+=== sig-our-amp-anon-sub
+from: Config::Clever 1.0.0 lib/Config/Clever.pm6:23
+license: MIT
+feature: node Sub
+--- code
+our &hash-merge is export = sub (%one, %two) {
+    my %r = %one;
+    for %two.kv -> $k, $v {
+        %r{$k} = (%r{$k} ~~ Hash && $v ~~ Hash) ?? hash-merge(%r{$k}, $v) !! $v;
+    }
+    %r
+};
+my %m = hash-merge({ a => 1, db => { host => 'x', port => 1 } }, { db => { port => 2 } });
+say %m<db>.sort.map(*.gist).join(' ');
+say %m<a>;
+--- expect
+host => x port => 2
+1
+
+=== sig-anon-sub-named
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:12
+license: Artistic-2.0
+feature: decl anon sub
+--- code
+my &mac = anon sub hmac (Blob $key is copy, Blob $message --> Blob) {
+    $key = Blob.new($key.list.map(* +^ 0x5c));
+    Blob.new(($key.list Z+ $message.list).map(* % 256))
+};
+say &mac.name;
+say mac(Blob.new(1, 2), Blob.new(10, 20)).list;
+--- expect
+hmac
+(103 114)
+
+=== sig-sub-returns-closure
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:11
+license: Artistic-2.0
+feature: node Sub
+--- code
+my sub hmac-for(&digest, Int $block-size) {
+    -> $key, $msg { digest($key.substr(0, $block-size) ~ $msg) }
+}
+my &h = hmac-for(&uc, 3);
+say h('secret', '-msg');
+say hmac-for(&flip, 2)('abcd', 'xy');
+--- expect
+SEC-MSG
+yxba
+
+=== sig-state-cache-defined-or
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Util.rakumod:31
+license: Artistic-2.0
+feature: decl state
+--- code
+my $built = 0;
+sub units() {
+    state $cache //= %(
+        pt => 1, px => 0.75, in => 72,
+    ).&{ $built++; $_ };
+    $cache
+}
+say units()<in>;
+say units()<px>;
+say $built;
+--- expect
+72
+0.75
+1
+
+=== sig-state-anon-singleton
+from: CSS::Stylesheet 0.1.5 lib/CSS/Stylesheet.rakumod:40
+license: Artistic-2.0
+feature: decl state
+--- code
+my class Props { has $.display }
+sub DisplayNone { state $ //= Props.new: :display<none>; }
+say DisplayNone().display;
+say DisplayNone() === DisplayNone();
+--- expect
+none
+True
+
+=== sig-state-array-literal
+from: Crust 0.0.1 lib/Crust/Utils.pm6:77
+license: Artistic-2.0
+feature: decl state
+--- code
+sub mon-abbr(Int $m) {
+    state @mon-abbr = <Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec>;
+    @mon-abbr[$m - 1]
+}
+say mon-abbr(1);
+say (1..12).map(&mon-abbr).tail;
+--- expect
+Jan
+Dec
+
+=== sig-state-in-expression
+from: Base64 0.1.0 lib/Base64.rakumod:22
+license: Artistic-2.0
+feature: decl state
+--- code
+my @out;
+for (65, 66, 67).pairs -> $c {
+    @out.push: $c.value +< ((state $m = 24) -= 8)
+}
+say @out.map(*.base(16));
+--- expect
+(410000 4200 43)
+
+=== sig-anon-state-counter-in-map
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:1006
+license: Artistic-2.0
+feature: decl state
+--- code
+sub numbered($a) {
+    return |$a.list.map: {$++, ' = ', $_}
+}
+say numbered(<x y z>).join;
+say numbered(<p q>).join;
+--- expect
+0  =  x1  =  y2  =  z
+0  =  p1  =  q
+
+=== sig-wrap-and-unwrap
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Stub.rakumod:151
+license: Artistic-2.0
+feature: method wrap
+--- code
+my class Service { method fetch($id) { "real $id" } }
+my &meth = Service.^find_method('fetch');
+my $handle = &meth.wrap(method (|c) {
+    "stubbed {c.list[0]}"
+});
+say Service.new.fetch(7);
+&meth.unwrap($handle);
+say Service.new.fetch(7);
+--- expect
+stubbed 7
+real 7
+
+=== sig-wrap-sub-callsame
+from: Test::Async 0.1.17 lib/Test/Async.rakumod:19
+license: Artistic-2.0
+feature: method wrap
+--- code
+my @calls;
+sub plan($n) { "plan $n" }
+my \routine = &plan;
+my &wrapper = -> |c { @calls.push: c.list[0]; callsame() ~ ' (wrapped)' };
+routine.wrap(&wrapper);
+say plan(3);
+say @calls;
+--- expect
+plan 3 (wrapped)
+[3]
+
+=== sig-wrap-pointy-capture
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Time.rakumod:77
+license: Artistic-2.0
+feature: method wrap
+--- code
+my $frozen;
+sub clock() { 'live' }
+&clock.wrap(-> |args {
+    $frozen // callsame
+});
+say clock();
+$frozen = 'frozen';
+say clock();
+--- expect
+live
+frozen
+
+=== sig-wrap-method-slip-callsame
+from: Cromponent 0.0.13 lib/StyledComponent.rakumod:21
+license: Artistic-2.0
+feature: method wrap
+--- code
+my class Button {
+    has $.styled-class = 'btn-primary';
+    method classes() { ['btn'] }
+}
+Button.^find_method('classes')
+    .wrap: method { [ |callsame, self.styled-class ] };
+say Button.new.classes;
+--- expect
+[btn btn-primary]
+
+=== sig-return-nil-without
+from: Actionable 0.0.7 lib/Actionable.rakumod:209
+license: Artistic-2.0
+feature: node Return
+--- code
+my class Node { has $.current; method value() {
+    my $current = $!current;
+    return Nil without $current;
+    $current * 2
+} }
+say Node.new(current => 21).value;
+say Node.new.value.raku;
+--- expect
+42
+Nil
+
+=== sig-return-postfix-condition
+from: Algorithm::SetUnion 0.0.1 lib/Algorithm/SetUnion.pm6:19
+license: Artistic-2.0
+feature: node Return
+--- code
+my class SetUnion {
+    has @.parent = ^5;
+    method find($i) { @!parent[$i] == $i ?? $i !! self.find(@!parent[$i]) }
+    method union(Int $left-index, Int $right-index --> Bool:D) {
+        my ($left-root, $right-root) = self.find($left-index), self.find($right-index);
+        return False if $left-root == $right-root;
+        @!parent[$right-root] = $left-root;
+        True
+    }
+}
+my $u = SetUnion.new;
+say $u.union(0, 1), $u.union(1, 2), $u.union(0, 2);
+--- expect
+TrueTrueFalse
+
+=== sig-return-slip
+from: URI 0.3.8 lib/URI/Escape.rakumod:58
+license: Artistic-2.0
+feature: node Return
+--- code
+sub uri-escapes(*@s) {
+    my @rc = @s.map(*.subst(' ', '%20', :g));
+    return |@rc;
+}
+my @all = 'x', uri-escapes('a b', 'c d'), 'y';
+say @all.elems;
+say @all;
+--- expect
+3
+[x (a%20b c%20d) y]
+
+=== sig-return-gather-block
+from: Bailador 0.0.19 lib/Bailador/Configuration.pm:74
+license: MIT
+feature: node Return
+--- code
+my class Config {
+    has %.values = port => 3000, host => 'x', debug => False;
+    method keys-set() {
+        return gather {
+            for %!values.sort -> $p { take $p.key if $p.value }
+        }
+    }
+}
+say Config.new.keys-set;
+--- expect
+(host port)
+
+=== sig-rw-method-proxy
+from: Bailador 0.0.19 lib/Bailador/Context.pm:12
+license: MIT
+feature: trait is rw
+--- code
+my class Context {
+    has %!env;
+    method env is rw {
+        Proxy.new(
+            FETCH => -> $ { %!env },
+            STORE => -> $, %new { %!env = %new.map({ .key.uc => .value }) },
+        )
+    }
+}
+my $c = Context.new;
+$c.env = { path => '/x' };
+say $c.env;
+--- expect
+{PATH => /x}
+
+=== sig-rw-method-attribute
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Request.rakumod:82
+license: MIT
+feature: trait is rw
+--- code
+my class Request {
+    has $!uri = 'http://a/';
+    multi method uri() is rw { $!uri }
+}
+my $r = Request.new;
+$r.uri = 'http://b/';
+say $r.uri;
+$r.uri ~= 'path';
+say $r.uri;
+--- expect
+http://b/
+http://b/path
+
+=== sig-fail-message-defined
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:244
+license: Artistic-2.0
+feature: call fail
+--- code
+sub selector-to-xpath($css) {
+    return "//$css" if $css ~~ /^ \w+ $/;
+    fail "unable to parse CSS selector: $css";
+}
+say selector-to-xpath('div');
+my $r = selector-to-xpath('>>');
+say $r.defined;
+say $r.exception.message;
+say selector-to-xpath('p') // 'none';
+say selector-to-xpath('!!') // 'none';
+--- expect
+//div
+False
+unable to parse CSS selector: >>
+//p
+none
+
+=== sig-fail-exception-object
+from: Concurrent::Stack 1.3 lib/Concurrent/Stack.rakumod:28
+license: Artistic-2.0
+feature: call fail
+--- code
+my class X::Stack::Empty is Exception {
+    has $.operation;
+    method message() { "Cannot $!operation from an empty stack" }
+}
+my class Stack {
+    has @!items;
+    method pop() {
+        @!items ?? @!items.pop !! fail X::Stack::Empty.new(:operation<pop>)
+    }
+}
+my $v = Stack.new.pop;
+say $v.exception.^name;
+say $v.exception.message;
+Stack.new.pop.sink;
+--- expect
+X::Stack::Empty
+Cannot pop from an empty stack
+!! X::Stack::Empty
+
+=== sig-return-or-fail
+from: CompUnit::Util 0.7.0 lib/CompUnit/Util.rakumod:137
+license: MIT
+feature: call fail
+--- code
+my @loaded = <JSON::Fast Test>;
+sub find-loaded($match) {
+    my $found = @loaded.first($match);
+    return $found || fail "unable find loaded compunit matching '{$match.gist}'";
+}
+say find-loaded(/JSON/);
+with find-loaded('Nope') { say 'found' } else { say .exception.message }
+--- expect
+JSON::Fast
+unable find loaded compunit matching 'Nope'
+
+=== sig-infix-definition-tighter
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:920
+license: Artistic-2.0
+feature: trait is tighter
+--- code
+my class Vec { has @.v; method dot-product(Vec $o) { [+] @!v Z* $o.v } }
+multi sub infix:<⋅>(  Vec:D $a, Vec:D $b --> Numeric) is tighter(&infix:<*>) { $a.dot-product( $b ) }
+my $a = Vec.new(v => [1, 2, 3]);
+my $b = Vec.new(v => [4, 5, 6]);
+say $a ⋅ $b;
+say 2 * $a ⋅ $b;
+--- expect
+32
+64
+
+=== sig-infix-guillemet-definition
+from: Datetime::Math 0.6.2 lib/DateTime/Math.rakumod:50
+license: Artistic-2.0
+feature: decl multi
+--- code
+multi infix:«-»(Date:D $d, Str:D $x) {
+    $d.earlier(days => +$x.substr(0, *-1))
+}
+my $d = Date.new(2024, 3, 1);
+say $d - '1d';
+say $d - 1;
+say 10 - 3;
+--- expect
+2024-02-29
+2024-02-29
+7
+
+=== sig-postfix-unit-but-role
+from: CSS::Properties 0.10.9 lib/CSS/Units.rakumod:60
+license: Artistic-2.0
+feature: decl postfix
+--- code
+my enum Lengths <pt px>;
+my role Units[$type, $units] { method units { $units } }
+sub postfix:<pt>(Numeric $v) is rw { $v but Units[Lengths, 'pt']  };
+my $w = 595pt;
+say $w;
+say $w.units;
+say ($w + 5);
+--- expect
+595
+pt
+600
+
+=== sig-temp-closure-variable
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:89
+license: Artistic-2.0
+feature: prefix temp
+--- code
+our $colorizor = sub (Str $s) { "<$s>" };
+sub dump($obj, :$color = True) {
+    temp $colorizor = sub (Str $s) { '' } unless $color;
+    $colorizor('k') ~ $obj
+}
+say dump('v');
+say dump('v', :!color);
+say $colorizor('again');
+--- expect
+<k>v
+v
+<again>

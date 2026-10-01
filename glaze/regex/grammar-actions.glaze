@@ -1,0 +1,667 @@
+# Grammars with action classes: make/made, proto tokens, parse/subparse with :rule and :actions.
+
+=== rx-ini-grammar-actions
+from: App::RaCoCo 2.0.1 lib/App/Racoco/ConfigFile.rakumod:48
+license: Artistic-2.0
+feature: node Grammar
+--- code
+my grammar INI {
+    token TOP { <.eol>* <toplevel>? <sections>* <.eol>* $ }
+    token toplevel { <keyval>* }
+    token sections { <header> <keyval>* }
+    token header   { ^^ \h* '[' ~ ']' $<text>=<-[ \] \n ]>+ \h* <.eol>+ }
+    token keyval   { ^^ \h* <key> \h* '=' \h* <value>? \h* <.eol>+ }
+    regex key      { <![#\[]> <-[;=]>+ }
+    regex value    { [ <![#;]> \N ]+ }
+    token eol      { [ <[#;]> \N* ]? \n }
+}
+my class INI-Actions {
+    method TOP ($/) {
+        my %hash = $<sections>».ast;
+        %hash<_> = $<toplevel>.ast.hash if $<toplevel>.?ast;
+        make %hash;
+    }
+    method toplevel($/) { make $<keyval>».ast.hash }
+    method sections($/) { make $<header><text>.Str => $<keyval>».ast.hash }
+    method keyval($/) { make $<key>.Str.trim => $<value>.defined ?? $<value>.ast !! '' }
+    method value($/) {
+        with $/.Str.trim {
+            make $_;
+            make True if $_ ~~ any(<yes on true True 1>);
+            make False if $_ ~~ any(<no off false False 0>);
+        }
+    }
+}
+my %ini = INI.parse("name = x\n[report]\ncolor = yes ; c\nwidth = 80\n", :actions(INI-Actions.new)).ast;
+for %ini.sort -> $s { say $s.key, ': ', $s.value.sort.map({ "{.key}={.value.raku}" }).join(' ') }
+--- expect
+_: name="x"
+report: color=Bool::True width="80"
+
+=== rx-goal-failure-message
+from: App::RaCoCo 2.0.1 lib/App/Racoco/ConfigFile.rakumod:18
+license: Artistic-2.0
+feature: regex [
+--- code
+my grammar H {
+    token TOP { '[' ~ ']' $<text>=\w+ }
+}
+say H.parse('[ok]')<text>.Str;
+say H.parse('[broken').raku;
+--- expect
+ok
+Nil
+
+=== rx-json-proto-sym-values
+from: JSON::Tiny 1.0 lib/JSON/Tiny/Grammar.pm:18
+license: Artistic-2.0
+feature: decl token
+--- code
+my grammar J {
+    token TOP       { \s* <value> \s* }
+    rule array      { '[' ~ ']' <arraylist>    }
+    rule arraylist  {  <value> * % [ \, ]        }
+    proto token value {*};
+    token value:sym<number> { '-'? [ 0 | <[1..9]> <[0..9]>* ] [ \. <[0..9]>+ ]? }
+    token value:sym<true>    { <sym>    };
+    token value:sym<false>   { <sym>    };
+    token value:sym<null>    { <sym>    };
+    token value:sym<array>   { <array>  };
+}
+my class JA {
+    method TOP($/) { make $<value>.made };
+    method array($/) { make $<arraylist>.made.item }
+    method arraylist($/) { make [$<value>.map(*.made)] }
+    method value:sym<number>($/) { make +$/.Str }
+    method value:sym<true>($/)   { make Bool::True  }
+    method value:sym<false>($/)  { make Bool::False }
+    method value:sym<null>($/)   { make Any }
+    method value:sym<array>($/)  { make $<array>.made }
+}
+say J.parse('[1, -2.5, [true, null], false]', :actions(JA)).made.raku;
+say J.parse('[01]').so;
+--- expect
+$[1, -2.5, [Bool::True, Any], Bool::False]
+False
+
+=== rx-json-string-escapes
+from: JSON::Tiny 1.0 lib/JSON/Tiny/Actions.pm:28
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar S {
+    token TOP { <string> }
+    token string { ('"') ~ \" [ <str> | \\ <str=.str_escape> ]* }
+    token str { <-["\\\t\x[0A]]>+ }
+    token str_escape { <["\\/bfnrt]> | 'u' <utf16_codepoint>+ % '\u' }
+    token utf16_codepoint { <.xdigit>**4 }
+}
+my class SA {
+    my %h = '\\' => "\\", '/' => "/", 'n' => "\n", 't' => "\t", '"' => "\"";
+    method TOP($/) { make $<string>.made }
+    method string($/) {
+        make +@$<str> == 1 ?? $<str>[0].made !! $<str>>>.made.join;
+    }
+    method str($/) { make ~$/ }
+    method str_escape($/) {
+        if $<utf16_codepoint> {
+            make utf16.new( $<utf16_codepoint>.map({:16(~$_)}) ).decode();
+        } else {
+            make %h{~$/};
+        }
+    }
+}
+say S.parse(Q{"plain"}, :actions(SA)).made;
+say S.parse(Q{"a\tb\"c\u00e9\ud83d\ude00"}, :actions(SA)).made.raku;
+--- expect
+plain
+"a\tb\"cé😀"
+
+=== rx-hash-of-pairs-made
+from: JSON::Tiny 1.0 lib/JSON/Tiny/Actions.pm:7
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar O {
+    rule TOP      { '{' ~ '}' <pairlist> }
+    rule pairlist { <pair> * % \, }
+    rule pair     { (\w+) ':' (\d+) }
+}
+my class OA {
+    method TOP($/) { make $<pairlist>.made.hash.item; }
+    method pairlist($/) { make $<pair>>>.made.flat; }
+    method pair($/) { make ~$0 => +$1 }
+}
+my $h = O.parse('{ b: 2, a: 1 }', :actions(OA)).made;
+say $h.WHAT.^name, ' ', $h.sort.map({ "{.key}={.value}" }).join(',');
+say O.parse('{}', :actions(OA)).made.elems;
+--- expect
+Hash a=1,b=2
+0
+
+=== rx-parametric-multi-rules
+from: PDF::Tags 0.2.8 lib/PDF/Tags/XPath/Grammar.rakumod:22
+license: Artistic-2.0
+feature: decl rule
+--- code
+my grammar Q {
+    rule TOP { <expr(3)> }
+    multi rule expr(0)       { <term> }
+    multi rule expr($pred)   { <term=.expr($pred-1)> +% <q-op($pred-1)> }
+    multi token q-op(2) {or}
+    multi token q-op(1) {and}
+    multi token q-op(0) {'='|'!='}
+    token term { \w+ }
+}
+my $m = Q.parse('a = b and c or d != e');
+say $m<expr><term>.map(~*).join(' | ');
+say $m<expr><q-op>.map(~*).join(',');
+--- expect
+a = b and c  | d != e
+or
+
+=== rx-sym-colonpair-multi-rules
+from: Red 0.2.5 lib/Red/Driver/SQLite/SchemaReader.rakumod:19
+license: Artistic-2.0
+feature: decl rule
+--- code
+my grammar CreateTable {
+    rule  TOP                      { :i <create-table>+ %% ";" }
+    rule  create-table             { :i CREATE TABLE <table-name=.name> '(' ~ ')' <column>+ %% [ "," ] }
+    token name                     { :i \w+ }
+    rule  column                   { :i <column-name=.name> <type=.name> <modifier>? }
+    proto rule modifier            {*}
+    multi rule modifier:<null>     { :i NULL }
+    multi rule modifier:<not-null> { :i NOT NULL }
+}
+my class Act {
+    method TOP($/)                 { make $<create-table>».made }
+    method create-table($/)        { make $<table-name>.Str ~ ': ' ~ $<column>».made.join(', ') }
+    method column($/)              { make "$<column-name> " ~ ($<modifier>.made // True) }
+    method modifier:<null>($/)     { make ( :nullable ) }
+    method modifier:<not-null>($/) { make ( :!nullable ) }
+}
+.say for CreateTable.parse('create table t (id INTEGER NOT NULL, name TEXT null, x int);', :actions(Act)).made;
+--- expect
+t: id nullable	False, name nullable	True, x True
+
+=== rx-sym-alternative-word
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure/CommandParser.rakumod:25
+license: Artistic-2.0
+feature: decl rule
+--- code
+my grammar Cmd {
+    rule TOP { ^ <command> $ }
+    proto rule command          {*}
+    rule command:sym<quit>      { [ 'q' | <sym> ] }
+    rule command:sym<inventory> { [ 'i' | <sym> ] }
+    rule command:sym<look>      { <sym> }
+}
+for <q quit i inventory look jump> -> $in {
+    with Cmd.parse($in) { say "$in -> {.<command>.Str} {.<command><sym> // 'no sym capture'}" }
+    else { say "$in -> ?" }
+}
+--- expect
+q -> q no sym capture
+quit -> quit no sym capture
+i -> i no sym capture
+inventory -> inventory no sym capture
+look -> look no sym capture
+jump -> ?
+
+=== rx-proto-yada-regex
+from: Text::ShellWords 0.1.1 lib/Text/ShellWords.rakumod:66
+license: Artistic-2.0
+feature: decl regex
+--- code
+my grammar Words {
+    token TOP { \s* <word>* % \s+ \s* }
+    token word { <atom> + }
+    proto regex atom { <...> }
+    token atom:sym<backslashed> { \\ ( . ) }
+    token atom:sym<single-str> { "'" ~ "'" (<-[']> *) }
+    token atom:sym<simple> { <-[\s\\']> }
+}
+my class WA {
+    has Bool $.keep;
+    method TOP($/) { make $<word>.map(*.made) }
+    method word($/) { make $<atom>».made.join }
+    method atom:sym<backslashed>($/) { make ~ ($!keep ?? $/ !! $0) }
+    method atom:sym<single-str>($/) { make ~ ($!keep ?? $/ !! $0) }
+    method atom:sym<simple>($/) { make ~$/ }
+}
+say Words.parse(Q{ls 'my file' a\ b}, :actions(WA.new)).made.raku;
+say Words.parse(Q{ls 'my file' a\ b}, :actions(WA.new(:keep))).made.raku;
+--- expect
+("ls", "my file", "a b").Seq
+("ls", "'my file'", "a\\ b").Seq
+
+=== rx-proto-yada-tag-mustache
+from: Template::Mustache 1.2.7 lib/Template/Mustache.rakumod:100
+license: Artistic-2.0
+feature: decl regex
+--- code
+my grammar M {
+    regex TOP { [ <tag> || $<text>=[ <-[{]>+ | '{' ] ]* }
+    proto regex tag { <...> }
+    regex tag:sym<var> { '{{' \s* $<name>=\w+ \s* '}}' }
+    regex tag:sym<section> { '{{' (<[#/^]>) \s* $<name>=\w+ \s* '}}' }
+}
+my $m = M.parse('Hi {{ name }}{{#items}}x{{/items}}!');
+say $m<tag>.map({ (.[0] // '=') ~ .<name> }).join(' ');
+--- expect
+=name #items /items
+
+=== rx-made-chain-key-value
+from: Docker::File 1.1 lib/Docker/File.rakumod:531
+license: Artistic-2.0
+feature: call make
+--- code
+my grammar KV {
+    token TOP { <pair>+ % \s+ }
+    token pair { <key> '=' <value> }
+    token key { \w+ }
+    token value { \S+ }
+}
+my class KVA {
+    method TOP($/) { make $<pair>».made.Map }
+    method pair($/) { make $<key>.made => $<value>.made; }
+    method key($/) { make $/.uc }
+    method value($/) { make ~$/ }
+}
+my $map = KV.parse('a=1 b=two c=3', :actions(KVA)).made;
+say $map.keys.sort.map({ "$_={$map{$_}}" }).join(' ');
+--- expect
+A=1 B=two C=3
+
+=== rx-make-method-form-str
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:84
+license: Artistic-2.0
+feature: method make
+--- code
+my grammar F {
+    token TOP { <expr>+ }
+    token expr { <literal> | <directive> }
+    token literal { <-[\%]>+ }
+    token directive { '%' <[a..z]> }
+}
+my class FA {
+    method TOP($/) { make 'q!' ~ $<expr>».made.join("") ~ '!' }
+    method expr($/) { make $<literal> ?? $<literal>.made !! "<{$<directive>.made}>" }
+    method literal($/) { $/.make: $/.Str }
+    method directive($/) { $/.make: $/.Str.substr(1) }
+}
+say F.parse('%h - %u [%t]', :actions(FA)).made;
+--- expect
+q!<h> - <u> [<t>]!
+
+=== rx-array-capture-sigil
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/Colors.rakumod:113
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar Rgb {
+    rule TOP { :i [ 'rgba' | 'rgb' ] '(' <c>+ % ',' ')' }
+    token c { \d+ }
+}
+my class RA {
+    method TOP($/) {
+        my $type = @<c> == 4 ?? 'rgba' !! 'rgb';
+        make $type => @<c>».Int;
+    }
+}
+say Rgb.parse('rgb(1, 2, 3)', :actions(RA)).made.raku;
+say Rgb.parse('rgba(1,2,3,4)', :actions(RA)).made.raku;
+--- expect
+:rgb([1, 2, 3])
+:rgba([1, 2, 3, 4])
+
+=== rx-array-capture-hex-chr
+from: Config::TOML 0.1.3 lib/Config/TOML/Parser/Actions.rakumod:75
+license: Unlicense
+feature: method made
+--- code
+my grammar Esc {
+    token TOP { <escape>+ }
+    proto token escape {*}
+    token escape:sym<b> { '\\' <sym> }
+    token escape:sym<u> { '\\' <sym> <hex> ** 4 }
+    token hex { <[0..9A..Fa..f]> }
+}
+my class EA {
+    method TOP($/) { make $<escape>».made.join }
+    method escape:sym<b>($/) { make "\b" }
+    method escape:sym<u>($/) { make(chr(:16(@<hex>.join))); }
+}
+say Esc.parse(Q{\u0041\u00e9\b\u263A}, :actions(EA)).made.raku;
+--- expect
+"Aé\b☺"
+
+=== rx-hyper-str-list-made
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:298
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar Spec {
+    token TOP { <names> <type>? }
+    token names { <name>+ % '|' { make @<name>».Str.list } }
+    token name { <[\w-]>+ }
+    token type { '=' <[sif]> }
+}
+my $m = Spec.parse('verbose|v|debug=s');
+say $m<names>.made.raku;
+say $m<type>.Str;
+--- expect
+["verbose", "v", "debug"]
+=s
+
+=== rx-hyper-ast-slip
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:119
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar Ident {
+    token TOP { $<pfx>='-'? <nmstrt> <nmchar>* }
+    token nmstrt { <[_ a..z A..Z]> }
+    token nmchar { <[_ a..z A..Z 0..9 -]> }
+}
+my class IA {
+    method TOP($/) {
+        my $pfx = $<pfx> ?? '-' !! '';
+        make [~] $pfx, $<nmstrt>.ast, @<nmchar>».ast.Slip;
+    }
+    method nmstrt($/) { make $/.uc }
+    method nmchar($/) { make ~$/ }
+}
+say Ident.parse('-moz-box', :actions(IA)).ast;
+say Ident.parse('x', :actions(IA)).ast;
+--- expect
+-Moz-box
+-X
+
+=== rx-inline-make-in-token
+from: IO::Glob 0.9.0 lib/IO/Glob.pm6:144
+license: Artistic-2.0
+feature: call make
+--- code
+my grammar Base {
+    token TOP { <term>+ { make $<term>».made } }
+    token term {
+        || <match> { make $<match>.made }
+        || <char>  { make $<char>.made }
+    }
+    proto token match {*}
+    token char { $<char> = . { make $<char>.Str } }
+}
+my grammar SQL is Base {
+    token match:sym<%> { <sym> { make rx/.*?/ } }
+    token match:sym<_> { <sym> { make rx/./ } }
+}
+my @parts = SQL.parse('a%b_').made;
+say @parts.map({ $_ ~~ Regex ?? 'rx' !! $_ }).join(' ');
+my $re = @parts.reduce(-> $a, $b { rx/ $a $b / });
+say <ab axyzbq ab1 abc>.map({ so $_ ~~ /^ $re $/ }).join(' ');
+--- expect
+a rx b rx
+False True True True
+
+=== rx-inline-make-match-str
+from: LLM::Prompts 0.2.15 lib/LLM/Prompts/Grammarish.rakumod:32
+license: Artistic-2.0
+feature: call make
+--- code
+my grammar P {
+    token TOP { '@' <name> [ '|' <prompt-param-simple> ]* }
+    token name { \w+ }
+    token prompt-param-simple { <-[|\s]>+ { make $/.Str } }
+}
+my $m = P.parse('@Translate|German|formal');
+say $m<prompt-param-simple>».made.join(', ');
+--- expect
+German, formal
+
+=== rx-parse-with-rule-option
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:385
+license: Artistic-2.0
+feature: method parse
+--- code
+my grammar Parser {
+    token TOP { <name> <argument>? }
+    token name { \w+ }
+    token argument { '=' $<type>=<[sif]> $<repeat>=['@']? }
+}
+for '=s', '=i@', 'x' -> $pattern {
+    with Parser.parse($pattern, :rule('argument')) -> $match {
+        say "$pattern: type {$match<type>}", ($match<repeat> ?? ' repeated' !! '');
+    }
+    else {
+        say "$pattern: no argument";
+    }
+}
+--- expect
+=s: type s repeated
+=i@: type i repeated
+x: no argument
+
+=== rx-parse-rule-colonpair-name
+from: Config::TOML 0.1.3 lib/Config/TOML/Dumper.rakumod:128
+license: Unlicense
+feature: method parse
+--- code
+my grammar Key {
+    proto token keypair-key-single {*}
+    token keypair-key-single:bare { <+alnum +[-]>+ }
+    token keypair-key-single:quoted { '"' <-["]>* '"' }
+}
+for 'plain-key', 'needs quoting', '"quoted"' -> $key {
+    say "$key: ", Key.parse($key, :rule<keypair-key-single:bare>).so;
+}
+--- expect
+plain-key: True
+needs quoting: False
+"quoted": False
+
+=== rx-subparse-rule-actions
+from: PDF 0.6.15 lib/PDF/IO/Reader.rakumod:60
+license: Artistic-2.0
+feature: method subparse
+--- code
+my grammar COS {
+    rule trailer { 'trailer' '<<' <entry>* '>>' }
+    rule entry { '/' (\w+) (\d+) }
+}
+my class Scan {
+    method trailer($/) { make $<entry>.map({ ~.[0] => +.[1] }).Hash }
+}
+my $trailer = "  trailer << /Size 12 /Root 3 >>\nstartxref\n";
+my $parse = COS.subparse( $trailer.trim, :rule<trailer>, actions => Scan );
+say $parse.made.sort.map({ "{.key}={.value}" }).join(' ');
+say $parse.to, ' of ', $trailer.trim.chars;
+say so COS.parse($trailer.trim, :rule<trailer>);
+--- expect
+Root=3 Size=12
+31 of 40
+False
+
+=== rx-subparse-partial-prefix
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/MetaSpecsProcessing.rakumod:103
+license: Artistic-2.0
+feature: method subparse
+--- code
+my grammar Cmd {
+    rule TOP { 'use' <name> }
+    token name { \w+ }
+}
+my $command = 'use dfTitanic and then filter';
+my $res = Cmd.subparse($command);
+say $res.Str;
+say $res<name>.Str;
+say Cmd.parse($command).raku;
+--- expect
+use dfTitanic 
+dfTitanic
+Nil
+
+=== rx-parse-args-dynamic-flag
+from: DateTime::Grammar 0.1.3 lib/DateTime/Grammar.rakumod:20
+license: MIT
+feature: method parse
+--- code
+my role Grammarish {
+    token TOP($*extended) { <datetime-param-spec> }
+    token datetime-param-spec { <iso-date> | <day-spec> <?{$*extended}> }
+    token iso-date { \d**4 '-' \d**2 '-' \d**2 }
+    token day-spec { :i today | tomorrow }
+}
+my grammar DTG does Grammarish { }
+sub datetime-parse(Str:D $spec, Str:D :$rule = 'TOP', Bool :$extended = True) {
+    return DTG.parse($spec, :$rule, args => $rule eq 'TOP' ?? ($extended,) !! Empty);
+}
+say so datetime-parse('2024-01-05');
+say so datetime-parse('today');
+say so datetime-parse('today', :!extended);
+say so datetime-parse('Tomorrow', :rule<day-spec>);
+--- expect
+True
+True
+False
+True
+
+=== rx-parse-actions-made-loop
+from: TAP 0.3.15 lib/TAP.rakumod:346
+license: Artistic-2.0
+feature: method parse
+--- code
+my grammar Line {
+    token TOP { <test> }
+    token test { $<nok>=['not ']? 'ok' [\s+ $<num>=\d+]? [\s+ '-'? \s* $<desc>=\N*]? }
+}
+my class Actions {
+    method TOP($/) { make [ $<test>.made, ] }
+    method test($/) { make { :ok(!$<nok>), :num(+($<num> // 0)), :desc(~($<desc> // '')) } }
+}
+for 'ok 1 - first', 'not ok 2 second', 'ok' -> $line {
+    for Line.parse($line, :actions(Actions)).made -> $entry {
+        say $entry.keys.sort.map({ "$_=$entry{$_}" }).join(' ');
+    }
+}
+--- expect
+desc=first num=1 ok=False
+desc=second num=2 ok=False
+desc= num=0 ok=False
+
+=== rx-parse-ast-or-fail-elsif
+from: zef 1.1.4 lib/Zef/Identity.rakumod:44
+license: Artistic-2.0
+feature: method parse
+--- code
+my grammar REQUIRE {
+    token TOP { ^ <name> $ }
+    token name { [<-[:]>+]+ % '::' }
+}
+my class REQUIRE-Actions {
+    method TOP($/) { make { name => $<name>.Str } }
+}
+sub identity($id) {
+    if $id.starts-with('http') { 'url' }
+    elsif REQUIRE.parse($id, :actions(REQUIRE-Actions)).ast -> $ident {
+        "module {$ident<name>}"
+    }
+    else { 'unknown' }
+}
+say identity('https://x');
+say identity('JSON::Fast');
+say identity('Bad:Name');
+--- expect
+url
+module JSON::Fast
+unknown
+
+=== rx-made-defined-or-fail
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:444
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar Sel {
+    token TOP { <name>+ % ',' }
+    token name { \w+ }
+}
+my class SA { method TOP($/) { make $<name>».Str } }
+sub compile($css) {
+    Sel.parse($css, :actions(SA)).made // fail('syntax error in selector');
+}
+say compile('a,b,c');
+my $r = compile('a,,b');
+say $r.WHAT.^name;
+say $r.exception.message;
+--- expect
+[a b c]
+Failure
+syntax error in selector
+
+=== rx-grammar-inherits-overrides
+from: FEN::Grammar 0.0.7 lib/GFEN/Grammar.rakumod:3
+license: Artistic-2.0
+feature: node Grammar
+--- code
+my grammar FEN {
+    token TOP { <rank>+ % '/' }
+    token rank { [ <piece> | <empty> ]+ }
+    token piece { <[pnbrqkPNBRQK]> }
+    token empty { <[1..8]> }
+}
+my grammar GFEN is FEN {
+    token piece { <[pnbrqkPNBRQK]> | <[aA]> }
+}
+say so FEN.parse('rnbak/8');
+say so GFEN.parse('rnbak/8');
+say GFEN.parse('aA2/8')<rank>[0]<piece>.map(~*).join;
+say GFEN.^parents.map(*.^name).join(',');
+--- expect
+False
+True
+aA
+FEN,Grammar,Match,Capture
+
+=== rx-grammar-multiple-parents
+from: Email::Valid 1.0.7 lib/Email/Valid.rakumod:57
+license: Artistic-2.0
+feature: node Grammar
+--- code
+my grammar IPv4 {
+    token ipv4 { [\d ** 1..3] ** 4 % '.' }
+}
+my grammar IPv6 {
+    token ipv6 { <[0..9a..f:]>+ <?{ $/.contains(':') }> }
+}
+my grammar Tokens is IPv4 is IPv6 {
+    token TOP { <local> '@' [ <domain> | '[' [<ipv4> | <ipv6>] ']' ] }
+    token local { <[\w.+-]>+ }
+    token domain { [<[\w-]>+]+ % '.' }
+}
+for 'a@example.com', 'b@[10.0.0.1]', 'c@[fe80::1]', 'bad@[x]' -> $e {
+    with Tokens.parse($e) { say "$e: ", .<ipv4> ?? 'ipv4' !! .<ipv6> ?? 'ipv6' !! 'domain' }
+    else { say "$e: invalid" }
+}
+--- expect
+a@example.com: domain
+b@[10.0.0.1]: ipv4
+c@[fe80::1]: ipv6
+bad@[x]: invalid
+
+=== rx-grammar-role-composed-tokens
+from: LaTeX::Grammar 0.0.5 lib/LaTeX/Grammarish.rakumod:10
+license: Artistic-2.0
+feature: node Grammar
+--- code
+my role Grammarish {
+    token ws { \s* }
+    rule TOP { [ <command> ]+ }
+    token command { '\\' <name=.ident> [ '{' <arg> '}' ]? }
+    token arg { <-[}]>* }
+}
+my grammar LaTeX does Grammarish { }
+my $m = LaTeX.parse(Q{\section{Intro}  \newline \emph{x}});
+say $m<command>.map({ .<name> ~ (.<arg> ?? "({.<arg>})" !! '') }).join(' ');
+--- expect
+section(Intro) newline emph(x)

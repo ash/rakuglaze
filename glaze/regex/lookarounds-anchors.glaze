@@ -58,19 +58,16 @@ my grammar T {
     token num { \d+ ['.' \d+]? }
     proto rule term1 {*}
     rule term1:sym<num> {<num><!before ['%'|\w]>}
-    rule term1:sym<pct> {<num>'%'}
-    rule term1:sym<dim> {<num>\w+}
     token TOP { <term1> }
 }
 for <12 50% 3px 1.5> -> $s {
-    my $m = T.parse($s);
-    say $s, ' -> ', $m<term1>.keys.grep(* ne 'num').head // 'num';
+    say $s, ' -> ', so T.parse($s);
 }
 --- expect
-12 -> num
-50% -> num
-3px -> num
-1.5 -> num
+12 -> True
+50% -> False
+3px -> False
+1.5 -> True
 
 === rx-not-before-in-rule
 from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/Colors.rakumod:48
@@ -109,14 +106,19 @@ from: DSL::Shared 0.2.11 lib/DSL/Shared/Entity/Grammar/EntityNames.rakumod:15
 license: Artistic-2.0
 feature: regex ?after
 --- code
-my token name-punct-char { <[-_.]> }
-my regex wbpl { <!after [ <alnum> | <name-punct-char> ]> <?before [ <alnum> | <name-punct-char> ]> }
-my regex wbpr { <?after [ <alnum> | <name-punct-char> ]> <!before [ <alnum> | <name-punct-char> ]> }
+my grammar Names {
+    token name-punct-char { <[-_.]> }
+    regex wbpl { <!after [ <alnum> | <name-punct-char> ]> <?before [ <alnum> | <name-punct-char> ]> }
+    regex wbpr { <?after [ <alnum> | <name-punct-char> ]> <!before [ <alnum> | <name-punct-char> ]> }
+    regex hit { <.wbpl> 'data-frame' <.wbpr> }
+    regex TOP { [ <hit> || . ]* }
+}
 my $text = 'use data-frame and data-frames, not my-data-frame';
-say ($text ~~ m:g/ <.wbpl> 'data-frame' <.wbpr> /).map(*.from).join(',');
+say Names.parse($text)<hit>.map(*.from).join(',');
 say ($text ~~ m:g/ << 'data-frame' >> /).map(*.from).join(',');
 --- expect
-!! X::Method::NotFound
+4
+4,39
 
 === rx-after-before-around-placeholder
 from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:178
@@ -176,10 +178,12 @@ my regex v {
     ]
 }
 for <toy syzygy yes> -> $w {
-    say $w, ': ', $w.comb.keys.map({ $w ~~ /^ . ** {$_} <c>/ ?? 'C' !! $w ~~ /^ . ** {$_} <v>/ ?? 'v' !! '?' }).join;
+    say $w, ': ', (^$w.chars).map({ $w.match(/<c>/, :p($_)) ?? 'C' !! $w.match(/<v>/, :p($_)) ?? 'v' !! '?' }).join;
 }
 --- expect
-!! X::Syntax::Regex::QuantifierValue
+toy: CvC
+syzygy: CCCCCC
+yes: CvC
 
 === rx-not-after-escape-split
 from: Bailador 0.0.19 lib/Bailador/CLI.pm:39
@@ -230,13 +234,17 @@ from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:69
 license: Artistic-2.0
 feature: regex <( )>
 --- code
-my token IPv6address { <[0..9a..fA..F:]>+ }
-my token ip-literal { '[' <( <.IPv6address> )> ']' }
-my $m = 'http://[fe80::1]:80/' ~~ / <ip-literal> /;
+my grammar Iri {
+    token TOP { 'http://' <ip-literal> [':' \d+]? '/' }
+    token ip-literal { '[' <( <.IPv6address> )> ']' }
+    token IPv6address { <[0..9a..fA..F:]>+ }
+}
+my $m = Iri.parse('http://[fe80::1]:80/');
 say $m<ip-literal>.Str;
 say $m<ip-literal>.from, ' ', $m<ip-literal>.to;
 --- expect
-!! X::Method::NotFound
+fe80::1
+8 15
 
 === rx-capture-markers-tag-body
 from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:483

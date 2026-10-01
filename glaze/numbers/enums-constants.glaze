@@ -1,0 +1,433 @@
+# Enums with explicit values, enum introspection (.enums, .kv, .value,
+# .pred/.succ), constants (scalar, computed, list, hash, `but`), and
+# subsets over numbers.
+
+=== num-enum-colonpair-values
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/Frame.rakumod:4
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum Opcode (:Continuation(0),
+                :Text(1), :Binary(2),
+                :Close(8), :Ping(9), :Pong(10));
+say Opcode(9);
+say Close.value, ' ', Close.key, ' ', +Pong;
+say Opcode.enums.sort(*.value).map(*.key).join(' ');
+say Text ~~ Opcode, ' ', 1 ~~ Opcode, ' ', Opcode(3).defined;
+--- expect
+Ping
+8 Close 10
+Continuation Text Binary Close Ping Pong
+True False False
+
+=== num-enum-hex-pairs
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:482
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum OpenMode (:Read(0x10), :Write(0x20), :ReadWrite(0x30));
+for OpenMode::.values.sort -> $m {
+    say "$m {$m.value} {$m.value.base(16)}";
+}
+say ReadWrite.value +& Write.value == Write.value;
+--- expect
+Read 16 10
+Write 32 20
+ReadWrite 48 30
+True
+
+=== num-enum-pair-list-bits
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:7
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum CBORMajorType (
+    CBOR_UInt  => 0,
+    CBOR_NInt  => 1 +< 5,
+    CBOR_BStr  => 2 +< 5,
+    CBOR_TStr  => 3 +< 5,
+);
+say CBOR_TStr.value;
+say CBOR_NInt + 23;
+say CBORMajorType(64);
+say (CBOR_BStr +| 4).^name;
+--- expect
+96
+55
+CBOR_BStr
+Int
+
+=== num-enum-same-key-value
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Cookie.rakumod:30
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum SameSite ( |do {
+    <
+        Strict
+        Lax
+        None
+    >.map: { $_ => $_ }
+});
+my @same-site-opts = SameSite.enums.values.sort;
+say @same-site-opts;
+say SameSite('Lax');
+say Strict.value.^name;
+--- expect
+[Lax None Strict]
+Lax
+Str
+
+=== num-enum-enums-invert
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:13
+license: Artistic-2.0
+feature: method enums
+--- code
+my enum CSSObject (Rule => 'rule', Ruleset => 'ruleset');
+my enum CSSValue (ColorV => "color", NumV => "num");
+my %known-type =
+    %( CSSObject.enums.invert ),
+    %( CSSValue.enums.invert );
+say %known-type.sort(*.key).map({ "{.key}={.value}" }).join(' ');
+--- expect
+color=ColorV num=NumV rule=Rule ruleset=Ruleset
+
+=== num-enum-enums-exists
+from: CSS::Properties 0.10.9 lib/CSS/PageBox.rakumod:55
+license: Artistic-2.0
+feature: method enums
+--- code
+my enum PageSizes (A4 => [595, 842], LETTER => [612, 792]);
+for 'a4', 'letter', 'b5' {
+    my @length;
+    when PageSizes.enums{.uc}:exists {
+        @length = PageSizes.enums{.uc};
+        say "$_: @length[]";
+    }
+    default { say "$_: unknown" }
+}
+--- expect
+a4: 595 842
+letter: 612 792
+b5: unknown
+
+=== num-enum-enums-hash-lookup
+from: Date::Event 0.0.12 lib/Date/Event.rakumod:56
+license: Artistic-2.0
+feature: method enums
+--- code
+my enum EType (Birthday => 1, Anniversary => 2, Holiday => 3);
+sub etype(Str $v? --> UInt) {
+    my %m = EType.enums;
+    if $v.defined {
+        return %m{$v}
+    }
+    0
+}
+say etype('Holiday'), ' ', etype(), ' ', etype('Anniversary').^name;
+--- expect
+3 0 Int
+
+=== num-enum-bare-int-subset
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/Utils.rakumod:125
+license: MIT
+feature: decl subset
+--- code
+my enum < DEBUG INFO WARN ERROR DIE NOLOG >;
+my subset LEVEL of Int where { $_ >= DEBUG.Int && $_ <= ERROR.Int };
+say (^7).grep(LEVEL);
+say WARN ~~ LEVEL, ' ', DIE ~~ LEVEL;
+say NOLOG.Int, ' ', WARN.pred, ' ', WARN.succ, ' ', DEBUG.pred.raku;
+--- expect
+(0 1 2 3)
+True False
+5 INFO ERROR ::DEBUG
+
+=== num-enum-isset-grep
+from: BitEnum 0.5 lib/BitEnum.rakumod:60
+license: Artistic-2.0
+feature: method enums
+--- code
+my enum EnumBits (A => 1, B => 2, C => 4, D => 8);
+my class BitSet {
+    has $.value;
+    method isset($e) { so $!value +& $e.value }
+    method list() { EnumBits.enums.grep({ $.isset($_) }).sort(*.value).map(*.key) }
+}
+say BitSet.new(value => 13).list;
+say BitSet.new(value => 0).list.elems;
+--- expect
+(A C D)
+0
+
+=== num-enum-kv-pairs
+from: Constants::Sys::Socket 0.0.2 lib/Constants/Sys/Socket.pm6:56
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum SO (
+    SO_DEBUG     => 0x0001,
+    SO_REUSEADDR => 0x0004,
+    SO_KEEPALIVE => 0x0008,
+);
+say SO_REUSEADDR.kv;
+say SO_KEEPALIVE.pair;
+say SO::.keys.sort;
+say SO_DEBUG < SO_KEEPALIVE, ' ', SO_REUSEADDR.Numeric;
+--- expect
+(SO_REUSEADDR 4)
+SO_KEEPALIVE => 8
+(SO_DEBUG SO_KEEPALIVE SO_REUSEADDR)
+True 4
+
+=== num-succ-or-plus-one
+from: ORM::Factory 0.9.1 lib/ORM/Factory.rakumod:70
+license: Artistic-2.0
+feature: method succ
+--- code
+for 9, 'a9', 'Zz', 1.5 -> $start {
+    my $current = $start;
+    my @seq;
+    for ^3 {
+        @seq.push: $current;
+        $current = $current ~~ Numeric ?? $current + 1 !! $current.succ;
+    }
+    say @seq.join(' ');
+}
+--- expect
+9 10 11
+a9 b0 b1
+Zz AAa AAb
+1.5 2.5 3.5
+
+=== num-succ-subseconds-width
+from: DateTime::Format 0.1.5 lib/DateTime/Format.rakumod:51
+license: Artistic-2.0
+feature: method succ
+--- code
+for 0, 3, 6 -> $subseconds {
+    my $ff = "\%0{ 2 + $subseconds.succ }." ~ $subseconds ~ 'f';
+    say "$ff -> {sprintf($ff, 7.123456789)}";
+}
+say 5.pred, ' ', 0.5.succ, ' ', (-1).pred;
+--- expect
+%03.0f -> 007
+%06.3f -> 07.123
+%09.6f -> 07.123457
+4 1.5 -2
+
+=== num-constant-int-flags
+from: Cro::Core 0.8.10 lib/Cro/TCP/NoDelay.rakumod:8
+license: Artistic-2.0
+feature: decl constant
+--- code
+my constant TCP_NODELAY = 1;
+my constant SCRYPT_SALT_LEN = 16;
+my constant ASSOCF_OPEN_BYEXENAME = 0x2;
+say TCP_NODELAY + SCRYPT_SALT_LEN + ASSOCF_OPEN_BYEXENAME;
+say SCRYPT_SALT_LEN.^name, ' ', ASSOCF_OPEN_BYEXENAME;
+--- expect
+19
+Int 2
+
+=== num-constant-but-role
+from: DBIish 0.6.9 lib/DBDish/StatementHandle.rakumod:75
+license: BSD-2-Clause
+feature: infix but
+--- code
+my role IntTrue { method Bool { True } }
+my constant TRUE_ZERO = 0 but IntTrue;
+for 3, 0 -> $affected-rows {
+    my $rows = $affected-rows == 0 ?? TRUE_ZERO !! $affected-rows;
+    say "$rows {?$rows}";
+}
+say TRUE_ZERO + 5, ' ', TRUE_ZERO ~~ Int;
+--- expect
+3 True
+0 True
+5 True
+
+=== num-constant-lazy-range
+from: Dan 0.0.3 lib/Dan.rakumod:12
+license: Artistic-2.0
+feature: decl constant
+--- code
+my constant @alphi = 'A'..∞;
+say @alphi[^5];
+say @alphi[25..28];
+say @alphi.is-lazy;
+--- expect
+(A B C D E)
+(Z AA AB AC)
+False
+
+=== num-constant-computed-flat
+from: Text::MiscUtils 0.0.13 lib/Text/MiscUtils/Layout.rakumod:14
+license: Artistic-2.0
+feature: decl constant
+--- code
+my constant @markers = flat (1..9).map({ chr($_ + 0x2775) }), '│';
+say @markers.elems;
+say @markers.join;
+say @markers[0].ord.base(16);
+--- expect
+10
+❶❷❸❹❺❻❼❽❾│
+2776
+
+=== num-constant-hash-dow
+from: Date::Utils 0.7.0 lib/Date/Utils.rakumod:7
+license: Artistic-2.0
+feature: decl constant
+--- code
+my subset DoW of Int where { 0 < $_ < 8 }
+my constant %dow-hash = %(
+    1 => "Monday"    ,
+    2 => "Tuesday"   ,
+    7 => "Sunday"    ,
+);
+sub name(DoW $d) { %dow-hash{$d} // '?' }
+say name(1), ' ', name(7), ' ', name(3);
+say name(8);
+--- expect
+Monday Sunday ?
+!! X::TypeCheck::Binding::Parameter
+
+=== num-constant-svals-types
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:735
+license: Artistic-2.0
+feature: decl constant
+--- code
+my constant %svals = 20 => False, 21 => True, 22 => Any, 23 => Mu;
+for 20..23 -> $k {
+    my $v := %svals{$k};
+    say "$k {$v.^name} {$v.defined}";
+}
+--- expect
+20 Bool True
+21 Bool True
+22 Any False
+23 Mu False
+
+=== num-constant-sigilless-pow
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:21
+license: Artistic-2.0
+feature: infix ∘
+--- code
+my constant MASK = 2**32;
+my constant K = blob32.new: map &floor ∘ * * MASK ∘ &abs ∘ &sin ∘ * + 1, ^4;
+say MASK;
+say K.map(*.base(16)).join(' ');
+--- expect
+4294967296
+D76AA478 E8C7B756 242070DB C1BDCEEE
+
+=== num-subset-real-range
+from: Color 1.004001 lib/Color.rakumod:6
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset ValidRGB of Real where 0 <= $_ <= 255;
+sub channel(ValidRGB $c) { $c.round }
+say channel(127.6);
+say channel(0);
+say 256 ~~ ValidRGB, ' ', -0.1 ~~ ValidRGB, ' ', '12' ~~ ValidRGB;
+say channel(300);
+--- expect
+128
+0
+False False False
+!! X::TypeCheck::Binding::Parameter
+
+=== num-subset-status-code
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Response.rakumod:67
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset StatusCode of Int where { 100 <= $_ <= 599 }
+my class Response {
+    has StatusCode $.status is rw = 200;
+}
+my $r = Response.new(status => 404);
+say $r.status;
+$r.status = 600;
+say $r.status;
+--- expect
+404
+!! X::TypeCheck::Assignment
+
+=== num-subset-port-where-chain
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:8
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset Port of Int where 0 <= $_ <= 65535;
+my Port $p = 6667;
+say $p;
+say (-1, 0, 65535, 65536, 80.0).map({ $_ ~~ Port }).join(' ');
+--- expect
+6667
+False True True False False
+
+=== num-subset-num-whatever
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Backend/Settings.rakumod:3
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset Probability of Num where 0 <= * <= 1;
+my subset PositiveInt of Int where * >= 0;
+say 0.5e0 ~~ Probability, ' ', 0.5 ~~ Probability, ' ', 1.5e0 ~~ Probability;
+say 0 ~~ PositiveInt, ' ', -3 ~~ PositiveInt;
+my Probability $t = 0.7e0;
+say $t;
+--- expect
+True False False
+True False
+0.7
+
+=== num-subset-numeric-junction
+from: OpenSSL 0.2.9 lib/OpenSSL.rakumod:28
+license: MIT
+feature: decl subset
+--- code
+my subset ProtocolVersion of Numeric where * == 2| 3| 1| 1.1| 1.2| 1.3| -1;
+for 1.2, 1.25, -1, 3e0, 4 {
+    say "$_: {$_ ~~ ProtocolVersion}";
+}
+--- expect
+1.2: True
+1.25: False
+-1: True
+3: True
+4: False
+
+=== num-subset-literal-zero
+from: LibXML 0.11.3 lib/LibXML/XPath/Context.rakumod:221
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset Zero of Int where 0;
+multi sizeof(Zero) { 'empty' }
+multi sizeof(Int $n) { "$n items" }
+say sizeof(0);
+say sizeof(3);
+say 0.0 ~~ Zero, ' ', 0 ~~ Zero;
+--- expect
+empty
+3 items
+False True
+
+=== num-uint-typed-var
+from: Air 0.1.32 lib/Air/Component.rakumod:268
+license: Artistic-2.0
+feature: type UInt
+--- code
+my  UInt $next = 1;
+$next++ for ^3;
+say $next;
+say UInt.^name, ' ', 5 ~~ UInt, ' ', -5 ~~ UInt, ' ', 5.0 ~~ UInt;
+$next = -1;
+--- expect
+4
+UInt True False False
+!! X::TypeCheck::Assignment

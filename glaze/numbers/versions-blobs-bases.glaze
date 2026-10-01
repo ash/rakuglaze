@@ -1,0 +1,465 @@
+# Version objects, numeric Blob/Buf access, and radix conversion
+# (.base, .parse-base, :16<..>) as modules use them.
+
+=== num-version-from-int-parts
+from: DBIish 0.6.9 lib/DBDish/Pg.rakumod:89
+license: BSD-2-Clause
+feature: method Version
+--- code
+for 160004, 90624 -> $libver {
+    my $ver = $libver;
+    $ver = Version.new((gather for ^3 { take $ver mod 100; $ver div= 100 }).reverse);
+    say $ver, ' ', $ver.parts.elems;
+}
+--- expect
+v16.0.4 3
+v9.6.24 3
+
+=== num-version-before-literal
+from: Duckie 0.0.12 lib/Duckie.rakumod:657
+license: MIT
+feature: method Version
+--- code
+for 'v1.0.0', 'v1.1.0', 'v1.10.2' -> $s {
+    my $ver = Version.new($s.subst(/^'v'/, ''));
+    say $ver before v1.1.0 ?? "$ver too old" !! "$ver ok";
+}
+--- expect
+1.0.0 too old
+1.1.0 ok
+1.10.2 ok
+
+=== num-version-strip-v-part
+from: META6 0.0.31 lib/META6.rakumod:221
+license: Artistic-2.0
+feature: method parts
+--- code
+sub unmarsh-version( $v --> Version ) {
+    my $ver = Version.new($v.Str);
+    if $ver.parts[0] eq 'v' {
+        my @parts = $ver.parts;
+        @parts.shift;
+        $ver = Version.new(@parts.join('.'));
+    }
+    $ver
+}
+say unmarsh-version('0.0.1').parts;
+say unmarsh-version('1.2.3').parts.map(*.^name);
+--- expect
+(0 0 1)
+(Int Int Int)
+
+=== num-version-specificity
+from: CSS::Stylesheet 0.1.5 lib/CSS/Selectors.rakumod:42
+license: Artistic-2.0
+feature: method Version
+--- code
+my @specs = (0, 1, 2), (1, 0, 0), (0, 1, 10), (0, 2, 0);
+my @v = @specs.map(-> ($id, $class, $type) { Version.new: ($id, $class, $type).join: '.' });
+say @v.sort.join(' ');
+say @v.max;
+say v0.1.10 cmp v0.1.2;
+--- expect
+0.1.2 0.1.10 0.2.0 1.0.0
+v1.0.0
+More
+
+=== num-version-from-match-array
+from: Filetype::Magic 0.0.5 lib/Filetype/Magic.pm6:108
+license: Artistic-2.0
+feature: method Version
+--- code
+for 545, 5045 -> $magic-version {
+    $magic-version ~~ /(\d) (\d+)/;
+    my $v = Version.new([$0, $1]);
+    say $v, ' ', $v ~~ Version:D;
+}
+--- expect
+v5.45 True
+v5.045 True
+
+=== num-version-ge-literal
+from: LibXML 0.11.3 lib/LibXML/DocumentFragment.rakumod:146
+license: Artistic-2.0
+feature: method Version
+--- code
+for v2.9.14, v2.14.0, v2.14.3, v3 -> $version {
+    say "$version: ", $version >= v2.14.0 ?? 'new api' !! 'old api';
+}
+say v1.2 eqv v1.2.0, ' ', v1.2 == v1.2.0;
+--- expect
+2.9.14: old api
+2.14.0: new api
+2.14.3: new api
+3: new api
+True True
+
+=== num-version-major-part
+from: Sparrow6 0.0.96 lib/Sparrow6/Task/Repository/Helpers/Plugin.rakumod:291
+license: Artistic-2.0
+feature: method parts
+--- code
+for '0.2.5', '12.0', '3' -> $version {
+    my $major = Version.new($version).parts[0];
+    say "$version major $major {$major.^name}";
+}
+my $version = v2.1.0;
+say sprintf("lib%s.so.%d", "secp256k1", $version.parts.head);
+--- expect
+0.2.5 major 0 Int
+12.0 major 12 Int
+3 major 3 Int
+libsecp256k1.so.2
+
+=== num-version-constant-literal
+from: DBIish 0.6.9 lib/DBDish/Oracle/Native.rakumod:7
+license: BSD-2-Clause
+feature: decl constant
+--- code
+my constant libver = v12.1;
+say libver;
+say libver.^name, ' ', libver.parts;
+say libver.Str, ' ', libver.gist, ' ', libver.raku;
+--- expect
+v12.1
+Version (12 1)
+12.1 v12.1 v12.1
+
+=== num-version-draft-string
+from: Crust 0.0.1 lib/HTTP/Message/P6W.pm6:35
+license: Artistic-2.0
+feature: method Version
+--- code
+my %env = 'p6w.version' => Version.new("0.7.Draft");
+my $v = %env<p6w.version>;
+say $v;
+say $v.parts.map(*.^name).join(' ');
+say $v cmp v0.7.1, ' ', $v cmp v0.6;
+--- expect
+v0.7.Draft
+Int Int Str
+Less More
+
+=== num-buf-write-uint16-be
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/FrameSerializer.rakumod:28
+license: Artistic-2.0
+feature: method write-uint16
+--- code
+for 5, 300, 70000 -> $payload-len {
+    my $message = Buf.new(0x81, 0);
+    if $payload-len < 126 {
+        $message[1] = $payload-len;
+    }
+    elsif $payload-len < 65536 {
+        $message[1] = 126;
+        $message.write-uint16(2, $payload-len, BigEndian);
+    }
+    else {
+        $message[1] = 127;
+        $message.write-uint64(2, $payload-len, BigEndian);
+    }
+    say $message.list.fmt('%02x');
+}
+--- expect
+81 05
+81 7e 01 2c
+81 7f 00 00 00 00 00 01 11 70
+
+=== num-buf-read-uint16-be
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/FrameParser.rakumod:73
+license: Artistic-2.0
+feature: method read-uint16
+--- code
+my $buffer = Buf.new(0x81, 0x7E, 0x01, 0x2C, 0xAA);
+my $payload-len = $buffer.read-uint16(2, BigEndian);
+say $payload-len;
+say $buffer.read-uint16(2, LittleEndian);
+say $buffer.read-uint8(4), ' ', $buffer.read-int8(4);
+--- expect
+300
+11265
+170 -86
+
+=== num-buf-read-uint32-le
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Core.rakumod:92
+license: Artistic-2.0
+feature: method read-uint32
+--- code
+my $locations = blob8.new(0x10, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF);
+my uint32 $from      = $locations.read-uint32(0, LittleEndian);
+my uint32 $to        = $locations.read-uint32(4, LittleEndian);
+say "$from $to";
+say $locations.read-int32(4, LittleEndian);
+say $locations.read-uint32(0, BigEndian);
+--- expect
+16 4294967295
+-1
+268435456
+
+=== num-buf-write-uint32-append
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:7
+license: Artistic-2.0
+feature: method write-uint32
+--- code
+my buf8 $buf .= new;
+$buf.write-uint32: $buf.elems, $_, LittleEndian for 0x67452301, 0xEFCDAB89;
+say $buf.elems;
+say $buf.list.fmt('%02x', '');
+--- expect
+8
+0123456789abcdef
+
+=== num-buf-write-uint32-mid
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:71
+license: Artistic-2.0
+feature: method write-uint32
+--- code
+my $salt = Blob.new(1, 2, 3);
+my $previous = Buf.new(0xAA);
+$previous.write-uint32($salt.elems, 1, BigEndian);
+say $previous.list;
+my $b = Buf.new;
+$b.write-uint64(0, 2**40 + 1, BigEndian);
+say $b.list;
+--- expect
+(170 0 0 0 0 0 1)
+(0 0 1 0 0 0 0 1)
+
+=== num-buf-num32-bits
+from: TinyFloats 0.0.5 lib/TinyFloats.rakumod:9
+license: Artistic-2.0
+feature: method write-num32
+--- code
+for 1e0, -2.5e0, 0e0 -> $num {
+    my $uint = buf8.write-num32(0, $num).read-uint32(0);
+    my $sign = ($uint +& 0x80000000) +> 16;
+    my $exp  =  $uint +& 0x7F800000;
+    say "{$uint.base(16)} $sign {$exp +> 23}";
+}
+--- expect
+3F800000 0 127
+C0200000 32768 128
+0 0 0
+
+=== num-buf-num64-roundtrip
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:743
+license: Artistic-2.0
+feature: method read-num64
+--- code
+my $cbor = buf8.new;
+$cbor.write-num64(1, 1.5e0, BigEndian);
+say $cbor.list.fmt('%02x');
+my num64 $v = $cbor.read-num64(1, BigEndian);
+say $v;
+my $nan = buf8.new.write-num64(0, NaN, BigEndian);
+say $nan.read-uint8(0) +& 0x80, ' ', $nan.read-num64(0, BigEndian).isNaN;
+--- expect
+00 3f f8 00 00 00 00 00 00
+1.5
+0 True
+
+=== num-blob-subbuf-compare
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:87
+license: Artistic-2.0
+feature: method subbuf
+--- code
+my $client-nonce = Blob.new(1, 2, 3);
+for Blob.new(1, 2, 3, 9, 9), Blob.new(1, 2, 4, 9) -> $joined-nonce {
+    say $joined-nonce.subbuf(0, $client-nonce.elems) eq $client-nonce ?? 'ok' !! 'Incomplete nonce';
+}
+say Blob.new(5, 6, 7, 8).subbuf(1).list, ' ', Blob.new(5, 6, 7, 8).subbuf(*-2).list;
+--- expect
+ok
+Incomplete nonce
+(6 7 8) (7 8)
+
+=== num-blob-subbuf-mask-xor
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/FrameParser.rakumod:38
+license: Artistic-2.0
+feature: method subbuf
+--- code
+my $buffer = Blob.new(0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58);
+my $pos = 2;
+my $mask       = $buffer.subbuf($pos, 4);
+my $payload    = $buffer.subbuf($pos + 4);
+say Blob.new($payload.list.kv.map(-> $i, $b { $b +^ $mask[$i % 4] })).decode;
+--- expect
+Hello
+
+=== num-blob-bytes-elems
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodySerializers.rakumod:27
+license: Artistic-2.0
+feature: method bytes
+--- code
+my $body = 'héllo'.encode;
+say $body.bytes, ' ', $body.elems;
+my $wide = buf16.new(1, 2, 3);
+say $wide.bytes, ' ', $wide.elems;
+say buf32.new(0xFFFFFFFF + 1, 7).list;
+--- expect
+6 6
+6 3
+(0 7)
+
+=== num-blob-typed-uint8
+from: Image::PNG::Portable 0.3.2 lib/Image/PNG/Portable.rakumod:112
+license: Artistic-2.0
+feature: type Blob[uint8]
+--- code
+my @type = 'IHDR'.encode.list;
+my @data = 0, 0, 1, 0;
+my $chunk = Blob[uint8].new: @type.list, @data.list;
+say $chunk.^name;
+say $chunk.list;
+say Blob[uint8].new(256, -1).list;
+--- expect
+Blob[uint8]
+(73 72 68 82 0 0 1 0)
+(0 255)
+
+=== num-blob-from-ords
+from: Base64 0.1.0 lib/Base64.rakumod:12
+license: Artistic-2.0
+feature: type Blob
+--- code
+my $b = Blob.new('Raku'.ords);
+say $b.list;
+say $b.decode;
+say [+] $b.list;
+say $b.list.map(* % 16).join(',');
+--- expect
+(82 97 107 117)
+Raku
+403
+2,1,11,5
+
+=== num-base16-hex-pairs
+from: Bitcoin::Core::Secp256k1 0.0.28 lib/Bitcoin/Core/Secp256k1.rakumod:70
+license: Artistic-2.0
+feature: radix :16
+--- code
+my $privkey = '0a1bff00';
+my $keybuf     = buf8.new(($privkey ~~ m:g/../).map({ :16($_.Str)}));
+say $keybuf.list;
+say :16<ff>, ' ', :2<1010>, ' ', :8<777>, ' ', :36<zz>;
+say 0xff + 0b11 + 0o17;
+--- expect
+(10 27 255 0)
+255 10 511 1295
+273
+
+=== num-radix-decode-percents
+from: Cro::Core 0.8.10 lib/Cro/ResourceIdentifier.rakumod:11
+license: Artistic-2.0
+feature: radix :16
+--- code
+sub decode-percents(Str $s) {
+    $s.contains('%')
+            ?? $s.subst(:g, /['%' (<[A..Fa..f0..9]> ** 2)]+/,
+                    -> $perseq {
+                        Blob.new($perseq[0].map({ :16(.Str) })).decode('utf8')
+                    })
+            !! $s
+}
+say decode-percents('a%20b%C3%A9c');
+say decode-percents('plain');
+--- expect
+a béc
+plain
+
+=== num-parse-base-hex-digest
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/Hash.rakumod:124
+license: Artistic-2.0
+feature: method parse-base
+--- code
+my $hex = '00ff10';
+say $hex.parse-base(16);
+say 'deadBEEF'.parse-base(16).base(2).chars;
+say '-101'.parse-base(2), ' ', 'z'.parse-base(36), ' ', '1.8'.parse-base(16);
+--- expect
+65296
+32
+-5 35 1.5
+
+=== num-parse-base-fnv-mod
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Testing/Fixtures.rakumod:30
+license: Artistic-2.0
+feature: method parse-base
+--- code
+my $label-hex = '811c9dc5abcdef01';
+my $id = $label-hex.substr(0, 8).parse-base(16) % 1_000_000_000 + 1;
+say $id;
+--- expect
+166136262
+
+=== num-parse-base-binary-sextets
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:410
+license: Artistic-2.0
+feature: method parse-base
+--- code
+sub base64-encode ( Blob $blob --> Str ) {
+    my constant %enc = ( 'A'...'Z', 'a'...'z', 0...9, '+', '/' ).pairs;
+    my $out = $blob».fmt('%08b').join.comb(6)
+        .map({ %enc{ .fmt('%-6s').subst(' ', '0', :g).parse-base(2) } })
+        .join;
+    $out ~ '=' x (-$out.chars % 4)
+}
+say base64-encode('Man'.encode);
+say base64-encode('Ma'.encode);
+--- expect
+TWFu
+TWE=
+
+=== num-base-chunk-header
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/RequestSerializer.rakumod:32
+license: Artistic-2.0
+feature: method base
+--- code
+for 10, 255, 4096 -> $elems {
+    my $header = ($elems.base(16) ~ "\r\n").encode('ascii');
+    say $header.decode.trim, ' ', $header.bytes;
+}
+say 255.base(2), ' ', 255.base(36), ' ', (-10).base(16), ' ', 0.5.base(2);
+--- expect
+A 3
+FF 4
+1000 6
+11111111 73 -A 0.1
+
+=== num-base-surrogate-escape
+from: JSON::Fast 0.21.0 lib/JSON/Fast.pm6:162
+license: Artistic-2.0
+feature: method base
+--- code
+my $ord = '😀'.ord;
+my $v = $ord - 0x10000;
+my ($top, $bottom) = $v +> 10, $v +& 0x3FF;
+say Q/\u/ ~ (0xD800 + $top).base(16) ~ Q/\u/ ~ (0xDC00 + $bottom).base(16);
+--- expect
+\uD83D\uDE00
+
+=== num-base-percent-escape
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:352
+license: Artistic-2.0
+feature: method base
+--- code
+say 'é ü'.Str.encode('utf8').list.map({ $_ > 16 ?? "%" ~ .base(16) !! "%0" ~ .base(16) }).join;
+say "\t".encode.list.map({ $_ > 16 ?? "%" ~ .base(16) !! "%0" ~ .base(16) }).join;
+--- expect
+%C3%A9%20%C3%BC
+%09
+
+=== num-base-fixed-digits
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/Packer.rakumod:119
+license: Artistic-2.0
+feature: method base
+--- code
+for 0.375, 0.8125 -> $frac-shifted {
+    my $grs = (($frac-shifted - $frac-shifted.Int) * 2**3).base(2).Int;
+    say "$frac-shifted $grs";
+}
+say 3.14159.base(10, 2), ' ', (1/3).base(2, 8), ' ', 255.5.base(16);
+--- expect
+0.375 11
+0.8125 110
+3.14 0.01010101 FF.8

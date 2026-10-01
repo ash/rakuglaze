@@ -1,0 +1,367 @@
+# Definedness and truth as modules test them: .defined, .DEFINITE,
+# :D/:U smartmatch, Nil checks, === on type objects, prefix ? / ! / so /
+# not, .so, .Bool.
+
+=== num-defined-ternary-default
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:44
+license: Artistic-2.0
+feature: method defined
+--- code
+for 1.75, Nil, 0 -> $reqtime {
+    say ($reqtime.defined ?? $reqtime.Int !! '-');
+}
+--- expect
+1
+-
+0
+
+=== num-not-defined-default-step
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:444
+license: Artistic-2.0
+feature: method defined
+--- code
+sub advance($pos, $steps is copy = Nil) {
+    $steps = 1 if !$steps.defined;
+    $pos + $steps
+}
+say advance(10);
+say advance(10, 0);
+say advance(10, 5);
+--- expect
+11
+10
+15
+
+=== num-defined-skip-zero-key
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:51
+license: Artistic-2.0
+feature: method defined
+--- code
+my %ast = '0' => 'x', color => 'red', margin => Any, width => 0;
+my @kept;
+for %ast.sort(*.key) -> (:$key, :$value) {
+    next if $key eq '0' || !$value.defined;
+    @kept.push: "$key=$value";
+}
+say @kept.join(' ');
+--- expect
+color=red width=0
+
+=== num-defined-or-match
+from: CSS::Stylesheet 0.1.5 lib/CSS/Stylesheet.rakumod:83
+license: Artistic-2.0
+feature: method defined
+--- code
+my class Rule {
+    has $.media;
+    method applies($query) { !$!media.defined || !$query.defined || $query ~~ $!media }
+}
+say Rule.new.applies('print');
+say Rule.new(media => 'screen').applies(Str);
+say Rule.new(media => 'screen').applies('screen');
+say Rule.new(media => 'screen').applies('print');
+--- expect
+True
+True
+True
+False
+
+=== num-smartmatch-str-defined
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/ReverseProxy.rakumod:26
+license: Artistic-2.0
+feature: smiley :D
+--- code
+for 'http://x/', Str, 42 -> $to {
+    my $kind = $to ~~ Str:D ?? 'url' !! $to ~~ Str:U ?? 'type object' !! 'other';
+    say "{$to.^name}: $kind";
+}
+--- expect
+Str: url
+Str: type object
+Int: other
+
+=== num-smartmatch-any-undefined-junction
+from: CSS::Properties 0.10.9 lib/CSS/Properties/PropertyInfo.rakumod:85
+license: Artistic-2.0
+feature: smiley :U
+--- code
+for { top => 1, left => 2, bottom => 3, right => 4 }, { top => 1, left => 2 } -> %edges {
+    if %edges{"top"|"left"|"bottom"|"right"} ~~ Any:U {
+        say "missing edges";
+    }
+    else {
+        say "all edges: {%edges.values.sum}";
+    }
+}
+--- expect
+all edges: 10
+missing edges
+
+=== num-smartmatch-all-pair-defined
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows.rakumod:173
+license: Artistic-2.0
+feature: smiley :D
+--- code
+for [a => 1, b => 2], [a => 1, 'b'], [Pair, a => 1] -> @sqlParts {
+    say @sqlParts.all ~~ Pair:D ?? 'pairs' !! 'mixed';
+}
+--- expect
+pairs
+mixed
+mixed
+
+=== num-defined-and-what-identity
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Type.rakumod:34
+license: Artistic-2.0
+feature: method WHAT
+--- code
+my class TypeMatcher {
+    has Mu $.type is required;
+    method matches($actual --> Bool) {
+        ?($actual.defined && $actual.WHAT === $!type);
+    }
+}
+my $m = TypeMatcher.new(type => Int);
+say $m.matches(42), ' ', $m.matches(Int), ' ', $m.matches(<42>), ' ', $m.matches(42.0);
+--- expect
+True False False False
+
+=== num-definite-either
+from: Cro::Core 0.8.10 lib/Cro/MessageWithBody.rakumod:21
+license: Artistic-2.0
+feature: method DEFINITE
+--- code
+my class Msg {
+    has $.body;
+    has $.body-byte-stream;
+    method has-body() {
+        $!body.DEFINITE || $!body-byte-stream.DEFINITE
+    }
+}
+say Msg.new.has-body;
+say Msg.new(body => '').has-body;
+say Msg.new(body-byte-stream => 0).has-body;
+say Int.DEFINITE, ' ', 0.DEFINITE;
+--- expect
+False
+True
+True
+False True
+
+=== num-smartmatch-nil-skip
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:1054
+license: Artistic-2.0
+feature: term Nil
+--- code
+my %h = a => 1, b => Nil, c => 0, d => Any;
+my @parts;
+for %h.keys.sort -> $k {
+    my $v = %h{$k};
+    next if $v ~~ Nil;
+    @parts.push: "$k: {$v // 'null'}";
+}
+say @parts.join(', ');
+say Nil ~~ Nil, ' ', Any ~~ Nil, ' ', (my $x = Nil).^name;
+--- expect
+a: 1, b: null, c: 0, d: null
+True False Any
+
+=== num-nil-identity-check
+from: CSS::Properties 0.10.9 lib/CSS/Font.rakumod:135
+license: Artistic-2.0
+feature: term Nil
+--- code
+sub lookup($name) { $name eq 'fc' ?? 'FontConfig' !! Nil }
+for 'fc', 'none' {
+    my $FontConfig := lookup($_);
+    if $FontConfig === Nil {
+        say "$_: not loaded";
+    }
+    else {
+        say "$_: $FontConfig";
+    }
+}
+my $s = lookup('none');
+say $s === Nil, ' ', $s.^name;
+--- expect
+fc: FontConfig
+none: not loaded
+False Any
+
+=== num-return-nil-without
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:23
+license: Artistic-2.0
+feature: prefix so
+--- code
+sub convert($value --> Bool) {
+    return Nil without $value;
+    if $value ~~ Str {
+        if $value.lc eq 'false' || $value eq '0' || $value.chars == 0 {
+            return False;
+        }
+    }
+    return so $value;
+}
+say convert($_).raku for 'yes', 'FALSE', '0', '', 1, 0, Any;
+--- expect
+Bool::True
+Bool::False
+Bool::False
+Bool::False
+Bool::True
+Bool::False
+Nil
+
+=== num-prefix-question-compare
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:52
+license: Artistic-2.0
+feature: prefix ?
+--- code
+my %meta = slow => True, tag => 'db';
+my %actual = slow => 1, tag => 'db';
+my $ok = True;
+for %meta.sort(*.key) -> (:key($k), :value($v)) {
+    my $actual = %actual{$k};
+    $ok = False unless $actual.defined;
+    if $v ~~ Bool {
+        $ok = False unless ?$actual == $v;
+    }
+    else {
+        $ok = False unless $actual eq $v;
+    }
+}
+say $ok;
+--- expect
+True
+
+=== num-prefix-question-ternary-named
+from: Base64 0.1.0 lib/Base64.rakumod:9
+license: Artistic-2.0
+feature: prefix ?
+--- code
+proto sub encode(|) {*}
+multi sub encode(Bool:D :$pad!, |c) { samewith(:pad(?$pad ?? '=' !! ''), |c) }
+multi sub encode(Bool:D :$uri! where *.so, |c) { samewith(:alpha<uri>, |c) }
+multi sub encode(Str:D :$pad = "=", Str:D :$alpha = "std") { "$alpha pad<$pad>" }
+say encode(:pad);
+say encode(:!pad);
+say encode(:uri);
+say encode();
+say encode(:!uri);
+--- expect
+std pad<=>
+std pad<>
+uri pad<=>
+std pad<=>
+!! X::Multi::NoMatch
+
+=== num-prefix-question-return
+from: DBIish 0.6.9 lib/DBDish/Pg/Connection.rakumod:101
+license: BSD-2-Clause
+feature: prefix ?
+--- code
+sub ping($status) { return ?$status; }
+say ping(1), ' ', ping(0), ' ', ping('0'), ' ', ping('0.0'), ' ', ping(()), ' ', ping(0e0), ' ', ping(<0>);
+--- expect
+True False True True False False False
+
+=== num-so-set-membership
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:16
+license: Artistic-2.0
+feature: prefix so
+--- code
+my constant PARALLEL-MODES = set <thread process off>;
+my constant DEFAULT-PARALLEL-MODE = 'off';
+sub resolve-parallel-mode($requested --> Str) {
+    ($requested // DEFAULT-PARALLEL-MODE).lc;
+}
+sub is-parallel-mode(Str $mode --> Bool) {
+    so $mode ∈ PARALLEL-MODES;
+}
+say resolve-parallel-mode(Str);
+say is-parallel-mode(resolve-parallel-mode('THREAD'));
+say is-parallel-mode('fork');
+--- expect
+off
+True
+False
+
+=== num-so-first-found
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Message.rakumod:80
+license: Artistic-2.0
+feature: prefix so
+--- code
+my class H { has $.name }
+my @headers = H.new(name => 'Content-Type'), H.new(name => 'Host');
+sub has-header($name) {
+    my $folded = $name.fc;
+    so @headers.first(*.name.fc eq $folded)
+}
+say has-header('host'), ' ', has-header('Accept');
+--- expect
+True False
+
+=== num-not-condition
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:28
+license: Artistic-2.0
+feature: prefix not
+--- code
+for 0, 0.5, 1, -0.1 -> $hours {
+    if not (0 <= $hours < 1) {
+        say "$hours out of range";
+    }
+    else {
+        say "$hours ok";
+    }
+}
+say not 0, ' ', (not 1).^name;
+--- expect
+0 ok
+0.5 ok
+1 out of range
+-0.1 out of range
+True Bool
+
+=== num-method-so-grep
+from: Air 0.1.32 lib/Air/Base.rakumod:561
+license: Artistic-2.0
+feature: method so
+--- code
+my @path = '', 'docs', '', 'intro', 0, '0';
+say '/' ~ @path.grep(*.so).join('/');
+say @path.map(*.so).join(' ');
+--- expect
+/docs/intro/0
+False True False True False True
+
+=== num-method-so-ternary
+from: PDF 0.6.15 lib/PDF/IO/Writer.rakumod:196
+license: Artistic-2.0
+feature: method so
+--- code
+sub write-bool($_) { .so ?? 'true' !! 'false'; }
+say write-bool($_) for True, False, 1, 0, 'x', '', Any;
+--- expect
+true
+false
+true
+false
+true
+false
+false
+
+=== num-method-bool-int
+from: Gnome::N 0.1.54 lib/Gnome/N/GnomeRoutineCaller.rakumod:545
+license: Artistic-2.0
+feature: method Bool
+--- code
+for Bool, Int -> $type {
+    my $v = [1];
+    my $c = $type ~~ Bool ?? $v[0].Bool !! $v[0].Int;
+    say "{$c.^name} $c";
+}
+say 0.Bool, ' ', 0.0.Bool, ' ', "0".Bool, ' ', "".Bool, ' ', 0e0.Bool, ' ', NaN.Bool;
+--- expect
+Bool True
+Int 1
+False False True False False True

@@ -2,7 +2,8 @@ unit module Rakuglaze::Fire;
 use Rakuglaze::Format;
 
 # One engine process runs many snippets. Each snippet is EVAL'd on its own,
-# so a parse error or an exception sinks that snippet and nothing else; a
+# inside a sub of its own so it starts with a fresh $_ and $/, and a parse
+# error or an exception sinks that snippet and nothing else; a
 # record separator (U+001E) and the snippet's index go to stdout before it,
 # and the runner cuts stdout at those markers. An engine that dies or hangs
 # mid-chunk is charged to the snippet after the last marker, and the chunk
@@ -51,8 +52,8 @@ sub program(@snippets --> Str) is export {
     my $p = "use MONKEY-SEE-NO-EVAL;\n";
     for @snippets.kv -> $i, $s {
         $p ~= "print \"\\x[1E]$i\\n\"; \$*OUT.flush;\n";
-        $p ~= "try \{ EVAL Q:to/END_GLAZE_{$i}/;\n{$s.code}END_GLAZE_{$i}\n";
-        $p ~= "CATCH \{ default \{ say '!! ' ~ .^name \} \} \}\n";
+        $p ~= "sub \{ try \{ EVAL Q:to/END_GLAZE_{$i}/;\n{$s.code}END_GLAZE_{$i}\n";
+        $p ~= "CATCH \{ default \{ say '!! ' ~ .^name \} \} \} }();\n";
     }
     $p ~= "print \"\\x[1E]end\\n\";\n";
     $p

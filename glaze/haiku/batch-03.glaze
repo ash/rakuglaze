@@ -1,0 +1,1111 @@
+=== hk-03-subbuf-method
+from: Pakku celastrina.6 lib/Pakku/HTTP.rakumod:1000
+license: Artistic-2.0
+feature: method subbuf
+--- code
+my $body = buf8.new(72, 101, 108, 108, 111);
+my $_ = 2;
+my $head = $body.subbuf(0, $_ + 2);
+say $head;
+--- expect
+Buf[uint8]:0x<48 65 6C 6C>
+
+=== hk-03-method-call
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DSL.rakumod:171
+license: Artistic-2.0
+feature: method add-let
+--- code
+my class Current {
+    method add-let($def) { say "added: $def" }
+}
+my $current = Current.new;
+$current.add-let("test");
+--- expect
+added: test
+
+=== hk-03-binding-operator
+from: zef 1.1.4 lib/Zef/Client.rakumod:1193
+license: Artistic-2.0
+feature: binding operator :=
+--- code
+my class Client {
+    method list-dependencies($x) { [1, 2, 3] }
+}
+my $self = Client.new;
+my $specs := $self.list-dependencies("pkg");
+say $specs;
+--- expect
+[1 2 3]
+
+=== hk-03-template-interpolation
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Methods.rakumod:226
+license: Artistic-2.0
+feature: maxsplit and elems
+--- code
+my @out = <a b c>;
+my $maxsplit = 2;
+if $maxsplit >= 0 && @out.elems == $maxsplit {
+    say "matched";
+} else {
+    say "not matched";
+}
+--- expect
+not matched
+
+=== hk-03-for-loop-method
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Storage/Attached.rakumod:255
+license: Artistic-2.0
+feature: for loop with method
+--- code
+my class Attachment {
+    has $.name;
+}
+my class Self {
+    method attachments { (Attachment.new(name => 'a'), Attachment.new(name => 'b')) }
+}
+my $self = Self.new;
+for $self.attachments -> $attachment {
+    say $attachment.name;
+}
+--- expect
+a
+b
+
+=== hk-03-hash-method
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:121
+license: Artistic-2.0
+feature: method token with hash
+--- code
+my class CSSSelector::PseudoFunction { }
+my %ast = (:type(Int));
+my class Self {
+    method token($h, :$type) { say "token type: $type" }
+}
+my $self = Self.new;
+$self.token(%ast, :type(CSSSelector::PseudoFunction));
+--- expect
+token type: 
+
+=== hk-03-attr-name-split
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:574
+license: Artistic-2.0
+feature: substr and split
+--- code
+my $attr-name = "my-field-name";
+my @words = $attr-name.substr(2).split('-');
+say @words;
+--- expect
+[ field name]
+
+=== hk-03-date-new
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/TimeIntervalSpec.rakumod:479
+license: Artistic-2.0
+feature: Date.new
+--- code
+my $value = 2024;
+my $from = Date.new($value, 1, 1);
+say $from;
+--- expect
+2024-01-01
+
+=== hk-03-for-range-max
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:56
+license: Artistic-2.0
+feature: for range with max
+--- code
+my $linenr = 10;
+my $before-context = 3;
+for (($linenr - $before-context) max 1)..($linenr - 1) -> $i {
+    say $i;
+}
+--- expect
+7
+8
+9
+
+=== hk-03-method-spec
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Relation/Query/Preloader.rakumod:188
+license: Artistic-2.0
+feature: method call with arguments
+--- code
+my class Sample {
+    method assoc-pkey-from-spec($spec, $default) { "id" }
+}
+my $sample = Sample.new;
+my $pkey-col = $sample.assoc-pkey-from-spec({}, 'id');
+say $pkey-col;
+--- expect
+id
+
+=== hk-03-closure-arrow
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/To/HTML.rakumod:510
+license: Artistic-2.0
+feature: closure with arrow
+--- code
+my %prm = ();
+my $tmpl = "test";
+my $closure = -> %prm, $tmpl { say "version"; };
+$closure(%prm, $tmpl);
+--- expect
+version
+
+=== hk-03-where-values-assign
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Relation/Query/Finders.rakumod:209
+license: Artistic-2.0
+feature: where-values assignment
+--- code
+my class Self {
+    has %!where-values;
+    method where-values is rw { %!where-values }
+}
+my $self = Self.new;
+my %saved-params = (:a(1), :b(2));
+$self.where-values = %saved-params;
+say $self.where-values;
+--- expect
+{a => 1, b => 2}
+
+=== hk-03-format-lookup
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/DecimalFormats.rakumod:352
+license: Artistic-2.0
+feature: nested hash lookup with //
+--- code
+my %formats = (
+    latn => (standard => (0 => "default"))
+);
+my $system = "latn";
+my $standard = %formats{$system}<standard><other><0> // %formats<latn><standard><0>;
+say $standard;
+--- expect
+default
+
+=== hk-03-children-elems
+from: Roaring::Tags 0.2.3 lib/Roaring/Tags/Query.rakumod:258
+license: Artistic-2.0
+feature: elems comparison
+--- code
+my @children = (1, 2);
+if @children.elems == 1 {
+    say "single";
+} else {
+    say "multiple";
+}
+--- expect
+multiple
+
+=== hk-03-string-concat
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Input/Menu.rakumod:50
+license: Artistic-2.0
+feature: string concat with elems
+--- code
+my @items = <a b c>;
+say 'items:' ~ @items.elems;
+--- expect
+items:3
+
+=== hk-03-if-defined
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Watch.rakumod:39
+license: Artistic-2.0
+feature: if defined
+--- code
+my $failures-path = "path/to/file";
+if $failures-path.defined {
+    say "path defined";
+}
+--- expect
+path defined
+
+=== hk-03-samewith
+from: Digest 1.1.0 lib/Digest/SHA3.rakumod:18
+license: Artistic-2.0
+feature: multi with samewith
+--- code
+multi test-digest(Str $str, Whatever) {
+    samewith $str.encode, *
+}
+multi test-digest(Blob $b, Whatever) {
+    say "blob processed"
+}
+test-digest("hello", *)
+--- expect
+blob processed
+
+=== hk-03-constant-hash
+from: PDF 0.6.15 lib/PDF/COS/TextString.rakumod:73
+license: Artistic-2.0
+feature: constant do block
+--- code
+constant %pdfdoc-enc = do {
+    %(:a(1), :b(2))
+};
+say %pdfdoc-enc<a>;
+--- expect
+1
+
+=== hk-03-method-where
+from: Red 0.2.5 lib/Red/ColumnMethods.rakumod:90
+license: Artistic-2.0
+feature: method with where constraint
+--- code
+my class Base {
+    method returns { Date }
+    method month($x where { .returns ~~ (Date|DateTime) }) {
+        say "in month";
+    }
+}
+Base.new.month(Base.new)
+--- expect
+in month
+
+=== hk-03-substr-method
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/WrappableBuffer.rakumod:657
+license: Artistic-2.0
+feature: method substr
+--- code
+my $remainder = "hello world";
+my $chars = 5;
+my $result = $remainder.substr(0, $chars + 1);
+say $result;
+--- expect
+hello 
+
+=== hk-03-method-assoc-source
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model.rakumod:723
+license: Artistic-2.0
+feature: method call assoc-source-type
+--- code
+my class Self {
+    method assoc-source-type($spec) { "type" }
+}
+my $self = Self.new;
+my $stype = $self.assoc-source-type("spec");
+say $stype;
+--- expect
+type
+
+=== hk-03-bitwise-operators
+from: Net::DNS 1.4 lib/Net/DNS/Message/Header.pm6:42
+license: MIT
+feature: bitwise +|, +&, +<
+--- code
+my $aa = 1;
+my $result = +| (($aa +& 0x01) +< 10);
+say $result;
+--- expect
+1
+
+=== hk-03-string-interpolation-methods
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/Option.rakumod:163
+license: MIT
+feature: string interpolation with methods
+--- code
+my class Self {
+    method lprefix { "--" }
+    method long { "option" }
+}
+my $self = Self.new;
+my $usage = "";
+$usage ~= "{$self.lprefix}{$self.long}";
+say $usage;
+--- expect
+--option
+
+=== hk-03-chained-method-calls
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:223
+license: Artistic-2.0
+feature: chained method calls
+--- code
+my class Counter {
+    method set($level, $number) { say "set $level=$number"; self }
+}
+my class Self {
+    method get-counter($base) { Counter.new }
+}
+my $self = Self.new;
+$self.get-counter("base").set(1, 42);
+--- expect
+set 1=42
+
+=== hk-03-return-with-if
+from: File::Which 1.0.4 lib/File/Which/Unix.rakumod:32
+license: MIT
+feature: return with if modifier
+--- code
+my @results = <a b c d>;
+my $all = True;
+sub test-return {
+    return @results.unique if $all;
+    return ();
+}
+say test-return();
+--- expect
+(a b c d)
+
+=== hk-03-return-unless-method-chain
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Relation/Query/Predicates.rakumod:28
+license: Artistic-2.0
+feature: return unless with method chain
+--- code
+my class Field {
+    has $.name;
+}
+my class Self {
+    method fields-of { (Field.new(name => "updated_at"),) }
+}
+my $self = Self.new;
+sub test-return {
+    return Str unless $self.fields-of.first({ .name eq 'updated_at' }).so;
+    return "ok";
+}
+say test-return();
+--- expect
+ok
+
+=== hk-03-complex-arithmetic
+from: Math::FractionalPart 0.0.6 lib/Math/FractionalPart.rakumod:186
+license: Artistic-2.0
+feature: complex number arithmetic
+--- code
+my $x = 3 + 4i;
+my $im = $x.im - floor(abs($x.im)) * sign($x.im);
+say $im;
+--- expect
+0
+
+=== hk-03-typed-scalar-elems
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/ListStore.rakumod:301
+license: Artistic-2.0
+feature: typed scalar with elems
+--- code
+my @ntypes = (Int, Str, Bool);
+my int32 $nt = @ntypes.elems;
+say $nt;
+--- expect
+3
+
+=== hk-03-binding-parse
+from: CSS::Stylesheet 0.1.5 lib/CSS/Selectors.rakumod:20
+license: Artistic-2.0
+feature: binding with parse method
+--- code
+my class Module {
+    method parse($sel, :$rule, :$actions) { "parsed" }
+}
+my $module = Module.new;
+my $selectors = "div";
+my $actions = {};
+my $p := $module.parse($selectors, :rule<selectors>, :$actions);
+say $p;
+--- expect
+parsed
+
+=== hk-03-return-tuple
+from: Cro::Core 0.8.10 lib/Cro.rakumod:236
+license: Artistic-2.0
+feature: return tuple
+--- code
+my class Thing {
+    method consumes { "input" }
+    method produces { "output" }
+}
+my $t = Thing.new;
+sub get-trans {
+    return ($t.consumes, $t.produces)
+}
+say get-trans();
+--- expect
+(input output)
+
+=== hk-03-ternary-operator
+from: LaTeX::Grammar 0.0.5 lib/LaTeX/Actions/MathJSON.rakumod:356
+license: Artistic-2.0
+feature: ternary operator with array
+--- code
+my @parts = <a b c>;
+my $deg = @parts.elems == 2 ?? @parts[0] !! 2;
+say $deg;
+--- expect
+2
+
+=== hk-03-array-element-assignment
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Util/StrEncode.rakumod:16
+license: Artistic-2.0
+feature: array element assignment
+--- code
+my @strings;
+my $new = 0;
+@strings[$new] = Array.new: 'CLDRStrs';
+say @strings[$new];
+--- expect
+[CLDRStrs]
+
+=== hk-03-buf8-allocate
+from: OpenSSL 0.2.9 lib/OpenSSL/Digest.rakumod:92
+license: MIT
+feature: binding with buf8 allocate
+--- code
+my $digest := buf8.allocate(32);
+say $digest.elems;
+--- expect
+32
+
+=== hk-03-hash-assignment
+from: FontFactory::Type1 1.1.1 lib/FontFactory/Type1/FontList.rakumod:36
+license: Artistic-2.0
+feature: hash element assignment
+--- code
+my %FontAliases;
+%FontAliases<hob> = "Helvetica-BoldOblique";
+say %FontAliases<hob>;
+--- expect
+Helvetica-BoldOblique
+
+=== hk-03-isa-method
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix.rakumod:97
+license: Artistic-2.0
+feature: isa method check
+--- code
+my $dimension-names = Whatever;
+my class CoreMatrix {
+    method dimension-names { [1, 2, 3] }
+}
+my $core-matrix = CoreMatrix.new;
+if $dimension-names.isa(Whatever) { 
+    $dimension-names = $core-matrix.dimension-names;
+}
+say $dimension-names;
+--- expect
+[1 2 3]
+
+=== hk-03-method-with-positional-named
+from: Pod::To::HTML 0.9.0 lib/Pod/To/HTML.rakumod:756
+license: Artistic-2.0
+feature: method with positional and named argument
+--- code
+my class Self {
+    method find-headings($item, :$inside-heading) { say "found: $item, inside=$inside-heading" }
+}
+my $self = Self.new;
+$_ = "heading";
+$self.find-headings($_, :inside-heading(True));
+--- expect
+found: heading, inside=True
+
+=== hk-03-hash-element-assignment-2
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Backend/OpenRouter.rakumod:412
+license: Artistic-2.0
+feature: hash element assignment
+--- code
+my %args;
+my %payload = (:provider("openai"));
+%args<provider-name> = %payload<provider>;
+say %args<provider-name>;
+--- expect
+openai
+
+=== hk-03-method-boolean-named
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Viewer/Tree.rakumod:318
+license: Artistic-2.0
+feature: method with boolean named argument
+--- code
+my class Node { }
+my class Self {
+    method select-display-node($node, :$refresh = True) { say "refresh=$refresh" }
+}
+my $self = Self.new;
+$self.select-display-node(Node.new, :!refresh);
+--- expect
+refresh=False
+
+=== hk-03-dom-method-chain
+from: LibXML 0.11.3 lib/LibXML/Raw/DOM/Element.rakumod:104
+license: Artistic-2.0
+feature: method call with arguments
+--- code
+my class Self {
+    method domGetAttributeNodeNS($uri, $name) { "attr node" }
+}
+my $self = Self.new;
+say $self.domGetAttributeNodeNS("http://www.w3.org/2000/xmlns/", "xml");
+--- expect
+attr node
+
+=== hk-03-constant-encode
+from: IO::Blob 0.0.1 lib/IO/Blob.pm6:6
+license: Artistic-2.0
+feature: constant with encode method
+--- code
+constant LF = "\n".encode;
+say LF;
+--- expect
+utf8:0x<0A>
+
+=== hk-03-update-operator-method
+from: Template::HAML 0.9.6 lib/Template/HAML/Renderer.rakumod:519
+license: Artistic-2.0
+feature: update operator with method call
+--- code
+my class Self {
+    method render-node($k, %locals, $offset) { "rendered" }
+}
+my $self = Self.new;
+my $out = "";
+my %locals = ();
+$out ~= $self.render-node("key", %locals, 0);
+say $out;
+--- expect
+rendered
+
+=== hk-03-method-string-interpolation
+from: panda 2016.02 lib/Panda.pm:41
+license: MIT
+feature: method with string interpolation
+--- code
+my class Package {
+    has $.name = "test-pkg";
+}
+my class Self {
+    method announce($msg) { say $msg }
+}
+my $self = Self.new;
+my $p = Package.new;
+$self.announce("Testing {$p.name}");
+--- expect
+Testing test-pkg
+
+=== hk-03-push-string-concat
+from: Template::HAML 0.9.6 lib/Template/HAML/DirectCodegen.rakumod:612
+license: Artistic-2.0
+feature: push with string concatenation
+--- code
+my @lines;
+my $var = "test";
+@lines.push: '    %*HAML-LOCALS<' ~ $var ~ '> = $' ~ $var ~ ';';
+say @lines[0];
+--- expect
+    %*HAML-LOCALS<test> = $test;
+
+=== hk-03-hash-env-assignment
+from: PSGI 1.2.3 lib/PSGI.rakumod:161
+license: Artistic-2.0
+feature: hash element assignment
+--- code
+my %env;
+my $multiprocess = True;
+%env<psgi.multiprocess> = $multiprocess;
+say %env<psgi.multiprocess>;
+--- expect
+True
+
+=== hk-03-splice-method
+from: JSONL 0.1.6 lib/JSONL/Editor.rakumod:30
+license: Artistic-2.0
+feature: splice method
+--- code
+my @lines = <a b c d e>;
+@lines.splice(2, 1);
+say @lines;
+--- expect
+[a b d e]
+
+=== hk-03-list-reduction
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance.rakumod:290
+license: MIT
+feature: list reduction with &&
+--- code
+my class Self {
+    method has($x) { True }
+}
+my $self = Self.new;
+my @key = <a b c>;
+sub test-reduce {
+    return [&&] [ $self.has($_) for @key ];
+}
+say test-reduce();
+--- expect
+True
+
+=== hk-03-push-for-loop
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/HttpAuthentication.rakumod:43
+license: Artistic-2.0
+feature: push in for loop
+--- code
+my @pairs;
+my %options = (:name("test"), :value("val"));
+@pairs.push("{.key}=\"{.value}\"") for %options.sort(*.key);
+say @pairs[0];
+--- expect
+name="test"
+
+=== hk-03-string-repetition
+from: Terminal::Table 0.1.1 lib/Terminal/Table/Frame.rakumod:270
+license: MIT
+feature: string repetition operator x
+--- code
+my $padding-char = "=";
+my $padding-count = 5;
+my $padding = $padding-char x $padding-count;
+say $padding;
+--- expect
+=====
+
+=== hk-03-bless-slurpy
+from: Air 0.1.32 lib/Air/Functional.rakumod:142
+license: Artistic-2.0
+feature: bless with slurpy
+--- code
+my @inners = (1, 2, 3);
+my %fixed = (:a(1), :b(2));
+my class MyClass {
+    has @.inners;
+    has %.attrs;
+}
+my $obj = MyClass.bless(:@inners, :attrs(%fixed));
+say $obj.inners;
+--- expect
+[1 2 3]
+
+=== hk-03-method-return-hash
+from: X11::libxdo 0.1.2 lib/X11/libxdo.pm6:1670
+license: Artistic-2.0
+feature: method returning hash
+--- code
+my class Self {
+    method get-windows { ("win1" => 123, "win2" => 456) }
+}
+my $self = Self.new;
+my %w = $self.get-windows();
+say %w<win1>;
+--- expect
+123
+
+=== hk-03-private-method-call
+from: Sparrow6 0.0.96 lib/Sparrow6/Task/Repository/Helpers/Plugin.rakumod:93
+license: Artistic-2.0
+feature: method call with string interpolation
+--- code
+my class Self {
+    method load-unpack($pid, $path) { say "loading: $path"; "done" }
+}
+my $self = Self.new;
+my $pid = "1234";
+my $plg-v = "1.0";
+my $result = $self.load-unpack($pid, "{$pid}-v{$plg-v}.tar.gz");
+say $result;
+--- expect
+loading: 1234-v1.0.tar.gz
+done
+
+=== hk-03-bitwise-and
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/StreamingUnpacker.rakumod:206
+license: Artistic-2.0
+feature: bitwise & operator
+--- code
+my $raw = 0xFFFFFFFFFFFFFFFF;
+my $mantissa = $raw +& 0x0FFFFFFFFFFFFF;
+say $mantissa;
+--- expect
+4503599627370495
+
+=== hk-03-subst-update
+from: DB::Xoos 0.1.1 lib/DB/Xoos.pm6:117
+license: Artistic-2.0
+feature: update operator with subst
+--- code
+my $mod-name = "\\some\\path";
+$mod-name .= subst(/^^(\/|\\)/, '');
+say $mod-name;
+--- expect
+some\path
+
+=== hk-03-string-concat-ternary
+from: TAP::Harness 0.0.4 lib/TAP.pm:493
+license: Artistic-2.0
+feature: string concatenation with ternary
+--- code
+my $skipped = 2;
+my $test = 'subtest' ~ ( $skipped != 1 ?? 's' !! '' );
+say $test;
+--- expect
+subtests
+
+=== hk-03-update-unless-smartmatch
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/StyleContext.rakumod:323
+license: Artistic-2.0
+feature: update operator with unless and smart match
+--- code
+my class Provider {
+    method _get-native-object { "native" }
+}
+my $provider = Provider.new;
+$provider .= _get-native-object unless $provider ~~ Str;
+say $provider;
+--- expect
+native
+
+=== hk-03-constructor-method-call
+from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:312
+license: Artistic-2.0
+feature: constructor with method call style
+--- code
+my class Meta {
+    has $.path;
+    method new($p) { self.bless(:path($p)) }
+}
+my $path = "test/path";
+my $meta = Meta.new: $path;
+say $meta.path;
+--- expect
+test/path
+
+=== hk-03-method-closure-named
+from: Text::SubParsers 0.1.4 lib/Text/SubParsers/Core.rakumod:77
+license: Artistic-2.0
+feature: method call with closure and named argument
+--- code
+my class Self {
+    method get-matches($input, $func, :$exact) { $func.($input) }
+}
+my $self = Self.new;
+my $input = "  42  ";
+my $result = $self.get-matches($input, { $_.trim ?? $_.trim.Int !! Nil }, :exact(True));
+say $result;
+--- expect
+42
+
+=== hk-03-hash-body-assignment
+from: WWW::LLaMA 0.1.3 lib/WWW/LLaMA/Embeddings.rakumod:72
+license: Artistic-2.0
+feature: hash element assignment
+--- code
+my %body;
+my @image-data = [1, 2, 3];
+%body<image_data> = @image-data;
+say %body<image_data>;
+--- expect
+[1 2 3]
+
+=== hk-03-quietly-comparison
+from: Pakku celastrina.6 lib/Pakku/Core.rakumod:468
+license: Artistic-2.0
+feature: quietly block with comparison
+--- code
+my %right = (:api("2.0"));
+my %left = (:api("1.0"));
+my $result = quietly ( Version.new( %right<api> ) cmp Version.new( %left<api> ) );
+say $result;
+--- expect
+More
+
+=== hk-03-bitwise-shift-and
+from: Selkie 0.16.0 lib/Selkie/Tween.rakumod:377
+license: Artistic-2.0
+feature: bitwise right shift and &
+--- code
+my Int $to = 0xFF;
+my Int $shift = 4;
+my Int $g = ($to +> $shift) +& 0xFF;
+say $g;
+--- expect
+15
+
+=== hk-03-redirect-string-interpolation
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/CLI.rakumod:663
+license: Artistic-2.0
+feature: method call with string interpolation
+--- code
+my class Record {
+    has $.id = 42;
+}
+my class Self {
+    method redirect-to($path) { say "redirecting to: $path" }
+}
+my $self = Self.new;
+my $record = Record.new;
+$self.redirect-to("/__PLURAL__/{$record.id}");
+--- expect
+redirecting to: /__PLURAL__/42
+
+=== hk-03-map-constructor
+from: zef 1.1.4 lib/Zef/Repository/LocalCache.rakumod:128
+license: Artistic-2.0
+feature: map with closure and constructor
+--- code
+my class DependencySpec {
+    has $.name;
+    method new($n) { self.bless(:name($n)) }
+}
+my @identities = <pkg1 pkg2 pkg3>;
+my %specs = @identities.map: { $_ => DependencySpec.new($_) };
+say %specs<pkg1>.name;
+--- expect
+pkg1
+
+=== hk-03-update-can-check
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Popover.rakumod:158
+license: Artistic-2.0
+feature: update operator with ^can check
+--- code
+my class Obj {
+    method _get-native-object { "native" }
+}
+my $mo = Obj.new;
+$mo .= _get-native-object if $mo.^can('_get-native-object');
+say $mo;
+--- expect
+native
+
+=== hk-03-promise-anyof
+from: cro 0.8.10 lib/Cro/Tools/Runner.rakumod:249
+license: Artistic-2.0
+feature: await with Promise anyof
+--- code
+my $try-conn = Promise.in(0.1);
+my $timeout = Promise.in(1);
+my $result = await Promise.anyof($try-conn, $timeout);
+say "awaited";
+--- expect
+awaited
+
+=== hk-03-method-env-hash
+from: Crust 0.0.1 lib/Crust/Request.pm6:23
+license: Artistic-2.0
+feature: method returning hash element
+--- code
+my class Self {
+    has %.env = (:SERVER_PROTOCOL("HTTP/1.1"));
+    method protocol() { $.env<SERVER_PROTOCOL> }
+}
+my $self = Self.new;
+say $self.protocol();
+--- expect
+HTTP/1.1
+
+=== hk-03-method-chain-bitshift
+from: TinyFloats 0.0.5 lib/TinyFloats.rakumod:69
+license: Artistic-2.0
+feature: method chain with bitwise right shift
+--- code
+my @data = [0xFF, 0xFF, 0xFF, 0xFF];
+my $tf32 = @data[0] +> 2;
+say $tf32;
+--- expect
+63
+
+=== hk-03-binding-default
+from: PDF::Class 0.5.30 lib/PDF/Image.rakumod:177
+license: Artistic-2.0
+feature: binding with // operator
+--- code
+my class Self {
+    method AT-KEY($key) { Nil }
+}
+my $self = Self.new;
+my \is-mask = $self<ImageMask> // False;
+say is-mask;
+--- expect
+False
+
+=== hk-03-hash-dict-assignment
+from: PDF::Content 0.9.11 lib/PDF/Content/Image/PNG.rakumod:172
+license: Artistic-2.0
+feature: hash assignment with named pairs
+--- code
+my %dict;
+my $bpc = 8;
+my $w = 100;
+%dict<DecodeParms> = { :Predictor(15), :BitsPerComponent($bpc), :Colors(3), :Columns($w) };
+say %dict<DecodeParms><Predictor>;
+--- expect
+15
+
+=== hk-03-ternary-method
+from: Terminal::Capabilities 0.0.21 lib/Terminal/Capabilities/Summarize.rakumod:29
+license: Artistic-2.0
+feature: ternary operator with method
+--- code
+my class Caps {
+    has $.color3bit = True;
+}
+my $caps = Caps.new;
+say $caps.color3bit ?? 'VT' !! '';
+--- expect
+VT
+
+=== hk-03-method-chain-access
+from: MUGS::Core 0.1.4 lib/MUGS/App/LocalUI.rakumod:155
+license: Artistic-2.0
+feature: method call on method result
+--- code
+my class Parsed {
+    method userinfo { "user" }
+}
+my $parsed = Parsed.new;
+my $user = $parsed.userinfo;
+say $user;
+--- expect
+user
+
+=== hk-03-ternary-method-calls
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Routing/UrlHelpers.rakumod:78
+license: Artistic-2.0
+feature: ternary operator with method calls
+--- code
+my class Self {
+    method url-for($p) { "url" }
+    method path-for($p) { "path" }
+}
+my $self = Self.new;
+my $url = "http://example.com";
+my $plural = "items";
+my $result = $url ?? $self.url-for($plural) !! $self.path-for($plural);
+say $result;
+--- expect
+url
+
+=== hk-03-say-if-modifier
+from: Sparrowdo 0.1.57 lib/Sparrowdo/Docker.rakumod:33
+license: Artistic-2.0
+feature: say with if modifier
+--- code
+my %args = (:verbose(True));
+my @docker-cont-stop = ("container1", "container2");
+say "[docker] container stop: {@docker-cont-stop}" if %args<verbose>;
+--- expect
+[docker] container stop: container1 container2
+
+=== hk-03-constructor-named-args
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Parser.rakumod:628
+license: Artistic-2.0
+feature: constructor with named arguments
+--- code
+my class Or {
+    has $.left;
+    has $.right;
+}
+my $left = "expr1";
+my $right = "expr2";
+my $obj = Or.new(:$left, :$right);
+say $obj.left;
+--- expect
+expr1
+
+=== hk-03-update-buf8-new
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/Numbers.rakumod:56
+license: Artistic-2.0
+feature: update operator with buf8 and default
+--- code
+my $result = buf8.new;
+my %numbers = (:minimumGroupingDigits(3));
+$result ~= buf8.new: +(%numbers<minimumGroupingDigits> // 1);
+say $result.elems;
+--- expect
+1
+
+=== hk-03-hash-quoted-keys
+from: WWW::OpenAI 0.3.20 lib/WWW/OpenAI/ImageVariations.rakumod:65
+license: Artistic-2.0
+feature: hash with quoted and unquoted keys
+--- code
+my %sizeMap = small => '256x256', medium => '512x512', 'large' => '1024x1024';
+say %sizeMap<large>;
+--- expect
+1024x1024
+
+=== hk-03-arithmetic-round-int
+from: Selkie 0.16.0 lib/Selkie/Plot/Palette.rakumod:306
+license: Artistic-2.0
+feature: arithmetic with method chain
+--- code
+my $ag = 100;
+my $bg = 200;
+my $t = 0.5;
+my $g = ($ag * (1 - $t) + $bg * $t).round.Int;
+say $g;
+--- expect
+150
+
+=== hk-03-append-sum
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/CompoundUnits.rakumod:115
+license: Artistic-2.0
+feature: append with array sum
+--- code
+my $result = [];
+my @case-table = [1, 2, 3];
+$result.append: @case-table.sum;
+say $result;
+--- expect
+[6]
+
+=== hk-03-append-mod
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/LanguageNames.rakumod:61
+license: Artistic-2.0
+feature: append with mod operator
+--- code
+my $result = [];
+my $lang-count = 259;
+$result.append: $lang-count mod 256;
+say $result[0];
+--- expect
+3
+
+=== hk-03-subset-where
+from: Term::Choose 2.0.6 lib/Term/Choose/Constant.rakumod:21
+license: Artistic-2.0
+feature: subset with where constraint
+--- code
+subset Int_2_or_gt is export of Int where * >= 2;
+my Int_2_or_gt $x = 5;
+say $x;
+--- expect
+5
+
+=== hk-03-subst-named-arg
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/CellRendererText.rakumod:172
+license: Artistic-2.0
+feature: subst with named argument
+--- code
+my $native-sub = "my_function_name";
+my Str $new-patt = $native-sub.subst( '_', '-', :g);
+say $new-patt;
+--- expect
+my-function-name
+
+=== hk-03-constant-array
+from: RakudoPrereq 1.1 lib/RakudoPrereq.rakumod:2
+license: Artistic-2.0
+feature: constant array
+--- code
+my constant @valid-opts = <rakudo-only no-where>;
+say @valid-opts[0];
+--- expect
+rakudo-only
+
+=== hk-03-method-hash-arg
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/ResponseSerializer.rakumod:34
+license: Artistic-2.0
+feature: method call with hash
+--- code
+my class Response {
+    method remove-header($h) { say "removed" }
+}
+my $response = Response.new;
+$response.remove-header({ True });
+--- expect
+removed
+
+=== hk-03-multi-method-concat
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/DescribeBaseObjects.rakumod:95
+license: Artistic-2.0
+feature: multi method with string concatenation
+--- code
+my class T {
+    multi method get_header (utf8 $b) { 
+        "." ~ $b.^name ~ "[" ~ $b.elems ~ "]"
+    }
+}
+my $t = T.new;
+my $result = $t.get_header("test".encode);
+say $result;
+--- expect
+.utf8[4]

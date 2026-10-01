@@ -13,7 +13,9 @@
 # A snippet is rejected when:
 #   - its `from:` is not a row of the batch, or its license differs from the row's
 #   - another snippet already took that row, or the suite has the same code
+#   - it reads the clock, randomness or the environment
 #   - Rakudo leaves it unrecorded (dead or unstable), or it prints nothing
+#   - it throws where its row does not: that records the drafter's mistake
 #   - its expectation is a compile-time error: the module line compiled in
 #     its module, so a snippet that does not compile tests the model's mistake
 #   - it drifted: the row's line uses core methods or operators and the
@@ -71,6 +73,10 @@ sub MAIN(Str $draft, Str :$batch!, Str :$name, Bool :$dry) {
         if ($s.meta<license> // '') ne $r<lic>    { reject($s, "license is not the row's ($r<lic>)"); next }
         if %taken{$s.meta<from>}++                { reject($s, 'a second snippet for the same row'); next }
         if %existing{norm($s.code)}               { reject($s, 'the suite already has this code'); next }
+        # two runs a second apart agree, two runs a day apart do not
+        if $s.code ~~ / « [now|today|rand|srand|time] » | '.' [pick|roll] » | '%*ENV' | '$*PID' / {
+            reject($s, 'reads the clock, randomness or the environment'); next
+        }
         my @t = construct-tokens($r<code>, $core);
         if @t && !@t.first(-> $t { $t ~~ /^ \w+ $/ ?? $s.code ~~ / « $t » / !! $s.code.contains($t) }) {
             reject($s, "drifted: keeps none of {@t.join(' ')}"); next
@@ -92,8 +98,15 @@ sub MAIN(Str $draft, Str :$batch!, Str :$name, Bool :$dry) {
             if $st ne 'ran'                      { "Rakudo: $st" }
             elsif %b{$s.id}[1] ne $out           { 'output differs between two runs' }
             elsif !$out.trim                     { 'prints nothing' }
+            elsif $out.lines.first(*.starts-with('=== ' | '--- ')) { 'prints a line the .glaze format would read as a header' }
             elsif $out ~~ / '!! X::' [Syntax|Comp|Undeclared|Redeclaration|Obsolete|Placeholder|Parameter::Default] / {
                 "its expectation is a compile error ({$out.lines.first(*.starts-with('!! '))})"
+            }
+            # a module line that does not throw, turned into a snippet that
+            # does, records the drafter's mistake rather than the construct
+            elsif ($out.lines.first(*.starts-with('!! ')) // '')
+                  && %row{$s.meta<from>}<code> !~~ / « [die|fail|throw|try|CATCH|Failure|X] » / {
+                "throws ({$out.lines.first(*.starts-with('!! ')).substr(3)}) where its row does not"
             }
             else { Nil }
         };

@@ -38,15 +38,36 @@ sub MAIN(Int :$n = 250, Str :$out!) {
         }
     }
 
+    # Coverage first: a row scores by the rarest core method it calls, counted
+    # over the suite's code, so the rows handed out are the ones that bring
+    # what the suite has least of. Core = a method Raku's own types have,
+    # from tools/core-methods.raku (I/O and randomness left out there).
+    my %core = $root.add('corpus/core-methods.txt').lines.map(* => True);
+    my %count;
+    for glaze-files(~$root.add('glaze')).map({ |parse-glaze($_) }) -> $s {
+        %count{$_}++ for $s.code.comb(/ '.' <( <[a..z]> [\w|'-']* /).grep({ %core{$_} });
+    }
+    sub score($code) {
+        my @m = $code.comb(/ '.' <( <[a..z]> [\w|'-']* /).grep({ %core{$_} });
+        @m ?? @m.map({ %count{$_} // 0 }).min !! 1000      # rows with no core method last
+    }
+    my @rows = $root.add('corpus/code.tsv').lines.pick(*)       # random order spreads the dists…
+        .map({ $_ => score(.split("\t", 6)[5]) }).sort(*.value).map(*.key);   # …within a score
+
     my (%seen-shape, %seen-file, @out);
-    for $root.add('corpus/code.tsv').lines.pick(*) -> $row {    # random order spreads the dists
+    for @rows -> $row {
         my ($dist, $ver, $file, $line, $lic, $code) = $row.split("\t", 6);
         next unless 25 <= $code.chars <= 110;
         next if $code ~~ / ^ [use|unit|need|import|'}'|'{'|'#'|'='] | ^ [has|my|our] \s+ \S+ \s* ';' $
                          | 'NativeCall' | 'is native' | 'run ' | 'shell' | '.IO' | 'spurt' | 'slurp'
                          | '%*ENV' | 'now' | 'rand' | 'sleep' | 'Proc' | 'socket'
                          | 'C<' | 'L<' | 'B<' | 'I<' | '$*VM' | 'size_t' | 'Pointer' | 'RakuAST' | 'CArray'
-                         | ' ' [Returns|returns|The|the|This|If] ' ' /;
+                         | ' ' [Returns|returns|The|the|This|If] ' '
+                         | '%?RESOURCES' | 'self!' /;
+        # the start of a statement that continues on the next line, or a
+        # declaration header, cannot be reduced on its own
+        next if $code ~~ / <[{,(\[]> \s* $ /
+             || $code ~~ / ^ [has|method|multi|proto|sub|submethod|token|rule|regex|class|role|grammar] » / && $code !~~ / '}' \s* ';'? \s* $ /;
         next unless $code ~~ / '.' <[a..z]> | <[~+*\/%]> | '~~' | ' if ' | ' for ' | '//' | '»'
                              | ' Z' | ' X' | 'gather' | 'given' | 'where' /;
         next if %given{row-key($row)};

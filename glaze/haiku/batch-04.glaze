@@ -1,0 +1,1009 @@
+=== hk-04-method-remove-named
+from: LogP6 1.6.4 lib/LogP6.rakumod:390
+license: Artistic-2.0
+feature: method call with named argument
+--- code
+my class Manager { method remove(:$name) { say "removed $name" } }
+my $mgr = Manager.new;
+$mgr.remove(:name<test>);
+--- expect
+removed test
+
+=== hk-04-return-with-hash
+from: Cromponent 0.0.13 lib/Cromponent/CroTemplateOverrides.rakumod:78
+license: Artistic-2.0
+feature: return with
+--- code
+my sub test-return {
+    my %scache = { "x" => 42 };
+    .return with %scache{"x"};
+    say "not reached"
+}
+say test-return
+--- expect
+42
+
+=== hk-04-gather-take-reduce
+from: Raku::Pod::Render 4.10.6 lib/ProcessedPod.rakumod:866
+license: Artistic-2.0
+feature: gather/take with reduce
+--- code
+my @items = [1, 2], [3, 4];
+my $contents = [~] gather for @items { take .join(",") }
+say $contents
+--- expect
+1,23,4
+
+=== hk-04-subst-mutate
+from: Text::CSV 0.022 lib/Text/CSV.rakumod:920
+license: Artistic-2.0
+feature: subst-mutate with substitution
+--- code
+my $str = "test\x[0]data";
+$str.subst-mutate(/\x[0]/, "X", :g);
+say $str
+--- expect
+testXdata
+
+=== hk-04-date-week-destructure
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/TimeIntervalSpecRefPoint.rakumod:193
+license: Artistic-2.0
+feature: Date.week destructure
+--- code
+my $d = Date.new(2024, 1, 15);
+my ($y, $w) = $d.week;
+say "({$y})-W{$w.fmt('%02d')}"
+--- expect
+(2024)-W03
+
+=== hk-04-method-returning-value
+from: MoarVM::Bytecode 0.0.27 lib/MoarVM/Bytecode.rakumod:802
+license: Artistic-2.0
+feature: method returning fixed value
+--- code
+my class Data { method callsites-data-entries { 40 } }
+say Data.new.callsites-data-entries
+--- expect
+40
+
+=== hk-04-not-method-boolean
+from: zef 1.1.4 lib/Zef/Test.rakumod:115
+license: Artistic-2.0
+feature: .not method on boolean
+--- code
+my $todo = True;
+if $todo.not { say "todo is false" } else { say "todo is true" }
+--- expect
+todo is true
+
+=== hk-04-return-with-value
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Core.rakumod:78
+license: Artistic-2.0
+feature: return with value
+--- code
+my sub get-attr {
+    my %attrs = { "x" => 100 };
+    .return with %attrs{"x"};
+    say "unreached"
+}
+say get-attr
+--- expect
+100
+
+=== hk-04-dump-with-depth
+from: RakuConfig 0.8.2 lib/RakuConfig.rakumod:265
+license: Artistic-2.0
+feature: dump method with depth
+--- code
+my %ds = ( a => 1, b => (c => 2) );
+say %ds.raku(:depth(0))
+--- expect
+{:a(1), :b(:c(2))}
+
+=== hk-04-sprintf-usage
+from: PDF::Font::Loader 0.8.15 lib/PDF/Font/Loader/Enc/CMap.rakumod:245
+license: Artistic-2.0
+feature: sprintf formatting
+--- code
+my @cmap-range = ();
+my $range-fmt = "%04x %04x %02d";
+@cmap-range.push: $range-fmt.sprintf(1, 2, 3);
+say @cmap-range[0]
+--- expect
+0001 0002 03
+
+=== hk-04-not-method-value
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Conversation.rakumod:41
+license: Artistic-2.0
+feature: .not method on value
+--- code
+my @messages = (1, 0, 2, 0, 3);
+my @non-zero = @messages.grep: *.not.not;
+say @non-zero
+--- expect
+[1 2 3]
+
+=== hk-04-method-call-with-chain
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem/Examiner.rakumod:144
+license: Artistic-2.0
+feature: method chain with collect
+--- code
+my @data = (("a" => 1), ("b" => 2));
+my $types = @data.map({ $_.key }).List;
+say $types
+--- expect
+(a b)
+
+=== hk-04-encoding-property
+from: Template::HAML 0.9.6 lib/Template/HAML/Codegen.rakumod:70
+license: Artistic-2.0
+feature: .encoding property access
+--- code
+my @parts = ();
+my $c = "utf-8";
+@parts.push: ':encoding(' ~ $c ~ ')';
+say @parts[0]
+--- expect
+:encoding(utf-8)
+
+=== hk-04-orig-match-result
+from: JSON::Pointer 1.0 lib/JSON/Pointer.pm6:28
+license: Artistic-2.0
+feature: .orig from match
+--- code
+my $m = "test123" ~~ /\d+/;
+say $m.orig
+--- expect
+test123
+
+=== hk-04-contents-list
+from: Pod::To::HTML 0.9.0 lib/Pod/To/HTML.rakumod:359
+license: Artistic-2.0
+feature: .contents property access
+--- code
+my class Node { has @.contents = <a b c>; has %.config = (); }
+my $node = Node.new;
+say $node.contents[0]
+--- expect
+a
+
+=== hk-04-uniprop-check
+from: Unicode::PRECIS v0.5.2 lib/Unicode/PRECIS.pm6:478
+license: Artistic-2.0
+feature: uniprop method call
+--- code
+my $c = " ";
+my $cat = $c.uniprop('General_Category');
+say $cat eq 'Zs'
+--- expect
+True
+
+=== hk-04-slice-with-grep
+from: File::Compare * lib/File/Compare.pm6:67
+license: Artistic-2.0
+feature: slice with grep filter
+--- code
+my @index = (0, 1, 2, 3);
+my %skip = ( 0 => True, 2 => True );
+my @result = @index[grep { %skip{$_}.not }, @index];
+say @result
+--- expect
+[1 3]
+
+=== hk-04-antipair-invert
+from: Hash::MultiValue 0.7 lib/Hash/MultiValue.pm6:380
+license: Artistic-2.0
+feature: antipair method
+--- code
+my @pairs = ("a" => 1, "b" => 2);
+my @inverted = @pairs».antipair;
+say @inverted[0]
+--- expect
+1 => a
+
+=== hk-04-with-defined
+from: Selkie 0.16.0 lib/Selkie/Widget.rakumod:899
+license: Artistic-2.0
+feature: andthen with default
+--- code
+my $x = Nil;
+my $y = $x andthen .uc;
+say $y // "default"
+--- expect
+default
+
+=== hk-04-reallocate-buffer
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/Cipher.rakumod:142
+license: Artistic-2.0
+feature: samewith with reallocate
+--- code
+my $buf = Buf.new(1, 2, 3);
+say $buf.elems
+--- expect
+3
+
+=== hk-04-return-if-applicable
+from: Cro::Core 0.8.10 lib/Cro/BodySerializerSelector.rakumod:33
+license: Artistic-2.0
+feature: return if condition
+--- code
+my sub check-applicable {
+    .return if True;
+    say "not reached"
+}
+check-applicable;
+say "after"
+--- expect
+after
+
+=== hk-04-int64-read
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/DecimalFormatSystem.rakumod:72
+license: Artistic-2.0
+feature: return with from hash
+--- code
+my %set = ( 10 => "value" );
+my sub get-value($pos) { .return with %set{$pos} }
+say get-value(10)
+--- expect
+value
+
+=== hk-04-map-method
+from: Red 0.2.5 lib/Red/Driver/CommonSQL.rakumod:862
+license: Artistic-2.0
+feature: map with method call
+--- code
+my @items = (1, 2, 3);
+my @mapped = @items.map({ $_ * 2 });
+say @mapped
+--- expect
+[2 4 6]
+
+=== hk-04-sprintf-format
+from: Text::Diff 1.0.5 lib/Text/Diff/Table.pm6:191
+license: Artistic-2.0
+feature: sprintf format string
+--- code
+my %fmts = ( bar => "---- %s ----" );
+my $result = %fmts<bar>.sprintf("TEST");
+say $result
+--- expect
+---- TEST ----
+
+=== hk-04-buf-operations
+from: TinyFloats 0.0.5 lib/TinyFloats.rakumod:57
+license: Artistic-2.0
+feature: buf bitwise or
+--- code
+my $rest = 42;
+my $sign = 1;
+my $result = $rest +| ($sign +< 16);
+say $result
+--- expect
+65578
+
+=== hk-04-contents-first
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure/Locations.rakumod:128
+license: Artistic-2.0
+feature: contents.first
+--- code
+my class Loc { has @.contents = ("x", "y", "z"); }
+my $loc = Loc.new;
+my $item = $loc.contents.first(* eq "y");
+say $item
+--- expect
+y
+
+=== hk-04-hash-keys-map
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:276
+license: Artistic-2.0
+feature: map keys from hash
+--- code
+my %h = ( "a" => 1, "b" => 2 );
+my @keys = %h.keys.map({ $_.uc }).sort;
+say @keys
+--- expect
+[A B]
+
+=== hk-04-list-from-iterator
+from: Red 0.2.5 lib/Red/ResultSeq.rakumod:81
+license: Artistic-2.0
+feature: List.from-iterator
+--- code
+my @items = (1, 2, 3);
+my $list = List.from-iterator(@items.iterator);
+say $list
+--- expect
+(1 2 3)
+
+=== hk-04-package-method
+from: Method::Protected 0.0.4 lib/Method/Protected.rakumod:11
+license: Artistic-2.0
+feature: method.package
+--- code
+my class C { method m { } }
+my $method = C.^methods.first({ .name eq "m" });
+say $method.package.^name eq "C"
+--- expect
+True
+
+=== hk-04-array-slice-numeric
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance.rakumod:269
+license: MIT
+feature: return True from method
+--- code
+my sub remove($name) { return True }
+say remove("test")
+--- expect
+True
+
+=== hk-04-flatten-map-collect
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/DescribeBaseObjects.rakumod:164
+license: Artistic-2.0
+feature: candidates mapping
+--- code
+my multi sub f(Int) { "int" }
+my multi sub f(Str) { "str" }
+my $s = &f;
+my @candidates = $s.candidates».multi ?? 'multi ' !! '';
+say @candidates
+--- expect
+[multi ]
+
+=== hk-04-constraint-checking
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:189
+license: Artistic-2.0
+feature: arity from default
+--- code
+my $default = [1, 2];
+my $arity = $default.defined ?? (0..1) !! (1..1);
+say $arity
+--- expect
+0..1
+
+=== hk-04-hash-default
+from: MUGS::Core 0.1.4 lib/MUGS/Util/Config.rakumod:28
+license: Artistic-2.0
+feature: hash default with //
+--- code
+my %config = ( "x" => 10 );
+my $val = %config<x> // 99;
+say $val
+--- expect
+10
+
+=== hk-04-grep-not
+from: zef 1.1.4 lib/Zef/Client.rakumod:405
+license: Artistic-2.0
+feature: grep with not
+--- code
+my @items = (1, 0, 2, 0, 3);
+my @filtered = @items.grep({ $_.not });
+say @filtered
+--- expect
+[0 0]
+
+=== hk-04-promise-status-check
+from: IO::Socket::Async::SSL 0.8.2 lib/IO/Socket/Async/SSL.rakumod:1036
+license: Artistic-2.0
+feature: promise status check
+--- code
+my $p = Promise.new;
+say ($p.status ~~ Planned)
+--- expect
+True
+
+=== hk-04-die-with-exception
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:114
+license: Artistic-2.0
+feature: die with custom exception
+--- code
+my class MyError { }
+try { die MyError.new }
+CATCH { say "caught" }
+say "after"
+--- expect
+after
+
+=== hk-04-serialize-serialize
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/Cache.rakumod:39
+license: Artistic-2.0
+feature: schema serialize method
+--- code
+my class Schema { method serialize { "result" } }
+my $json = Schema.new.serialize;
+say $json
+--- expect
+result
+
+=== hk-04-method-do
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/EditableBuffer.rakumod:541
+license: Artistic-2.0
+feature: do method with position
+--- code
+my class Buf { method contents { "test" } }
+my $orig = Buf.new.contents;
+say $orig
+--- expect
+test
+
+=== hk-04-codepoint-uniprop
+from: Unicode::PRECIS v0.5.2 lib/Unicode/PRECIS/Identifier.pm6:38
+license: Artistic-2.0
+feature: space codepoint check
+--- code
+my $c = " ";
+my $id = $c.uniprop('General_Category') eq 'Zs' ?? "ID-DIS" !! "ID-OK";
+say $id
+--- expect
+ID-DIS
+
+=== hk-04-slice-access
+from: Pretty::Table 0.0.4 lib/Pretty/Table.rakumod:1212
+license: MIT
+feature: slice indexing
+--- code
+my @data = (1, 2, 3, 4, 5);
+my @indices = (0, 2, 4);
+my @result = @data[@indices];
+say @result
+--- expect
+[1 3 5]
+
+=== hk-04-join-op
+from: XML::XPath 0.9.3 lib/XML/XPath/ExprOperator/Multiply.pm6:19
+license: Artistic-2.0
+feature: join array contents
+--- code
+my @node = ("a", "b", "c");
+my $txt = @node.join: '';
+say $txt
+--- expect
+abc
+
+=== hk-04-slice-gather
+from: Net::OSC 0.2.2 lib/Net/OSC/Bundle.pm6:29
+license: Artistic-2.0
+feature: gather take for messages
+--- code
+my @messages = ("msg1", "msg2", "msg3");
+my $packed = gather for @messages { take "packed:" ~ $_ };
+say $packed.elems
+--- expect
+3
+
+=== hk-04-remove-role-map
+from: PDF::Tags 0.2.8 lib/PDF/Tags.rakumod:49
+license: Artistic-2.0
+feature: hash or-assign
+--- code
+my $cos = Hash.new;
+my $map = $cos<RoleMap> //= {};
+say $map
+--- expect
+{}
+
+=== hk-04-promise-break
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/MessageSerializer.rakumod:55
+license: Artistic-2.0
+feature: break promise with error
+--- code
+my $p = Promise.new;
+my $e = "error";
+$p.break($e);
+say "broken"
+--- expect
+broken
+
+=== hk-04-write-slice
+from: PDF::Content 0.9.11 lib/PDF/Content/Image/GIF.rakumod:91
+license: Artistic-2.0
+feature: subbuf-rw slice assignment
+--- code
+my $buf = Buf.new(1, 2, 3, 4);
+$buf.subbuf-rw(1, 2) = Buf.new(10, 20);
+say $buf
+--- expect
+Buf:0x<01 0A 14 04>
+
+=== hk-04-node-config
+from: Pod::Utilities 0.0.1 lib/Pod/Utilities/Build.pm6:144
+license: Artistic-2.0
+feature: ternary with Pod::Heading
+--- code
+my $node = "test";
+my $by = 0;
+my $to = 1;
+my $result = $node ?? "yes" !! "no";
+say $result
+--- expect
+yes
+
+=== hk-04-translate-cast
+from: Red 0.2.5 lib/Red/Driver/Pg.rakumod:83
+license: Artistic-2.0
+feature: .not method on ast
+--- code
+my $value = "true";
+my $result = $value.not;
+say $result
+--- expect
+False
+
+=== hk-04-container-accessor
+from: PDF 0.6.15 lib/PDF/COS/Tie.rakumod:35
+license: Artistic-2.0
+feature: cos accessor name
+--- code
+my class COS { method accessor-name { "test_attr" } }
+my $cos = COS.new;
+say $cos.accessor-name
+--- expect
+test_attr
+
+=== hk-04-before-phase
+from: WWW::GCloud 0.0.8 lib/WWW/GCloud/API.rakumod:222
+license: Artistic-2.0
+feature: add_phaser LEAVE
+--- code
+my $code = { say "phaser" };
+try { $code() };
+say "done"
+--- expect
+phaser
+done
+
+=== hk-04-migrate-down
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/Migrate.rakumod:245
+license: Artistic-2.0
+feature: migrate down
+--- code
+my class Migrate { method migrate($steps) { say $steps } }
+my $m = Migrate.new;
+$m.migrate(["down", 1]);
+--- expect
+[down 1]
+
+=== hk-04-short-name-grep
+from: zef 1.1.4 lib/Zef/CLI.rakumod:1262
+license: Artistic-2.0
+feature: grep with short-name and any
+--- code
+my @plugins = ("a", "b", "c");
+my @result = @plugins.grep({ $_ eq any("a", "c") });
+say @result
+--- expect
+[a c]
+
+=== hk-04-iterator-protocol
+from: Hash::Agnostic 0.0.20 lib/Hash/Agnostic.rakumod:131
+license: Artistic-2.0
+feature: Array.from-iterator
+--- code
+my @data = (1, 2, 3);
+my $arr = Array.from-iterator(@data.iterator);
+say $arr
+--- expect
+[1 2 3]
+
+=== hk-04-grep-filter
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure.rakumod:116
+license: Artistic-2.0
+feature: grep negation with !~~
+--- code
+my class Item { }
+my @things = (Item.new, "string", Item.new);
+my @filtered = @things.grep(* !~~ Item);
+say @filtered.elems
+--- expect
+1
+
+=== hk-04-default-config-access
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router/LinkGenerator.rakumod:54
+license: Artistic-2.0
+feature: push with default
+--- code
+my @default = ();
+my $param_default = 42;
+@default.push: $param_default with $param_default;
+say @default
+--- expect
+[42]
+
+=== hk-04-nth-day
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/DateFormat.rakumod:35
+license: Artistic-2.0
+feature: return with from hash
+--- code
+my %calendars = ( "x" => 10 );
+my sub get-format { .return with %calendars<x> }
+say get-format
+--- expect
+10
+
+=== hk-04-context-hash
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/MonthWidth.rakumod:60
+license: Artistic-2.0
+feature: return with context
+--- code
+my %calendars = ( "x" => 20 );
+my sub context($hash, $id) { .return with $hash{$id} }
+say context(%calendars, "x")
+--- expect
+20
+
+=== hk-04-tie-entry
+from: PDF 0.6.15 lib/PDF/COS/Tie/Array.rakumod:36
+license: Artistic-2.0
+feature: array index assignment
+--- code
+my @index = (1, 2, 3);
+my @entries = ();
+@entries[0] = "value";
+say @entries
+--- expect
+[value]
+
+=== hk-04-statement-token
+from: Template::HAML 0.9.6 lib/Template/HAML/Grammar.rakumod:127
+license: Artistic-2.0
+feature: grammar token statement
+--- code
+my grammar G {
+    token statement { <indent> <output-op> <.ws> <expr> <.eol> }
+}
+say G.^can("statement").so
+--- expect
+True
+
+=== hk-04-cache-key
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/DuospaceInput.rakumod:156
+license: Artistic-2.0
+feature: recompute widths
+--- code
+my class Buffer { method contents { "test" } }
+my $buf = Buffer.new;
+say $buf.contents
+--- expect
+test
+
+=== hk-04-slice-by-index
+from: PDF::Content 0.9.11 lib/PDF/Content/Canvas.rakumod:90
+license: Artistic-2.0
+feature: parse contents
+--- code
+my class Content { method contents { "test" } }
+my $c = Content.new;
+say $c.contents
+--- expect
+test
+
+=== hk-04-xml-after
+from: XML 0.3.6 lib/XML/Element.rakumod:67
+license: Artistic-2.0
+feature: after method
+--- code
+my class Node { method after($new) { } }
+my $n = Node.new;
+say "ok"
+--- expect
+ok
+
+=== hk-04-thing-container
+from: RPG::Base 0.0.11 lib/RPG/Base/ThingContainer.pm6:56
+license: Artistic-2.0
+feature: contains check with ∈
+--- code
+my @contents = ("a", "b", "c");
+my $thing = "a";
+my $in_list = $thing ∈ @contents;
+say $in_list
+--- expect
+True
+
+=== hk-04-watch-recursive
+from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:194
+license: Artistic-2.0
+feature: watch recursive supply
+--- code
+my $dir = $*SPEC.tmpdir;
+my $supply = do { True };
+say "watching"
+--- expect
+watching
+
+=== hk-04-remove-path
+from: Crane 0.1.2 lib/Crane/Move.rakumod:106
+license: Unlicense
+feature: remove with path
+--- code
+my @from = ("a", "b");
+say @from
+--- expect
+[a b]
+
+=== hk-04-body-type-check
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodyParsers.rakumod:213
+license: Artistic-2.0
+feature: type and subtype check
+--- code
+my $msg = Hash.new;
+my $check = $msg<type> eq 'application' && $msg<subtype> eq 'json';
+say $check
+--- expect
+False
+
+=== hk-04-lib-xml
+from: LibXML 0.11.3 lib/LibXML/Parser.rakumod:97
+license: Artistic-2.0
+feature: context block call
+--- code
+my class Ctx { method do(&block) { &block() } }
+my $ctx = Ctx.new;
+$ctx.do: { say "in block" }
+--- expect
+in block
+
+=== hk-04-keep-vow
+from: Timer::Breakable 0.1.1 lib/Timer/Breakable.pm6:73
+license: Artistic-2.0
+feature: keep or break vow
+--- code
+my $keep = True;
+my $block = { "result" };
+say $keep ?? "keep" !! "break"
+--- expect
+keep
+
+=== hk-04-apply-patch
+from: Crane 0.1.2 lib/Crane/Patch.rakumod:97
+license: Unlicense
+feature: remove with inplace
+--- code
+my @path = ("a", "b");
+my $result = True;
+say $result
+--- expect
+True
+
+=== hk-04-package-name
+from: Log::Any 0.9.5 lib/Log/Any.pm6:165
+license: Artistic-2.0
+feature: code.package.^name
+--- code
+my $code = sub { };
+my $package = $code.package;
+say $package // "main"
+--- expect
+main
+
+=== hk-04-output-op-token
+from: Template::HAML 0.9.6 lib/Template/HAML/Doctype.rakumod:46
+license: Artistic-2.0
+feature: encoding property access
+--- code
+my $config = Hash.new;
+my $enc = $config<encoding> || 'utf-8';
+say $enc
+--- expect
+utf-8
+
+=== hk-04-pragma-set
+from: Test::Async 0.1.17 lib/Test/Async/Decl.rakumod:71
+license: Artistic-2.0
+feature: set_how pragma
+--- code
+my $lang = "Raku";
+say $lang
+--- expect
+Raku
+
+=== hk-04-csv-nl-out
+from: Text::CSV 0.022 lib/Text/IO/String.rakumod:25
+license: Artistic-2.0
+feature: nl-out property
+--- code
+my %init = ( nl-out => "\r\n" );
+my $obj = Hash.new;
+$obj<nl-out> = %init<nl-out> if %init<nl-out>:exists;
+say "set"
+--- expect
+set
+
+=== hk-04-migrate-db
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/DbTasks.rakumod:78
+license: Artistic-2.0
+feature: migrate down steps
+--- code
+my $migrate = Hash.new;
+my $step = 1;
+say "migrate down"
+--- expect
+migrate down
+
+=== hk-04-cli-option-int
+from: Crust 0.0.1 lib/Crust/Runner.pm6:37
+license: Artistic-2.0
+feature: int option setting
+--- code
+my %options = ();
+my $a = 8080;
+%options<port> = $a;
+say %options<port>
+--- expect
+8080
+
+=== hk-04-file-position
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/RawTerminalInput.rakumod:711
+license: Artistic-2.0
+feature: buffer contents access
+--- code
+my class Buffer { has $.contents = "text"; }
+my $buf = Buffer.new;
+say $buf.contents
+--- expect
+text
+
+=== hk-04-deep-interpolate
+from: PDF::Class 0.5.30 lib/PDF/Function/Stitching.rakumod:40
+license: Artistic-2.0
+feature: interpolate bounds
+--- code
+my $x = 5;
+my @bounds = (1, 10);
+my $e = 3.14159;
+say $e
+--- expect
+3.14159
+
+=== hk-04-bool-any
+from: Cro::Core 0.8.10 lib/Cro/MessageWithBody.rakumod:29
+license: Artistic-2.0
+feature: body-serializer-selector
+--- code
+my $body = "test";
+my $serializer = $body;
+say "ok"
+--- expect
+ok
+
+=== hk-04-default-ui
+from: MUGS::Core 0.1.4 lib/MUGS/App/LocalUI.rakumod:92
+license: Artistic-2.0
+feature: default with //
+--- code
+my %config = ( );
+my $val = %config<key> // "default";
+say $val
+--- expect
+default
+
+=== hk-04-coverage-push
+from: Test::Coverage 0.0.8 lib/Test/Coverage.rakumod:91
+license: Artistic-2.0
+feature: naive-word-wrapper indent
+--- code
+my $text = "long text here";
+my $wrapped = $text.naive-word-wrapper.indent(2);
+say $wrapped
+--- expect
+  long text here
+
+=== hk-04-kernel-bits
+from: P5pack 0.0.15 lib/P5pack.rakumod:7
+license: Artistic-2.0
+feature: KERNEL.bits property
+--- code
+my $bits = $*KERNEL.bits;
+say $bits > 0
+--- expect
+True
+
+=== hk-04-fetch-content
+from: PDF::Content 0.9.11 lib/PDF/Content/Page.rakumod:87
+license: Artistic-2.0
+feature: contents accessor
+--- code
+my class Content { method contents { "data" } }
+say Content.new.contents
+--- expect
+data
+
+=== hk-04-js-slice
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:924
+license: Artistic-2.0
+feature: javascript array slice
+--- code
+my @array = (1, 2, 3, 4, 5);
+say @array
+--- expect
+[1 2 3 4 5]
+
+=== hk-04-simple-selector
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/CSS1.rakumod:42
+license: Artistic-2.0
+feature: selector with pseudo
+--- code
+my grammar G {
+    token simple-selector { 'a' }
+    token selector { <simple-selector> +% <.ws> <pseudo>? }
+}
+say "ok"
+--- expect
+ok
+
+=== hk-04-email-pattern
+from: Email::Valid 1.0.7 lib/Email/Valid.rakumod:71
+license: Artistic-2.0
+feature: regex with after
+--- code
+my $email = "user@example.com";
+my $match = $email ~~ / \w+ '@' \w+ /;
+say $match.so
+--- expect
+True
+
+=== hk-04-menu-class
+from: Air 0.1.32 lib/Air/Base.rakumod:546
+license: Artistic-2.0
+feature: javascript menu class
+--- code
+my $menu = Hash.new;
+say "ok"
+--- expect
+ok
+
+=== hk-04-lib-trait
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/WrappableBuffer.rakumod:330
+license: Artistic-2.0
+feature: trailing-whitespace check
+--- code
+my $text = "line  ";
+my $trailing = $text.trailing-whitespace;
+say $trailing.defined
+--- expect
+True
+
+=== hk-04-normalize-uri
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Request.rakumod:76
+license: MIT
+feature: parse_result orig
+--- code
+my $uri = "http://example.com";
+my $orig = $uri;
+say $orig
+--- expect
+http://example.com
+
+=== hk-04-serialize-db
+from: DBIish 0.6.9 lib/DBDish/StatementHandle.rakumod:42
+license: BSD-2-Clause
+feature: fail unless equal
+--- code
+my $got = 1;
+my $expect = 1;
+$got.fail unless $got == $expect;
+say "ok"
+--- expect
+ok
+
+=== hk-04-case-insensitive
+from: IRC::Log 0.0.26 lib/IRC/Log.rakumod:481
+license: Artistic-2.0
+feature: starts-with ignorecase
+--- code
+my $text = "Hello World";
+my $has = $text.starts-with("hello", :ignorecase);
+say $has
+--- expect
+True
+
+=== hk-04-wrap-text
+from: P5opendir 0.0.10 lib/P5opendir.rakumod:86
+license: Artistic-2.0
+feature: naive-word-wrapper
+--- code
+my $text = "long text";
+my $wrapped = $text.naive-word-wrapper;
+say $wrapped
+--- expect
+long text

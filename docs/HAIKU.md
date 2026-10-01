@@ -4,7 +4,10 @@ Rakuglaze grows past what can be hand-reduced by letting a small model
 (Haiku) draft snippets from pre-picked corpus lines, and letting the tooling
 decide what is admitted. The model never writes into `glaze/`.
 
-1. `rakupp tools/pick.raku --n=250 --out=tmp/haiku/batch-NN.tsv` picks the rows.
+1. `rakupp tools/pick.raku --n=250 --out=tmp/haiku/batch-NN.tsv` picks the rows,
+   rarest first: a row scores by the core method it calls that the suite has
+   least of. "Core" is `corpus/core-methods.txt`, the methods Raku's own types
+   have (`rakudo tools/core-methods.raku > corpus/core-methods.txt`).
 2. A Haiku session runs the prompt below on that batch and leaves a draft
    in `tmp/haiku/batch-NN.draft.glaze`.
 3. `rakupp tools/accept.raku --batch=tmp/haiku/batch-NN.tsv --name=batch-NN tmp/haiku/batch-NN.draft.glaze`
@@ -12,7 +15,20 @@ decide what is admitted. The model never writes into `glaze/`.
    recorded by Rakudo, and writes the rest to `tmp/haiku/batch-NN.rejected.glaze`
    with a reason each.
 
-The first batch (200 rows) gave 174 drafts and 133 admitted snippets.
+| Batch | Rows | Picked | Drafts | Admitted | New core constructs |
+|---|---:|---|---:|---:|---:|
+| 01 (pilot) | 200 | at random | 174 | 126 | 2 |
+| 02 | 250 | at random | 142 | 110 | 3 |
+| 03 | 250 | at random | 83 | 83 | 3 |
+| 04 | 250 | by coverage | 156 | 90 | 6 |
+| 05 | 250 | by coverage | 58 | 56 | 4 |
+
+Most rejections are snippets that do not compile, lost their row's
+construct, or throw where the row does not. "New core constructs" counts
+methods, calls, operators, traits and declarations the rest of the suite
+does not have. Batches stop when one brings fewer than five: after batch 05
+the 534-dist corpus has little left that the suite lacks, and more batches
+would add variants of what is covered rather than coverage.
 
 ---
 
@@ -83,6 +99,8 @@ write a `--- expect` block** — the tooling records it.
    every snippet that would be rejected. **Fix every PROBLEM** in your
    snippets, then run it again:
    - `its expectation is a compile error` — your Raku is wrong; fix it.
+   - `throws (…) where its row does not` — the row does not throw, so your
+     snippet should not either: an unintended exception means it is wrong.
    - `drifted: keeps none of …` — your snippet lost the row's construct; put
      it back.
    - `prints nothing`, `Rakudo: crash/hang`, `output differs between two runs`

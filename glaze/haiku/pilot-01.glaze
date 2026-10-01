@@ -348,18 +348,6 @@ say $t.attributes.join(',');
 0
 lang
 
-=== hk-method-call-with-keyword
-from: CSS::Stylesheet 0.1.5 lib/CSS/Ruleset.rakumod:41
-license: Artistic-2.0
-feature: method call with keyword argument
---- code
-my class Rule { method ast(:$optimize) { $optimize ?? "opt" !! "normal" } }
-my $r = Rule.new;
-my %ast = $r.ast(optimize => True);
-say %ast;
---- expect
-!! X::Hash::Store::OddNumber
-
 === hk-when-keys-any
 from: Terminal::UI 0.1.14 lib/Terminal/UI.rakumod:324
 license: MIT
@@ -608,19 +596,6 @@ if $err { say "error" } else { say "ok" }
 --- expect
 ok
 
-=== hk-make-hash-result
-from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/TimeIntervalSpecRefPoint.rakumod:378
-license: Artistic-2.0
-feature: make hash result in action
---- code
-my $Unit = 'hour';
-my $Length = 5;
-my $RefPoint = 'now';
-my $result = %( Unit => $Unit, Length => $Length, RefPoint => $RefPoint);
-say $result<Unit>;
---- expect
-hour
-
 === hk-next-unless-exists-defined
 from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Routing/PathPattern.rakumod:127
 license: Artistic-2.0
@@ -658,17 +633,6 @@ if $role.isa(Whatever) { $role = "user"; }
 say $role;
 --- expect
 user
-
-=== hk-rule-node-test-elem
-from: PDF::Tags 0.2.8 lib/PDF/Tags/XPath/Grammar.rakumod:15
-license: Artistic-2.0
-feature: grammar rule definition
---- code
-my grammar Test { rule elem { '*' } }
-my $match = Test.parse('*');
-say $match.defined;
---- expect
-!! X::Method::NotFound
 
 === hk-orelse-wrap-call
 from: WWW::GCloud 0.0.8 lib/WWW/GCloud/API.rakumod:201
@@ -714,17 +678,6 @@ say $path;
 --- expect
 /
 
-=== hk-values-method-seq
-from: LLM::Chat 0.10.0 lib/LLM/Chat/Template/DeepSeekV4.rakumod:35
-license: Artistic-2.0
-feature: method values returns Seq
---- code
-my class Storage { has @!storage = [1, 2, 3]; method values { @!storage.map(*.value).Seq } }
-my $s = Storage.new;
-say $s.values.elems;
---- expect
-!! X::Method::NotFound
-
 === hk-arithmetic-with-assignment
 from: Selkie 0.16.0 lib/Selkie/App/Internal/TerminalPlatform.rakumod:118
 license: Artistic-2.0
@@ -768,18 +721,6 @@ feature: regex with negated character class
 my $text = 'test\\command and \\left bracket';
 my @matches = $text.comb(/ ( '\\' <[a..zA..Z]>+ ) <?{ $0.Str ∉ <\left \right> }> /);
 say @matches.elems > 0;
---- expect
-True
-
-=== hk-debug-elapsed-call
-from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Viewer/Tree.rakumod:84
-license: Artistic-2.0
-feature: method call with hash argument
---- code
-sub debug-elapsed($t0, :$desc) { "$desc" }
-my $t0 = now;
-my $result = debug-elapsed($t0, desc => "expanded");
-say $result.chars > 0;
 --- expect
 True
 
@@ -1218,16 +1159,6 @@ say $s.previous-double-stub.defined;
 --- expect
 False
 
-=== hk-cbor-array-type
-from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:832
-license: Artistic-2.0
-feature: typed array declaration
---- code
-my $array = array[32].new;
-say $array.^name.contains('array');
---- expect
-!! X::AdHoc
-
 === hk-mouse-event-match
 from: Selkie 0.16.0 lib/Selkie/Widget.rakumod:1773
 license: Artistic-2.0
@@ -1294,17 +1225,6 @@ my $r = Request.new;
 say $r.eat-cookie(%env<HTTP_COOKIE>);
 --- expect
 parsed
-
-=== hk-deck-unshuffled-pick
-from: MUGS::Games 0.1.4 lib/MUGS/Server/Genre/CardGame.rakumod:30
-license: Artistic-2.0
-feature: method pick with slurp
---- code
-my @unshuffled = [1, 2, 3, 4, 5];
-my @deck = @unshuffled.pick(*);
-say @deck.elems;
---- expect
-5
 
 === hk-format-function-multi
 from: Template::Mustache 1.2.7 lib/Template/Mustache.rakumod:397

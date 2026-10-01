@@ -1,0 +1,1338 @@
+=== hk-02-try-catch-decode
+from: Terminal::Getpass 0.0.11 lib/Terminal/Getpass.pm6:27
+license: Artistic-2.0
+feature: "try in expression"
+--- code
+my $c = 'abc';
+my $result = try $c.decode('utf-8');
+say $result.defined ?? 'ok' !! 'fail';
+--- expect
+fail
+
+=== hk-02-method-sym-attr
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/Actions/Persian/WordedNumberSpec.rakumod:24
+license: Artistic-2.0
+feature: "method with sym"
+--- code
+my class Actions {
+  method name_of_4:sym<Persian>($/) { make 4 }
+}
+my $a = Actions.new;
+say 4;
+--- expect
+4
+
+=== hk-02-attribute-is-required
+from: Template::HAML 0.9.6 lib/Template/HAML/Plugin.rakumod:9
+license: Artistic-2.0
+feature: "attribute with is required"
+--- code
+my class Plugin {
+  has Str $.name is required;
+}
+my $p = Plugin.new(name => 'test');
+say $p.name;
+--- expect
+test
+
+=== hk-02-attribute-smart-match
+from: Red 0.2.5 lib/Red/Attr/Query.rakumod:11
+license: Artistic-2.0
+feature: "with statement for smart-match"
+--- code
+my %data = ( key => 42 );
+with %data<key> {
+  say $_;
+}
+--- expect
+42
+
+=== hk-02-has-is-default
+from: Net::Ethereum 0.0.185 lib/Net/Ethereum.rakumod:43
+license: Artistic-2.0
+feature: "attribute with is default"
+--- code
+my class Eth {
+  has Bool $.cleanup is default(True);
+}
+my $e = Eth.new;
+say $e.cleanup;
+--- expect
+True
+
+=== hk-02-fail-unless
+from: Selkie 0.16.0 lib/Selkie/ScreenManager.rakumod:114
+license: Artistic-2.0
+feature: "fail statement with unless"
+--- code
+my %screens = ( main => 'screen' );
+my $name = 'other';
+try { fail "Screen '$name' does not exist" unless %screens{$name}:exists };
+say 'done';
+--- expect
+done
+
+=== hk-02-array-push-assign
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Job.rakumod:63
+license: Artistic-2.0
+feature: "assignment with //= to array element"
+--- code
+my %handlers = ();
+my $key = 'job';
+(%handlers{$key} //= []).push: %( kind => 'rescue' );
+say %handlers{$key}.elems;
+--- expect
+1
+
+=== hk-02-ternary-operator
+from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Matrix/UInt8.rakumod:62
+license: Artistic-2.0
+feature: "ternary operator in list"
+--- code
+my $size1 = 15;
+my ($size, $ellip) = $size1 > 10 ?? (10, ' ...') !! ($size1, '');
+say $size, $ellip;
+--- expect
+10 ...
+
+=== hk-02-array-push-hash
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel.rakumod:250
+license: Artistic-2.0
+feature: "push hash to array"
+--- code
+my @errors = ();
+my $f = 'file.raku';
+my $msg = 'error text';
+@errors.push: %( file => $f, message => $msg );
+say @errors[0]<file>;
+--- expect
+file.raku
+
+=== hk-02-binding-operator
+from: Test::Coverage 0.0.8 lib/Test/Coverage.rakumod:81
+license: Artistic-2.0
+feature: "binding with :="
+--- code
+my %data = ( missed => 'yes' );
+my %missed := %data;
+say %missed<missed>;
+--- expect
+yes
+
+=== hk-02-add-method-to-set
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:819
+license: Artistic-2.0
+feature: "calling add-include method"
+--- code
+my class RouteSet {
+  method add-include($a, $b, :$name-prefix) { say 'added'; }
+}
+my $set = RouteSet.new;
+$set.add-include([], 'item', name-prefix => 'test');
+--- expect
+added
+
+=== hk-02-mkdir-condition
+from: zef 1.1.4 lib/Zef/Service/Shell/curl.rakumod:102
+license: Artistic-2.0
+feature: "unless condition with mkdir"
+--- code
+my $path = 'test-dir';
+unless "$path".IO.parent.d || mkdir($path) {
+  say 'mkdir failed';
+}
+say 'done';
+--- expect
+done
+
+=== hk-02-string-interpolation-quote
+from: Air 0.1.32 lib/Air/Form.rakumod:366
+license: Artistic-2.0
+feature: "string with escaped quotes"
+--- code
+my $name = 'test';
+my $t = 'token';
+my $result = "<input type=\"hidden\" name=\"{$name}-token\" value=\"$t\"/>";
+say $result;
+--- expect
+<input type="hidden" name="test-token" value="token"/>
+
+=== hk-02-method-call-chain
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Border.rakumod:286
+license: Artistic-2.0
+feature: "method call with defined check and assignment"
+--- code
+my class Border {
+  has Int $!top = 0;
+  method set-top($value) { $!top = $value if $value.defined; }
+}
+my $b = Border.new;
+$b.set-top(5);
+say 'done';
+--- expect
+done
+
+=== hk-02-array-grep-map
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DryRun.rakumod:69
+license: Artistic-2.0
+feature: "grep and map on array"
+--- code
+my @parts = (
+  %( description => 'a' ),
+  %( description => 'b' ),
+);
+my @result = @parts.grep(*<description>).map(*<description>);
+say @result.join(',');
+--- expect
+a,b
+
+=== hk-02-ternary-recursion
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:200
+license: Artistic-2.0
+feature: "ternary with recursive substr call"
+--- code
+sub long-enough($s) {
+  $s.chars > 2 ?? True !! long-enough($s.substr(1))
+}
+say long-enough('abc');
+--- expect
+True
+
+=== hk-02-num-type
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/PFX.rakumod:18
+license: Artistic-2.0
+feature: "num type declaration"
+--- code
+my num $et = 3.14e0;
+say $et.Int;
+--- expect
+3
+
+=== hk-02-logical-and-short-circuit
+from: Selkie 0.16.0 lib/Selkie/Widget/Image.rakumod:935
+license: Artistic-2.0
+feature: "logical and with defined check"
+--- code
+my $held = 42;
+if $held.defined && ($held > 0) {
+  say 'true';
+}
+--- expect
+true
+
+=== hk-02-constant-declaration
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/To/HTML.rakumod:121
+license: Artistic-2.0
+feature: "my constant declaration"
+--- code
+my constant IMPORTANT-OFF = '</span>';
+say IMPORTANT-OFF;
+--- expect
+</span>
+
+=== hk-02-logical-and-method
+from: Graph 0.1.3 lib/Graph.rakumod:142
+license: Artistic-2.0
+feature: "logical and with method call"
+--- code
+my class Graph {
+  method is-connected { True }
+  method vertex-degree { [1, 2] }
+}
+my $g = Graph.new;
+if $g.is-connected && $g.vertex-degree.max ≤ 2 {
+  say 'match';
+}
+--- expect
+match
+
+=== hk-02-write-num64
+from: Geo::Geometry 0.1.3 lib/Geo/Geometry.rakumod:290
+license: Artistic-2.0
+feature: "write-num64 method accessing .x property"
+--- code
+my class Point { has Num $.x = 3.14e0; }
+my class Buffer {
+  method write-num64($offset, $num, $endian) { say "wrote"; }
+}
+my $point = Point.new;
+my $b = Buffer.new;
+$b.write-num64(0, $point.x.Num, 'LE');
+--- expect
+wrote
+
+=== hk-02-hash-map-keys
+from: HTTP::Server::Async 0.2 lib/HTTP/Server/Async/Response.rakumod:15
+license: Artistic-2.0
+feature: "hash keys map"
+--- code
+my %headers = ( a => 1, b => 2 );
+my @pairs = %headers.keys.sort.map({ 'h:' ~ $_ });
+say @pairs.join(',');
+--- expect
+h:a,h:b
+
+=== hk-02-multi-definition
+from: DSL::Entity::Metadata 0.1.1 lib/DSL/Entity/Metadata.rakumod:56
+license: Artistic-2.0
+feature: "multi sub with default parameter"
+--- code
+multi ToMetadataEntityCode( Str $command, Str $target = 'WL-System', *%args ) { say "code"; }
+ToMetadataEntityCode('test');
+--- expect
+code
+
+=== hk-02-while-array-elems
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Cache.rakumod:212
+license: Artistic-2.0
+feature: "while loop on array elems"
+--- code
+my @order = (1, 2, 3, 4, 5);
+my $max = 3;
+while @order.elems > $max {
+  @order.pop;
+}
+say @order.elems;
+--- expect
+3
+
+=== hk-02-named-arg-colon
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/FrameSerializer.rakumod:79
+license: Artistic-2.0
+feature: "named arguments with colon prefix"
+--- code
+my class Frame {
+  method new(:$flags, :$stream-identifier, :$payload) {
+    say "frame:flags=$flags,stream=$stream-identifier";
+  }
+}
+Frame.new(:1flags, :0stream-identifier, payload => 'data');
+--- expect
+frame:flags=1,stream=0
+
+=== hk-02-tmpdir-add
+from: OpenSSL 0.2.9 lib/OpenSSL/NativeLib.rakumod:34
+license: MIT
+feature: "TMPDIR add method"
+--- code
+my $content-id = 'test-123';
+my $dll-directory = $*TMPDIR.add($content-id);
+say $dll-directory.ends-with('test-123');
+--- expect
+True
+
+=== hk-02-catch-default
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Queue.rakumod:210
+license: Artistic-2.0
+feature: "CATCH with default"
+--- code
+try {
+  CATCH { default { note "Error: {.message}" } }
+  die "test error";
+};
+say 'done';
+--- expect
+done
+
+=== hk-02-ansi-escape-print
+from: Terminal::ANSI 0.0.25 lib/Terminal/ANSI.rakumod:33
+license: MIT
+feature: "escape sequence in string"
+--- code
+sub print-or-buffer($str) { say $str; }
+print-or-buffer("\e[31m" ~ 'red');
+--- expect
+[31mred
+
+=== hk-02-base64-encode-eq
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:112
+license: Artistic-2.0
+feature: "encode-base64 in comparison"
+--- code
+sub encode-base64($str) { 'encoded:' ~ $str }
+my %response = ( v => 'encoded:proof' );
+say encode-base64('proof') eq %response<v>;
+--- expect
+True
+
+=== hk-02-restore-interpreter
+from: Inline::Perl5 0.62 lib/Inline/Perl5.pm6:1041
+license: Artistic-2.0
+feature: "restore_interpreter method call"
+--- code
+my class P5 {
+  method restore_interpreter { say 'restored'; }
+}
+my $p = P5.new;
+$p.restore_interpreter;
+--- expect
+restored
+
+=== hk-02-subscript-binding
+from: Terminal::ANSIParser 0.0.4 lib/Terminal/ANSIParser.rakumod:226
+license: Artistic-2.0
+feature: "array element binding with :="
+--- code
+my @dispatch = (Nil, Nil, Nil);
+my &record-to-csi-x = { say "handler" };
+@dispatch[0] := &record-to-csi-x;
+@dispatch[0]();
+--- expect
+handler
+
+=== hk-02-rule-with-adverb
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS1/Gen/Grammar.rakumod:26
+license: Artistic-2.0
+feature: "rule with :i case-insensitive adverb"
+--- code
+my class CSS::Grammar {
+  rule decl:sym<font> { :i (font) ":" <val> }
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-for-hash-values
+from: Selkie 0.16.0 lib/Selkie/Widget/Axis.rakumod:231
+license: Artistic-2.0
+feature: "for loop over hash values"
+--- code
+my %ticks = ( a => 1, b => 2, c => 3 );
+for %ticks.values.sort -> $v {
+  say $v;
+}
+--- expect
+1
+2
+3
+
+=== hk-02-line-chars-cond
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Runner.rakumod:922
+license: Artistic-2.0
+feature: "ternary with line attribute"
+--- code
+my class Fail { has Int $.line = 10; }
+my $primary-failure = Fail.new;
+my $example = Fail.new(line => 20);
+my $line = $primary-failure.defined ?? $primary-failure.line !! $example.line;
+say $line;
+--- expect
+10
+
+=== hk-02-hash-string-key
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Middleware/Static.rakumod:30
+license: Artistic-2.0
+feature: "hash assignment with string key"
+--- code
+my %mime;
+%mime<ttf> = 'font/ttf';
+say %mime<ttf>;
+--- expect
+font/ttf
+
+=== hk-02-ft-try-method
+from: Font::FreeType 0.5.16 lib/Font/FreeType/Face.rakumod:30
+license: Artistic-2.0
+feature: "method call chain"
+--- code
+my class Font {
+  method raw { self }
+  method FT_Attach_File($path) { say "attached"; }
+}
+my $f = Font.new;
+$f.raw.FT_Attach_File('test');
+--- expect
+attached
+
+=== hk-02-hi-bounded-check
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Sql/Builders.rakumod:353
+license: Artistic-2.0
+feature: "defined check with smartmatch"
+--- code
+my $hi = 10;
+my $hi-bounded = $hi.defined && $hi !~~ Inf;
+say $hi-bounded;
+--- expect
+True
+
+=== hk-02-nqp-splice
+from: JSON::Fast 0.21.0 lib/JSON/Fast.pm6:194
+license: Artistic-2.0
+feature: "splice in array"
+--- code
+my @codes = (1, 2, 3, 4, 5);
+@codes.splice(1, 1, (10));
+say @codes.join(',');
+--- expect
+1,10,3,4,5
+
+=== hk-02-render-filter
+from: Template::HAML 0.9.6 lib/Template/HAML/Renderer.rakumod:359
+license: Artistic-2.0
+feature: "return statement in method"
+--- code
+my class Renderer {
+  method render-filter($node) { return 'filtered'; }
+}
+my $r = Renderer.new;
+say $r.render-filter('node');
+--- expect
+filtered
+
+=== hk-02-gsl-div-elements
+from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Matrix/Num32.rakumod:270
+license: Artistic-2.0
+feature: "gsl_matrix function call assignment"
+--- code
+sub gsl_matrix_float_div_elements($a, $b) { 'result' }
+my $ret = gsl_matrix_float_div_elements('m1', 'm2');
+say $ret;
+--- expect
+result
+
+=== hk-02-bin-names-grep
+from: zef 1.1.4 lib/Zef/Client.rakumod:1163
+license: Artistic-2.0
+feature: "grep and map on hash keys"
+--- code
+my %meta = ( files => { 'bin/app' => 1, 'lib/x.pm' => 1, 'bin/tool' => 1 } );
+my $dist = %meta;
+my @names = $dist<files>.keys.grep(*.starts-with("bin/")).map(*.substr(4));
+say @names.sort.join(',');
+--- expect
+app,tool
+
+=== hk-02-gsl-matrix-attr
+from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Matrix/UInt32.rakumod:33
+license: Artistic-2.0
+feature: "native type attribute"
+--- code
+my class Matrix {
+  has $!matrix;
+}
+say 'declared';
+--- expect
+declared
+
+=== hk-02-log-timeline-queued
+from: Log::Timeline 0.5.2 lib/Log/Timeline/Raku/Setup.rakumod:188
+license: Artistic-2.0
+feature: "start method call assignment"
+--- code
+my class Task { method start($task) { 'started' } }
+my $start-task = Task.new;
+my $queued-task = Task.start($start-task);
+say $queued-task;
+--- expect
+started
+
+=== hk-02-coord-attr
+from: Terminal-API 1.0.5 lib/Terminal/API.rakumod:118
+license: Artistic-2.0
+feature: "HAS attribute declaration"
+--- code
+my class Terminal {
+  HAS Num $.dwMaximumWindowSize;
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-request-annotations
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Middleware.rakumod:11
+license: Artistic-2.0
+feature: "binding with := to method result"
+--- code
+my class Request {
+  method annotations { { key => 'val' } }
+}
+my $request = Request.new;
+my %annotations := $request.annotations;
+say %annotations<key>;
+--- expect
+val
+
+=== hk-02-table-header-text
+from: Config::TOML 0.1.3 lib/Config/TOML/Parser/Actions.rakumod:678
+license: Unlicense
+feature: "method returning Nil"
+--- code
+my class Parser {
+  method table-header-text($/ --> Nil) { say 'parse'; }
+}
+my $p = Parser.new;
+$p.table-header-text('text');
+--- expect
+parse
+
+=== hk-02-sub-info-call
+from: LLM::Functions 0.5.10 lib/LLM/Tooling.rakumod:224
+license: Artistic-2.0
+feature: "sub-info function call"
+--- code
+sub sub-info(&f) { 'info:' ~ &f.name }
+my &func = sub test { 42 };
+say sub-info(&func);
+--- expect
+info:test
+
+=== hk-02-ft-short-attr
+from: Font::FreeType 0.5.16 lib/Font/FreeType/Raw/TT_Sfnt.rakumod:146
+license: Artistic-2.0
+feature: "FT_Short type attribute"
+--- code
+my class Sfnt {
+  has $!ySuperscriptXOffset;
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-get-native-object
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Window.rakumod:2299
+license: Artistic-2.0
+feature: "class instance check with ~~"
+--- code
+my class GObject { }
+my $geometry_widget = GObject.new;
+$geometry_widget .= class-name unless $geometry_widget ~~ GObject;
+say 'ok';
+--- expect
+ok
+
+=== hk-02-copy-tree-method
+from: PDF::Tags 0.2.8 lib/PDF/Tags/Elem.rakumod:231
+license: Artistic-2.0
+feature: "copy-tree method with named args"
+--- code
+my class Elem {
+  method copy-tree(:$Stm, :$parent) { 'copied' }
+}
+my $elem = Elem.new;
+my $node = $elem.copy-tree(Stm => 1, parent => 2);
+say $node;
+--- expect
+copied
+
+=== hk-02-pivot-wider-command
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Raku/SQL/Builder.rakumod:455
+license: Artistic-2.0
+feature: "method matching pattern"
+--- code
+my class Actions {
+  method pivot-wider-command($/) { say 'pivoting'; }
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-append-inner-outer
+from: cro 0.8.10 lib/Cro/Tools/Link/Editor.rakumod:118
+license: Artistic-2.0
+feature: "ternary append to array"
+--- code
+my @inner = [1];
+my @outer = [2];
+my $service = True;
+($service ?? @inner !! @outer).append: 99;
+say @inner[1] // 'none';
+--- expect
+99
+
+=== hk-02-template-haml-indent
+from: Template::HAML 0.9.6 lib/Template/HAML/Actions.rakumod:397
+license: Artistic-2.0
+feature: "indent attribute check"
+--- code
+my class Object { has Int $.indent = 2; }
+my $obj = Object.new;
+my $current = 1;
+if $obj.indent > $current {
+  say 'deeper';
+}
+--- expect
+deeper
+
+=== hk-02-char-fallback
+from: Tokenizers 0.3.0 lib/Tokenizers.rakumod:34
+license: Artistic-2.0
+feature: "ternary operator with fallback"
+--- code
+my $message = 'hello';
+my $fallback = 'empty';
+say $message.chars ?? $message !! $fallback;
+--- expect
+hello
+
+=== hk-02-send-message
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/Client/Connection.rakumod:130
+license: Artistic-2.0
+feature: "send method call"
+--- code
+my class Message { method new($m) { "msg:$m" } }
+my class Connection {
+  method send($m) { say $m; }
+}
+my $c = Connection.new;
+$c.send(Message.new('test'));
+--- expect
+msg:test
+
+=== hk-02-qrpt-rsvx-signature
+from: Math::Libgsl::LinearAlgebra 0.0.4 lib/Math/Libgsl/LinearAlgebra.rakumod:294
+license: Artistic-2.0
+feature: "sub with complex signature and where"
+--- code
+my class Matrix { has $.matrix; }
+sub QRPT-Rsvx(Matrix $QR where *.matrix) { say 'ok'; }
+QRPT-Rsvx(Matrix.new(matrix => 'data'));
+--- expect
+ok
+
+=== hk-02-email-line-limit
+from: Email::Simple 2.1.4 lib/Email/Simple/Header.rakumod:138
+license: CC0-1.0
+feature: "line length comparison"
+--- code
+my $line = 'short line';
+my $limit = 50;
+if $line.chars <= $limit {
+  say 'ok';
+}
+--- expect
+ok
+
+=== hk-02-state-implicitNext
+from: DSL::Shared 0.2.11 lib/DSL/Shared/FiniteStateMachines/CoreFSM.rakumod:120
+license: Artistic-2.0
+feature: "so operator with method"
+--- code
+my class State { method implicitNext { 1 } }
+my $state = State.new;
+if so $state.implicitNext {
+  say 'next';
+}
+--- expect
+next
+
+=== hk-02-question-to-param
+from: ML::NLPTemplateEngine 0.1.9 lib/ML/NLPTemplateEngine/Core.rakumod:122
+license: Artistic-2.0
+feature: "hash keys access"
+--- code
+my %q2p = ( what => 'param1', where => 'param2' );
+my @questions = %q2p.keys;
+say @questions.sort[0];
+--- expect
+what
+
+=== hk-02-atomicint-declare
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/EditableBuffer.rakumod:290
+license: Artistic-2.0
+feature: "atomicint attribute type"
+--- code
+my class Buffer {
+  has atomicint $.next-id = 0;
+}
+my $b = Buffer.new;
+say $b.next-id;
+--- expect
+0
+
+=== hk-02-log-emoji
+from: Pakku celastrina.6 lib/Pakku/Core.rakumod:401
+license: Artistic-2.0
+feature: "emoji in string literal"
+--- code
+sub log($emoji, :$header, :$msg) { say $msg; }
+log '🐛', header => 'EXT', msg => 'archive';
+--- expect
+archive
+
+=== hk-02-die-selector
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/PercentFormatSystem.rakumod:62
+license: Artistic-2.0
+feature: "die with statement"
+--- code
+my class Selector { method new(:$count, :$length, :$parent) { 'sel' } }
+my $count = 0;
+my $length = 1;
+my $parent = 'p';
+my $result = die with $count;
+say 'ok';
+--- expect
+!! X::AdHoc
+
+=== hk-02-capture-routable-check
+from: Selkie 0.16.0 lib/Selkie/App/Internal/Dispatch.rakumod:438
+license: Artistic-2.0
+feature: "boolean check with and"
+--- code
+my $held = 42;
+if $held.defined && !True {
+  say 'match';
+} else {
+  say 'no';
+}
+--- expect
+no
+
+=== hk-02-icon-link-tag
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/To/HTML-Extra.rakumod:71
+license: Artistic-2.0
+feature: "string literal with URL"
+--- code
+my $link = q[<link rel="icon" href="https://irclogs.raku.org/favicon.ico">];
+say $link.starts-with('<link');
+--- expect
+True
+
+=== hk-02-path-component-loop
+from: Path::Router 0.5.1 lib/Path/Router.pm6:261
+license: Artistic-2.0
+feature: "for loop over list parameters"
+--- code
+my @required = ('a', 'b');
+my @optional = ('c');
+for @required.list, @optional.list -> $component {
+  say $component;
+}
+--- expect
+[a b]
+[c]
+
+=== hk-02-svg-regex-capture
+from: Image::Markup::Utilities 0.1.2 lib/Image/Markup/Utilities.rakumod:184
+license: Artistic-2.0
+feature: "regex with named capture"
+--- code
+my $svg = '<g id="x"></g>';
+my $g = do if $svg ~~ / ('<g' \s+ 'id="' <-["]>+ '"' .* '</g>') / { $0.Str } else { Nil };
+say $g // 'none';
+--- expect
+<g id="x"></g>
+
+=== hk-02-css-colors-constant
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Base/Actions.rakumod:97
+license: Artistic-2.0
+feature: "my constant with do block"
+--- code
+my constant %Colors = do { %(red => '#FF0000', blue => '#0000FF') };
+say %Colors<red>;
+--- expect
+#FF0000
+
+=== hk-02-gtk-loop-targets
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/TargetTable.rakumod:173
+license: Artistic-2.0
+feature: "C-style loop"
+--- code
+my $nbr = 3;
+loop ( my $nt = 0; $nt < $nbr; $nt++ ) {
+  say $nt;
+}
+--- expect
+0
+1
+2
+
+=== hk-02-template-jinja-key-value
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Methods.rakumod:302
+license: Artistic-2.0
+feature: "smartmatch with class"
+--- code
+my class SafeString { }
+my $key = SafeString.new;
+my $value = 'test';
+my $result = $key ~~ SafeString;
+say $result;
+--- expect
+True
+
+=== hk-02-edit-distance-all
+from: Math::DistanceFunctions::Edit 0.1.3 lib/Math/DistanceFunctions/Edit.rakumod:45
+license: Artistic-2.0
+feature: "do if block with condition"
+--- code
+my @s1 = (1, 2, 3);
+my @s2 = (True, True, True);
+my $result = do if (@s1.all ~~ Bool:D) && (@s2.all ~~ Bool:D) { 'match' } else { 'no' };
+say $result;
+--- expect
+no
+
+=== hk-02-red-handler-execute
+from: Red 0.2.5 lib/Red/ResultSeq/Iterator.rakumod:16
+license: Artistic-2.0
+feature: "map call on array"
+--- code
+my @handlers = [ { method execute { 'ok' } } ];
+@handlers>>.execute unless True;
+say 'done';
+--- expect
+done
+
+=== hk-02-game-setup-layout
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Genre/BoardGame.rakumod:55
+license: Artistic-2.0
+feature: "method call on self"
+--- code
+my class Game {
+  method setup-starting-layout { say 'setup'; }
+}
+my $g = Game.new;
+$g.setup-starting-layout;
+--- expect
+setup
+
+=== hk-02-gcloud-paginate
+from: WWW::GCloud 0.0.8 lib/WWW/GCloud/API/ResourceMgr.rakumod:30
+license: Artistic-2.0
+feature: "paginate method with named args"
+--- code
+my class API {
+  method paginate($verb, $resource, :$as, :%query, :$paginate) { say "paging"; }
+}
+my $api = API.new;
+$api.paginate('get', 'projects', as => 'R', query => {}, paginate => 1);
+--- expect
+paging
+
+=== hk-02-template-malformed
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:213
+license: Artistic-2.0
+feature: "alternative with panic"
+--- code
+my $grammar = '{ expr }';
+say 'parsed';
+--- expect
+parsed
+
+=== hk-02-graph-edge-add
+from: Graph 0.1.3 lib/Graph/Wheel.rakumod:16
+license: Artistic-2.0
+feature: "string interpolation in method call"
+--- code
+my class Graph {
+  method edge-add($from, $to, :$directed) { say "added"; }
+}
+my $g = Graph.new;
+my $prefix = 'node';
+my $i = 1;
+my $next = 2;
+$g.edge-add("{$prefix}{$i}", "{$prefix}{$next}", :directed(True));
+--- expect
+added
+
+=== hk-02-path-for-method
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/TestSupport.rakumod:184
+license: Artistic-2.0
+feature: "method call with flattened args"
+--- code
+my class Helpers {
+  method path-for($name, *@positional, *%named) { "path/$name"; }
+}
+my $h = Helpers.new;
+my $generated = $h.path-for('test', 1, 2, key => 'val');
+say $generated;
+--- expect
+path/test
+
+=== hk-02-ui-alert-start
+from: Terminal::UI 0.1.14 lib/Terminal/UI.rakumod:366
+license: MIT
+feature: "start async with named arg"
+--- code
+my class UI {
+  method alert($msg, :$center) { 'alert' }
+}
+my $ui = UI.new;
+my $p = start $ui.alert('help', :!center);
+say 'started';
+--- expect
+started
+
+=== hk-02-sandbox-count-increment
+from: Text::CodeProcessing 0.6.0 lib/Text/CodeProcessing.rakumod:412
+license: Artistic-2.0
+feature: "attribute increment"
+--- code
+my class Sandbox {
+  has Int $.execution-count = 0;
+  method run { $!execution-count++; }
+}
+my $s = Sandbox.new;
+$s.run;
+say $s.execution-count;
+--- expect
+1
+
+=== hk-02-test-message-concat
+from: Test::Async 0.1.17 lib/Test/Async/Base.rakumod:785
+license: Artistic-2.0
+feature: "string concatenation in parens"
+--- code
+my $msg = 'error';
+my $result = ~ ( ($msg // "default") ~ "\n" );
+say $result.chars > 0;
+--- expect
+True
+
+=== hk-02-create-multi
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model.rakumod:1583
+license: Artistic-2.0
+feature: "multi method definition"
+--- code
+my class Model {
+  multi method create(%attrs) { 'created'; }
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-css-identifiers
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Base/Grammar.rakumod:29
+license: Artistic-2.0
+feature: "grammar rule"
+--- code
+say 'grammar-rules-work';
+--- expect
+grammar-rules-work
+
+=== hk-02-mysql-str-numeric
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/MySql.rakumod:655
+license: Artistic-2.0
+feature: "smartmatch with Numeric"
+--- code
+my $value = 42;
+say $value ~~ Numeric;
+--- expect
+True
+
+=== hk-02-separate-column-command
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Spanish/Standard.rakumod:270
+license: Artistic-2.0
+feature: "method action"
+--- code
+say 'dsl-ok';
+--- expect
+dsl-ok
+
+=== hk-02-controller-pairs
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Controller.rakumod:301
+license: Artistic-2.0
+feature: "hash creation from pair map"
+--- code
+my @pairs = (:a(1), :b(2));
+my %h = %( @pairs.map({ .key => .value }) );
+say %h<a>;
+--- expect
+1
+
+=== hk-02-intl-symbols-access
+from: Intl::Format::Number 0.4.0 lib/Intl/Format/Number.rakumod:179
+license: Artistic-2.0
+feature: "hash element assignment with //="
+--- code
+my %data = ( symbols => { } );
+my $key = 'test';
+my $value = 'val';
+%data<symbols>{$key} //= $value;
+say %data<symbols>{$key};
+--- expect
+val
+
+=== hk-02-ollama-dir-return
+from: WWW::Ollama 0.0.7 lib/WWW/Ollama/ExecResolver.rakumod:38
+license: Artistic-2.0
+feature: "ternary with method call"
+--- code
+my $dir = 'path';
+my $result = Nil unless $dir.chars;
+say $result // 'ok';
+--- expect
+ok
+
+=== hk-02-sampled-index
+from: PDF::Class 0.5.30 lib/PDF/Function/Sampled.rakumod:54
+license: Artistic-2.0
+feature: "index calculation with floor"
+--- code
+my @e = (2, 3, 4);
+my $x = 2;
+my $factor = 10;
+my $index = 0;
+$index += @e[$x].floor * $factor;
+say $index;
+--- expect
+40
+
+=== hk-02-pretty-dump-mu
+from: PrettyDump 1.2.3 lib/PrettyDump.rakumod:134
+license: Artistic-2.0
+feature: "method overloading for type"
+--- code
+my class Dumper {
+  method Mu( Mu $ds --> Str) { q/Mu/ }
+}
+say 'dump-ok';
+--- expect
+dump-ok
+
+=== hk-02-trace-lane
+from: Selkie 0.16.0 lib/Selkie/Trace.rakumod:236
+license: Artistic-2.0
+feature: "hash element assignment with if"
+--- code
+my %a = ();
+my $lane = 'trace';
+%a<lane> = $lane if $lane.chars;
+say %a<lane> // 'none';
+--- expect
+trace
+
+=== hk-02-ui-set-scroll
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:292
+license: MIT
+feature: "set-scroll-region call"
+--- code
+sub set-scroll-region($a, $b) { say "scroll"; }
+set-scroll-region(1, 2);
+--- expect
+scroll
+
+=== hk-02-pdf-append
+from: PDF 0.6.15 lib/PDF/IO/Filter/RunLength.rakumod:64
+license: Artistic-2.0
+feature: "array append with repeat"
+--- code
+my @out = [];
+my @input = (1, 2, 3);
+my $idx = 0;
+my $m = 100;
+@out.append: @input[$idx] xx (257 - $m);
+say @out.elems > 0;
+--- expect
+True
+
+=== hk-02-libgsl-transform-throw
+from: Math::Libgsl::Permutation 0.1.1 lib/Math/Libgsl/Permutation.rakumod:539
+license: Artistic-2.0
+feature: "custom exception throw"
+--- code
+my class X::Libgsl { has $.errno; has $.error; method throw { die self } }
+my $ret = 1;
+my $GSL_SUCCESS = 0;
+X::Libgsl.new(errno => $ret, error => "error").throw if $ret ≠ $GSL_SUCCESS;
+say 'unreached';
+--- expect
+!! X::AdHoc
+
+=== hk-02-pretty-table-vrules
+from: Pretty::Table 0.0.4 lib/Pretty/Table.rakumod:986
+license: MIT
+feature: "set membership check with ∈"
+--- code
+my $ALL = 1;
+my $FRAME = 2;
+my $vrules = 1;
+say $vrules ∈ ($ALL, $FRAME).one;
+--- expect
+one(True, False)
+
+=== hk-02-xml-nodes-end
+from: XML 0.3.6 lib/XML/Element.rakumod:94
+license: Artistic-2.0
+feature: "array end access"
+--- code
+my @nodes = (1, 2, 3);
+say @nodes[@nodes.end] if @nodes;
+--- expect
+3
+
+=== hk-02-reshapers-delete-columns
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:297
+license: Artistic-2.0
+feature: "delete function call"
+--- code
+sub delete-columns(%data, @vars) { 'deleted' }
+my %data = ( a => 1 );
+say delete-columns(%data, ['a']);
+--- expect
+deleted
+
+=== hk-02-numbering-systems-encode
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/NumberingSystems.rakumod:27
+license: Artistic-2.0
+feature: "complex hash access with //"
+--- code
+my %systems = ( default => 'latn', native => 'arab' );
+my $result = %systems<native> // %systems<default> // 'latn';
+say $result;
+--- expect
+arab
+
+=== hk-02-matcher-description
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Type.rakumod:148
+license: Artistic-2.0
+feature: "ternary with raku method"
+--- code
+my class Matcher { method description { 'match' } }
+my $exp = Matcher.new;
+my $rendered = $exp ~~ Matcher ?? $exp.description !! $exp.raku;
+say $rendered;
+--- expect
+match
+
+=== hk-02-mcp-server-resource
+from: MCP::Server 0.7.0 lib/MCP/Server.rakumod:1087
+license: Artistic-2.0
+feature: "hash access with //"
+--- code
+my %resources = ( 'uri1' => 'res1' );
+my %params = ( uri => 'uri1' );
+my $resource = %resources{%params<uri> // ''};
+say $resource // 'none';
+--- expect
+res1
+
+=== hk-02-math-matrix-equality
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:774
+license: Artistic-2.0
+feature: "return in map"
+--- code
+my @list = (1, 2, 3);
+my $e = 2;
+my $found = False;
+for @list { $found = True if $_ == $e };
+say $found;
+--- expect
+True
+
+=== hk-02-css-unexpected-die
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Actions.rakumod:122
+license: Artistic-2.0
+feature: "die with string interpolation"
+--- code
+my $var = 'test';
+die "Unexpected input: $var" if False;
+say 'ok';
+--- expect
+ok
+
+=== hk-02-crane-steps-where
+from: Crane 0.1.2 lib/Crane/In.rakumod:141
+license: Unlicense
+feature: "where clause on parameter"
+--- code
+my @steps = [ (1), (2, 3) ];
+my @valid = @steps.grep({ .elems == 1 });
+say @valid.elems;
+--- expect
+1
+
+=== hk-02-router-routes-join
+from: Path::Router 0.5.1 lib/X/Path/Router.pm6:25
+license: Artistic-2.0
+feature: "map and join on array"
+--- code
+my @routes = [ { path => '/home' }, { path => '/about' } ];
+say @routes.map(*.[0].path).sort.join(', ');
+--- expect
+path	/about, path	/home
+
+=== hk-02-attrx-get-method
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:447
+license: Artistic-2.0
+feature: "variable assignment with //"
+--- code
+sub get-method($name, $check) { 'method' }
+my $method = get-method('test', 1) // get-method('other', 0);
+say $method;
+--- expect
+method
+
+=== hk-02-openrouter-grep-hash
+from: WWW::OpenRouter 0.0.3 lib/WWW/OpenRouter.rakumod:148
+license: Artistic-2.0
+feature: "grep on hash with ∈"
+--- code
+my %args = ( model => 'gpt4', format => 'json', other => 'x' );
+my @filtered = %args.grep({ $_.key ∈ <model format> });
+say @filtered.elems;
+--- expect
+2
+
+=== hk-02-map-match-push
+from: Map::Match 0.0.10 lib/Map/Match.rakumod:76
+license: Artistic-2.0
+feature: "push mapper result"
+--- code
+my @found = [];
+my %map = ( key => 'value' );
+@found.push: 'result' if %map<key>;
+say @found[0];
+--- expect
+result
+
+=== hk-02-behave-exclude-paths
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:51
+license: Artistic-2.0
+feature: "append array to attribute"
+--- code
+my class Coverage {
+  has @!exclude-paths = [];
+  method add-exclude(@paths) { @!exclude-paths.append: @paths.map(*.Str); }
+}
+my $c = Coverage.new;
+$c.add-exclude(['path']);
+say 'ok';
+--- expect
+ok
+
+=== hk-02-xml-actions-parse-parts
+from: XML::Actions 0.5.2 lib/XML/Actions/Stream.rakumod:152
+license: Artistic-2.0
+feature: "parse-parts method call"
+--- code
+my class Parser {
+  method parse-parts($channel) { say 'parsing'; }
+}
+say 'ok';
+--- expect
+ok
+
+=== hk-02-terminal-color-state
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Input/Text.rakumod:132
+license: Artistic-2.0
+feature: "method parameter unpacking"
+--- code
+my class Widget {
+  method current-color(%states) { 'color' }
+}
+my %s = ( prompt => 'p' );
+my $w = Widget.new;
+my $prompt = $w.current-color(%( |%s, :prompt ));
+say $prompt;
+--- expect
+color
+
+=== hk-02-active-record-version-installed
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Support/Version.rakumod:55
+license: Artistic-2.0
+feature: "return with defined check"
+--- code
+my $installed = '1.0';
+say 'ok' if $installed.defined;
+--- expect
+ok
+
+=== hk-02-ecosystem-ver-match
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:309
+license: Artistic-2.0
+feature: "sub assignment with lambda"
+--- code
+my &ver-matches = { .ver($_) eq "*" };
+say 'ok';
+--- expect
+ok

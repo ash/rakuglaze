@@ -1,0 +1,626 @@
+=== hk-05-hyper-with-batch
+from: Math::Nearest 0.0.7 lib/Math/Nearest/Scan.rakumod:121
+license: Artistic-2.0
+feature: hyper method with batch adverb
+--- code
+my @nums = 1, 2, 3, 4, 5;
+my @result = @nums.hyper(:batch(2)).map({ $_ * 2 }).list;
+say @result.join(",")
+--- expect
+2,4,6,8,10
+
+=== hk-05-write-read-buf
+from: TinyFloats 0.0.5 lib/TinyFloats.rakumod:76
+license: Artistic-2.0
+feature: buf8 write-uint32 and read-num32
+--- code
+my $buf = buf8.allocate(4);
+my $written = $buf.write-uint32(0, 42);
+my $read = $written.read-num32(0);
+say $read
+--- expect
+5.885453550164232e-44
+
+=== hk-05-backtrace-method
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/AccelMap.rakumod:400
+license: Artistic-2.0
+feature: backtrace method on exception
+--- code
+try {
+    die "test error"
+};
+say (.backtrace.defined ?? "has backtrace" !! "no backtrace") given $!
+--- expect
+has backtrace
+
+=== hk-05-weekday-of-month
+from: Timezones::US 0.0.7 lib/Timezones/US.rakumod:117
+license: Artistic-2.0
+feature: weekday-of-month on Date
+--- code
+my $d = Date.new(2024, 10, 15);
+my $wdom = $d.weekday-of-month;
+say $wdom
+--- expect
+3
+
+=== hk-05-hyper-with-flat
+from: zef 1.1.4 lib/Zef/CLI.rakumod:1263
+license: Artistic-2.0
+feature: hyper with batch and flat
+--- code
+my @data = [1, 2], [3, 4], [5, 6];
+my @result = @data.hyper(:batch(1)).map({ .list }).flat;
+say @result.join(",")
+--- expect
+1,2,3,4,5,6
+
+=== hk-05-before-write-int32
+from: Geo::Geometry 0.1.3 lib/Geo/Geometry.rakumod:287
+license: Artistic-2.0
+feature: buf write-int32 method
+--- code
+my $buf = buf8.allocate(4);
+$buf.write-int32(0, 42);
+say "written"
+--- expect
+written
+
+=== hk-05-share-supply
+from: cro 0.8.10 lib/Cro/Tools/Template/ZeroMQWorkSinkService.rakumod:27
+license: Artistic-2.0
+feature: Supply share method
+--- code
+my $supply = (1..3).Supply;
+my $shared = $supply.share;
+say $shared.WHAT.gist
+--- expect
+(Supply)
+
+=== hk-05-chop-string
+from: Sparky 0.2.32 lib/Sparky.rakumod:354
+license: Artistic-2.0
+feature: chop method on string
+--- code
+my $str = "test";
+my $chopped = $str.chop;
+say $chopped
+--- expect
+tes
+
+=== hk-05-allocation-allocate
+from: LibUUID 0.5 lib/LibUUID.pm6:38
+license: Artistic-2.0
+feature: buf allocate method
+--- code
+my $buf = buf8.allocate(37);
+say $buf.bytes
+--- expect
+37
+
+=== hk-05-flatmap-with-values
+from: JSON::Tiny 1.0 lib/JSON/Tiny.pm:41
+license: Artistic-2.0
+feature: flatmap on array of hashes
+--- code
+my @data = { x => 1, y => 2 }, { x => 3, y => 4 };
+my @flat = @data.flatmap({ .values });
+say @flat.sort.join(",")
+--- expect
+1,2,3,4
+
+=== hk-05-encoding-append
+from: Template::HAML 0.9.6 lib/Template/HAML/Format.rakumod:121
+license: Artistic-2.0
+feature: append-assign with encoding property
+--- code
+my class XmlObj { has $.encoding; }
+my $obj = XmlObj.new(encoding => "UTF-8");
+my $head = "header";
+$head ~= ' encoding="' ~ $obj.encoding ~ '"' if $obj.encoding.defined;
+say $head
+--- expect
+header encoding="UTF-8"
+
+=== hk-05-alnum-regex
+from: LLM::Prompts 0.2.15 lib/LLM/Prompts.rakumod:327
+license: Artistic-2.0
+feature: alnum character class in regex
+--- code
+my $str = "test123_abc";
+if $str ~~ /(<.alnum>+)/ {
+    say $0
+}
+--- expect
+｢test123_abc｣
+
+=== hk-05-subst-chop
+from: Image::Markup::Utilities 0.1.2 lib/Image/Markup/Utilities.rakumod:36
+license: Artistic-2.0
+feature: subst with chop
+--- code
+my $str = "![](data:image/png;base64,abc123)";
+my $result = $str.subst(/ ^ '![](data:image/' \w*? ';base64,' /).chop;
+say $result
+--- expect
+abc123
+
+=== hk-05-suffix-check
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodySerializers.rakumod:73
+license: Artistic-2.0
+feature: suffix property check
+--- code
+my class MimeType { has $.suffix; }
+my $mt = MimeType.new(suffix => 'json');
+say $mt.suffix eq 'json' ?? "yes" !! "no"
+--- expect
+yes
+
+=== hk-05-pairup-method
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/Option.rakumod:443
+license: MIT
+feature: pairup method on list
+--- code
+my @list = 1, 2, 3, 4, 5, 6;
+my @pairs = @list.pairup;
+say @pairs.elems
+--- expect
+3
+
+=== hk-05-raku-method
+from: RakuConfig 0.8.2 lib/RakuConfig.rakumod:271
+license: Artistic-2.0
+feature: raku method with depth
+--- code
+my %ds = ( a => 1, b => (c => 2) );
+my $str = %ds.raku(:depth(0));
+say $str.lines[0]
+--- expect
+{:a(1), :b(:c(2))}
+
+=== hk-05-reverse-list
+from: CRoaring 0.2.3 lib/CRoaring.rakumod:165
+license: Artistic-2.0
+feature: reverse method on list
+--- code
+my @list = 1, 2, 3, 4, 5;
+my @rev = @list.reverse;
+say @rev.join(",")
+--- expect
+5,4,3,2,1
+
+=== hk-05-readonly-attribute
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:1043
+license: Artistic-2.0
+feature: readonly attribute check
+--- code
+my class Obj { has $.data is rw; }
+my $obj = Obj.new(data => 42);
+say $obj.^attributes[0].readonly ?? "readonly" !! "rw"
+--- expect
+rw
+
+=== hk-05-indent-string
+from: LibXML 0.11.3 lib/LibXML/ErrorHandling.rakumod:99
+license: Artistic-2.0
+feature: indent method on string
+--- code
+my $text = "line1\nline2\nline3";
+my $indented = $text.indent(4);
+say $indented.lines[0]
+--- expect
+    line1
+
+=== hk-05-uniprops-method
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:234
+license: Artistic-2.0
+feature: uniprops method with smart match
+--- code
+my $base = "ABC";
+my $match = (all($base.uniprops) ~~ / Lu /) ?? "yes" !! "no";
+say $match
+--- expect
+yes
+
+=== hk-05-one-list
+from: Red 0.2.5 lib/Red/Column.rakumod:73
+license: Artistic-2.0
+feature: one method with eq comparison
+--- code
+my $key = "inflate";
+my $match = $key eq <inflate deflate>.one ?? "first" !! "second";
+say $match
+--- expect
+first
+
+=== hk-05-relative-path
+from: Distribution::Common 0.1.0 lib/Distribution/IO/Directory.rakumod:11
+license: Artistic-2.0
+feature: relative path method
+--- code
+my $base = IO::Path.new("/home/user");
+my $path = IO::Path.new("/home/user/file.txt");
+my $rel = $path.relative($base);
+say $rel
+--- expect
+file.txt
+
+=== hk-05-child-path
+from: zef 1.1.4 lib/Zef/Client.rakumod:1047
+license: Artistic-2.0
+feature: child method on path
+--- code
+my $dir = IO::Path.new("/home/user");
+my $bin = $dir.child('bin');
+say $bin
+--- expect
+"/home/user/bin".IO
+
+=== hk-05-keys-hash
+from: Config::TOML 0.1.3 lib/Config/TOML/Dumper.rakumod:89
+license: Unlicense
+feature: keys method on hash
+--- code
+my %h = (a => 1, b => 2);
+my @k = %h.keys.sort;
+say @k.join(",")
+--- expect
+a,b
+
+=== hk-05-toggle-array
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:241
+license: Artistic-2.0
+feature: toggle method on array with adverb
+--- code
+my @vals = 1, 2, 3, 2, 1;
+my @toggled = @vals.toggle({ $_ == 2 }, :off);
+say @toggled.join(",")
+--- expect
+2,3,2,1
+
+=== hk-05-cache-list
+from: Template6 0.16.0 lib/Template6/Parser.rakumod:172
+license: Artistic-2.0
+feature: cache method on lazy list
+--- code
+my @items = (1, 2, 3).map({ $_ * 2 }).cache;
+say @items.join(",")
+--- expect
+2,4,6
+
+=== hk-05-prefix-method
+from: Sparrow6 0.0.96 lib/Sparrow6/Task/Repository/Helpers/Common.rakumod:79
+license: Artistic-2.0
+feature: prefix method call
+--- code
+my class HasPrefix { method prefix { "pre" } }
+my $obj = HasPrefix.new;
+say $obj.prefix
+--- expect
+pre
+
+=== hk-05-with-assign
+from: PDF::Tags 0.2.8 lib/PDF/Tags/ObjRef.rakumod:14
+license: Artistic-2.0
+feature: assignment with with statement modifier
+--- code
+my class Node { has $.Pg is rw; }
+my $self = Node.new(Pg => "page");
+my $pg = 1;
+$self.Pg = $pg with $pg;
+say $self.Pg
+--- expect
+1
+
+=== hk-05-reduce-concat
+from: PDF::Tags 0.2.8 lib/PDF/Tags/Attr.rakumod:23
+license: Artistic-2.0
+feature: reduce with key and text
+--- code
+my class Attr { has $.key; has $.text; }
+my $attr = Attr.new(key => "mykey", text => "mytext");
+my $result = [~] '@', $attr.key, '=', $attr.text;
+say $result
+--- expect
+@mykey=mytext
+
+=== hk-05-fail-method
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure.rakumod:204
+license: Artistic-2.0
+feature: fail method on object
+--- code
+my class Cmd { method fail(Str $msg) { "failed: $msg" } }
+my $c = Cmd.new;
+say $c.fail("test")
+--- expect
+failed: test
+
+=== hk-05-what-perl-concat
+from: Crust 0.0.1 lib/Crust/Middleware/Lint.pm6:108
+license: Artistic-2.0
+feature: WHAT perl method with string concatenation
+--- code
+my $ret = Promise.new;
+my $msg = "P6W app's return value must be a Promise: " ~ $ret.WHAT.perl;
+say $msg
+--- expect
+P6W app's return value must be a Promise: Promise
+
+=== hk-05-splice-array
+from: Crane 0.1.2 lib/Crane/Replace.rakumod:376
+license: Unlicense
+feature: splice method on array
+--- code
+my @arr = 1, 2, 3, 4, 5;
+@arr.splice(2, 1, 99);
+say @arr.join(",")
+--- expect
+1,2,99,4,5
+
+=== hk-05-with-statement
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Pg.rakumod:50
+license: Artistic-2.0
+feature: with statement modifier
+--- code
+my $lock = 1;
+my $val = 99 with $lock;
+say $val
+--- expect
+99
+
+=== hk-05-eqv-operator
+from: Crane 0.1.2 lib/Crane/Test.rakumod:18
+license: Unlicense
+feature: eqv operator for deep comparison
+--- code
+my @a = 1, 2, 3;
+my @b = 1, 2, 3;
+say (@a eqv @b) ?? "same" !! "differ"
+--- expect
+same
+
+=== hk-05-sort-cache
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem/Examiner.rakumod:214
+license: Artistic-2.0
+feature: sort with block and cache
+--- code
+my class Item { has $.key; }
+my @data = Item.new(key => 3), Item.new(key => 1), Item.new(key => 2);
+my @sorted = @data.sort({ $_.key }).cache;
+say @sorted.map({ .key }).join(",")
+--- expect
+1,2,3
+
+=== hk-05-ne-operator
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/English/RudimentaryUserOnboarding.rakumod:44
+license: Artistic-2.0
+feature: ne string comparison operator
+--- code
+my $word = "test";
+my $is_word = ($word.Str ne 'and') ?? "not-and" !! "and";
+say $is_word
+--- expect
+not-and
+
+=== hk-05-any-operator
+from: IO::MiddleMan 1.001004 lib/IO/MiddleMan.pm6:30
+license: Artistic-2.0
+feature: any operator in method call
+--- code
+my $meth = "put";
+say ($meth eq any <put say>) ?? "match" !! "no"
+--- expect
+match
+
+=== hk-05-subst-mutate-method
+from: Log::Any 0.9.5 lib/Log/Any/Formatter.pm6:20
+license: Artistic-2.0
+feature: subst-mutate method
+--- code
+my $format = 'placeholder red and red end';
+$format.subst-mutate( 'red', 'blue', :g );
+say $format
+--- expect
+placeholder blue and blue end
+
+=== hk-05-remove-method
+from: LogP6 1.6.4 lib/LogP6.rakumod:477
+license: Artistic-2.0
+feature: remove method on manager
+--- code
+my class Manager { method remove(:$name) { "removed" } }
+my $mgr = Manager.new;
+say $mgr.remove(:name<item>)
+--- expect
+removed
+
+=== hk-05-slice-int
+from: fez 100.0.2 lib/Fez/Util/RTar.rakumod:183
+license: Artistic-2.0
+feature: slice method with Int conversion
+--- code
+my $buf = Buf.new(0, 0, 0, 42);
+my $slice = $buf.slice(2, 4);
+my $val = $slice.Int;
+say $val
+--- expect
+1
+
+=== hk-05-copy-method
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/MAC.rakumod:81
+license: Artistic-2.0
+feature: reallocate method on buffer
+--- code
+my $key = buf8.new(1, 2, 3);
+my $buf = $key.reallocate(10);
+say $buf.bytes
+--- expect
+10
+
+=== hk-05-clone-method
+from: Method::Protected 0.0.4 lib/Method/Protected.rakumod:29
+license: Artistic-2.0
+feature: clone method on code
+--- code
+my &orig = sub { "test" };
+my &cloned = &orig.clone;
+say &cloned()
+--- expect
+test
+
+=== hk-05-grep-block
+from: Log::Async 0.0.17 lib/Log/Async/Context.rakumod:12
+license: Artistic-1.0-Perl
+feature: grep method with block
+--- code
+my @items = (1, 2, 3, 4, 5);
+my @filtered = @items.grep({ $_ > 2 });
+say @filtered.join(",")
+--- expect
+3,4,5
+
+=== hk-05-parse-result-orig
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Request.rakumod:51
+license: MIT
+feature: grammar parse_result orig method
+--- code
+my class Parser { method parse_result { %( orig => "test" ) } }
+my $p = Parser.new;
+my $result = $p.parse_result;
+say $result<orig>
+--- expect
+test
+
+=== hk-05-constrain-list
+from: MUGS::Core 0.1.4 lib/MUGS/App/WebSocketServer.rakumod:39
+license: Artistic-2.0
+feature: constraint_list array access
+--- code
+my class Sig { has @.params; }
+my class Param { has @.constraint_list; }
+my $p = Param.new(constraint_list => ["Int", "Str"]);
+say $p.constraint_list[0]
+--- expect
+Int
+
+=== hk-05-within-supply
+from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:443
+license: Artistic-2.0
+feature: Supply watch and share
+--- code
+my $s = supply { emit 1; emit 2 };
+my $shared = $s.share;
+say "shared"
+--- expect
+shared
+
+=== hk-05-compose-keys
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Header.rakumod:8
+license: Artistic-2.0
+feature: orig method on match result
+--- code
+my $str = "test: value";
+if $str ~~ /^(.+):/ {
+    say "Header: " ~ ($/.orig // "none")
+}
+--- expect
+Header: test: value
+
+=== hk-05-or-assign
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/ASTBuilder.rakumod:404
+license: Artistic-2.0
+feature: or-assign operator
+--- code
+my $line-calculator;
+$line-calculator //= sub { "default" };
+say $line-calculator()
+--- expect
+default
+
+=== hk-05-defined-check
+from: PDF 0.6.15 lib/PDF/COS/Tie.rakumod:129
+license: Artistic-2.0
+feature: defined method call
+--- code
+my $val = 42;
+say ($val.defined ?? "yes" !! "no")
+--- expect
+yes
+
+=== hk-05-hash-sort
+from: DBIish 0.6.9 lib/DBIish/CommonTesting.rakumod:23
+license: BSD-2-Clause
+feature: hash sort with flatmap
+--- code
+my %h = (b => 2, a => 1, c => 3);
+my @result = %h.sort.flatmap({ (.key, .value) });
+say @result.join(",")
+--- expect
+a,1,b,2,c,3
+
+=== hk-05-has-method
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Type.rakumod:71
+license: Artistic-2.0
+feature: method existence check
+--- code
+my class Coder { method dump($v) { "dumped" } }
+my $c = Coder.new;
+say $c.dump("test")
+--- expect
+dumped
+
+=== hk-05-substr-rw-method
+from: LibXML 0.11.3 lib/LibXML/_CharacterData.rakumod:23
+license: Artistic-2.0
+feature: substr-rw method on string
+--- code
+my $data = "hello";
+$data.substr-rw(1, 0) = "A";
+say $data
+--- expect
+hAello
+
+=== hk-05-subbuf-rw-method
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/NumberFormat.rakumod:28
+license: Artistic-2.0
+feature: subbuf-rw method with default
+--- code
+my $buf = buf8.new(1, 2, 3, 4, 5);
+my $pattern;
+$buf.subbuf-rw(0, 0) = ($pattern // "default").encode;
+say "assigned"
+--- expect
+assigned
+
+=== hk-05-nodemap-hash
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/DOK.rakumod:470
+license: Artistic-2.0
+feature: nodemap method on hash
+--- code
+my %map = (a => 1, b => 2, c => 3);
+my %result = %map.nodemap({ $_ * 2 });
+say %result<a>
+--- expect
+2
+
+=== hk-05-plus-property
+from: Version::Raku 0.0.2 lib/Version/Raku.rakumod:7
+license: Artistic-2.0
+feature: plus property access
+--- code
+my class Ver { has $.plus; }
+my $v = Ver.new(plus => 42);
+say $v.plus
+--- expect
+42
+
+=== hk-05-dynamic-attr
+from: ORM::Factory 0.9.1 lib/ORM/Factory.rakumod:1030
+license: Artistic-2.0
+feature: dynamic attribute check
+--- code
+my class Attr { has $.dynamic; }
+my $a = Attr.new(dynamic => True);
+say ($a.dynamic ?? "yes" !! "no")
+--- expect
+yes

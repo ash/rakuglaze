@@ -164,6 +164,10 @@ sub record(@patterns, :$refresh, :$timeout) {
             if %b{$s.id}[1] ne $out {
                 note "  {$s.id}: output differs between two runs — left unrecorded"; $unstable++; next;
             }
+            if $out.lines.first(*.starts-with('=== ' | '--- ')) {
+                # the file would read that line as the start of a snippet or block
+                note "  {$s.id}: prints a line starting with === or --- — left unrecorded"; $dead++; next;
+            }
             if $s.expect.defined && !same($s.expect, $out) {
                 if $s.meta<ruled> {
                     note "  {$s.id}: oracle moved, but the snippet carries a ruling — kept"; next;

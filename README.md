@@ -88,7 +88,10 @@ should cover a construct many dists use and the suite does not yet touch.
 ```
 bin/rakuglaze      runs the snippets on the engine that runs it; --oracle, --check
 tools/mine.raku    the corpus: index, construct map, real uses, coverage
+tools/pick.raku    corpus lines for a model to draft snippets from
+tools/accept.raku  admits drafted snippets, or rejects each with a reason
 lib/Rakuglaze/     Format (.glaze files), Fire (packing, running), Corpus (index, features)
 glaze/             the snippets, one directory per area
 docs/PLAN.md       where the suite is going
+docs/HAIKU.md      drafting snippets with a small model: the workflow and its prompt
 ```

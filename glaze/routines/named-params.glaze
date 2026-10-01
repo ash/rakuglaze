@@ -1,0 +1,479 @@
+# Named parameters as modules declare and pass them: defaults, `!`, aliases,
+# `:$x?`, `is copy`, typed and callable nameds, and the `:$x`/`:!x`/`:&f`
+# colon-pair shorthands at the call site.
+
+=== sig-named-default-enum
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:218
+license: Artistic-2.0
+feature: param :$named
+--- code
+my enum SortType <LS SL AH>;
+sub sort-list(@List, :$type = LS, :$reverse) {
+    my @s = $type == LS ?? @List.sort({ .chars, $_ }) !! @List.sort;
+    $reverse ?? @s.reverse.List !! @s.List
+}
+say sort-list(<ccc a bb>);
+say sort-list(<ccc a bb>, :type(AH));
+say sort-list(<ccc a bb>, :reverse);
+--- expect
+(a bb ccc)
+(a bb ccc)
+(ccc bb a)
+
+=== sig-named-required-missing
+from: Air 0.1.32 lib/Air/Base.rakumod:568
+license: Artistic-2.0
+feature: param :$named!
+--- code
+my class Sitemap {
+    method to-xml( :$host! ) {
+        "<loc>https://$host/</loc>"
+    }
+}
+say Sitemap.new.to-xml(:host<example.org>);
+Sitemap.new.to-xml;
+--- expect
+<loc>https://example.org/</loc>
+!! X::AdHoc
+
+=== sig-named-default-alongside-required
+from: Air 0.1.32 lib/Air/Base.rakumod:589
+license: Artistic-2.0
+feature: param :$named!
+--- code
+my class Sitemap {
+    method save( :$host!, :$file = 'static/sitemap.xml' ) {
+        "$host -> $file"
+    }
+}
+say Sitemap.new.save(:host<a.org>);
+say Sitemap.new.save(host => 'b.org', file => 'out.xml');
+--- expect
+a.org -> static/sitemap.xml
+b.org -> out.xml
+
+=== sig-named-short-alias
+from: Color::Names 2.0.0 lib/Color/Names.rakumod:3
+license: BSD-2-Clause
+feature: param :alias(:$named)
+--- code
+sub find-color ( $colors, Str $needle, :ex(:$exact) ) {
+    $colors.grep({ $exact ?? $_ eq $needle !! .contains($needle) }).List
+}
+my @c = <red darkred blue>;
+say find-color(@c, 'red');
+say find-color(@c, 'red', :ex);
+say find-color(@c, 'red', :exact);
+--- expect
+(red darkred)
+(red)
+(red)
+
+=== sig-named-alias-with-default
+from: Graph 0.1.3 lib/Graph.rakumod:1433
+license: Artistic-2.0
+feature: param :alias(:$named)
+--- code
+my class Graph {
+    multi method neighborhood-graph(Str:D $v, UInt:D :d(:$max-path-length) = 1) {
+        "$v within $max-path-length"
+    }
+}
+my $g = Graph.new;
+say $g.neighborhood-graph('a');
+say $g.neighborhood-graph('a', :d(3));
+say $g.neighborhood-graph('a', max-path-length => 2);
+--- expect
+a within 1
+a within 3
+a within 2
+
+=== sig-named-alias-bool-default-true
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:137
+license: Artistic-2.0
+feature: param :alias(:$named)
+--- code
+my class Tree {
+    has @.points = 1, 5, 9, 12;
+    multi method k-nearest($point where * !~~ Iterable:D, UInt $k = 1, Bool :v(:$values) = True) {
+        my @near = @!points.sort({ abs($_ - $point) }).head($k);
+        $values ?? @near.List !! @near.map({ @!points.first($_, :k) }).List
+    }
+}
+my $t = Tree.new;
+say $t.k-nearest(6);
+say $t.k-nearest(6, 2);
+say $t.k-nearest(6, 2, :!v);
+--- expect
+(5)
+(5 9)
+(1 2)
+
+=== sig-call-negated-flag
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:26
+license: Artistic-2.0
+feature: colonpair :!name
+--- code
+my class Tree {
+    has $.distance-function;
+    method get-distance-function($spec, :$warn = True) {
+        $warn ?? "warned:$spec" !! "quiet:$spec"
+    }
+    submethod TWEAK() {
+        $!distance-function = self.get-distance-function('euclid', :!warn);
+    }
+}
+say Tree.new.distance-function;
+say Tree.new.get-distance-function('cos');
+--- expect
+quiet:euclid
+warned:cos
+
+=== sig-call-negated-flag-in-list
+from: Air 0.1.32 lib/Air/Base.rakumod:1136
+license: Artistic-2.0
+feature: colonpair :!name
+--- code
+my class Site {
+    method serve(:$host, :$port, :$scss = True) { "$host:$port scss=$scss" }
+    method start() {
+        my ($host, $port) = 'localhost', 8080;
+        self.serve: :$host, :$port, :!scss;
+    }
+}
+say Site.new.start;
+--- expect
+localhost:8080 scss=False
+
+=== sig-call-colon-var-and-attr
+from: Anolis 1.0.0 lib/Anolis.rakumod:167
+license: Artistic-2.0
+feature: colonpair :$name
+--- code
+my class Cell { has $.char; has $.sgr }
+my class Screen {
+    has $!sgr = 'bold';
+    method put($char) {
+        my $cell = Cell.new(:$char, :$!sgr);
+        "{$cell.char}/{$cell.sgr}"
+    }
+}
+say Screen.new.put('x');
+--- expect
+x/bold
+
+=== sig-call-colon-pairs-grep-defined
+from: App::Prove6 0.0.18 lib/App/Prove6.rakumod:34
+license: Artistic-2.0
+feature: colonpair :$name
+--- code
+my ($jobs, $timer, $trap, $ignore-status, $loose, $color) = 4, Any, True, Any, False, Any;
+my %new-args = (:$jobs, :$timer, :$trap, :$ignore-status, :$loose, :$color).grep(*.value.defined);
+say %new-args.keys.sort.join(',');
+say %new-args<jobs>;
+--- expect
+jobs,loose,trap
+4
+
+=== sig-named-is-copy-default
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:9
+license: Artistic-2.0
+feature: trait is copy
+--- code
+sub configure(
+    :$lib is copy = 'lib',
+    :$exec,
+) {
+    $lib = $lib.subst(/ '/' $ /, '');
+    "lib=$lib exec={$exec // 'none'}"
+}
+say configure();
+say configure(:lib<src/>, :exec<prove6>);
+--- expect
+lib=lib exec=none
+lib=src exec=prove6
+
+=== sig-named-typed-defaults-callable
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark.rakumod:80
+license: Artistic-2.0
+feature: param :$named
+--- code
+our proto sub benchmark(|) {*}
+our multi sub benchmark(&block, Int :$iterations = 100, Int :$warmup = 0, Str :$label) {
+    my $runs = 0;
+    for ^($warmup + $iterations) { block(); $runs++ }
+    ($label // 'bench') ~ ": $runs"
+}
+say benchmark({ 1 + 1 });
+say benchmark({ 1 + 1 }, :iterations(5), :warmup(2), :label<sum>);
+say benchmark({ 1 }, :iterations<5>);
+--- expect
+bench: 100
+sum: 7
+bench: 5
+
+=== sig-named-callable-param
+from: Array::Sorted::Util 0.0.11 lib/Array/Sorted/Util.rakumod:20
+license: Artistic-2.0
+feature: param :&named
+--- code
+my sub nexts(\haystack, \needle, :&cmp) {
+    my &c = &cmp // &infix:<cmp>;
+    haystack.first({ c($_, needle) == More }, :k)
+}
+my @h = <apple banana cherry>;
+say nexts(@h, 'b');
+say nexts(@h, 'b', :cmp({ $^a.chars <=> $^b.chars }));
+--- expect
+1
+0
+
+=== sig-named-callable-default-operator
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:203
+license: Artistic-2.0
+feature: param :&named
+--- code
+multi select-columns($data, :vars(:$column-names)!, :&chooser = &infix:<(elem)>) {
+    $data.map({ .grep({ chooser(.key, $column-names) }).sort.map(*.value).List }).List
+}
+my @rows = { a => 1, b => 2, c => 3 }, { a => 4, b => 5, c => 6 };
+say select-columns(@rows, :vars<a c>);
+say select-columns(@rows, column-names => q[b], chooser => -> $k, $n { $k eq $n });
+--- expect
+((1 3) (4 6))
+((2) (5))
+
+=== sig-call-callable-colonpair
+from: Apache::LogFormat * lib/Apache/LogFormat/Formatter.pm6:8
+license: Artistic-2.0
+feature: colonpair :&name
+--- code
+my class Formatter {
+    has &.callback;
+    method new(&callback) {
+        return self.bless(:&callback);
+    }
+    method format($x) { &!callback($x) }
+}
+say Formatter.new(-> $x { "[$x]" }).format('GET /');
+--- expect
+[GET /]
+
+=== sig-named-hash-and-callable
+from: App::RaCoCo 2.0.1 lib/App/Racoco/RunProc.rakumod:4
+license: Artistic-2.0
+feature: param :%named
+--- code
+my class RunProc {
+    method run(:%vars, :&error-handler, |c) {
+        my $env = %vars.sort.map({ "{.key}={.value}" }).join(' ');
+        my $cmd = c.list.join(' ');
+        &error-handler ?? error-handler("$env $cmd") !! "$env $cmd"
+    }
+}
+say RunProc.new.run('raku', '-v', vars => { B => 2, A => 1 });
+say RunProc.new.run('x', :error-handler({ "failed: $_" }));
+--- expect
+A=1 B=2 raku -v
+failed:  x
+
+=== sig-named-array-optional-where
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:254
+license: Artistic-2.0
+feature: param :@named
+--- code
+my class Archive {
+    has @.filters;
+    submethod BUILD(Str :$operation!, Any :$file?, Int :$flags?, :@filters? where .all ~~ Str) {
+        @!filters = @filters;
+    }
+}
+say Archive.new(:operation<read>, :filters<gzip bzip2>).filters;
+say Archive.new(:operation<read>).filters.elems;
+Archive.new(:operation<read>, :filters(1, 2));
+--- expect
+[gzip bzip2]
+0
+!! X::TypeCheck::Binding::Parameter
+
+=== sig-named-bool-D-default-false
+from: Graph 0.1.3 lib/Graph.rakumod:360
+license: Artistic-2.0
+feature: param :$named
+--- code
+my class Graph {
+    has %.adj = a => { b => 1 }, b => { c => 2 };
+    method edges(Bool:D :$dataset = False) {
+        my @e = %!adj.sort.map({ my $f = .key; .value.sort.map({ $f => .key }) }).flat;
+        $dataset ?? @e.map({ %(from => .key, to => .value) }).List !! @e.map(*.gist).List
+    }
+}
+say Graph.new.edges;
+say Graph.new.edges(:dataset).map(*<to>);
+Graph.new.edges(dataset => Bool);
+--- expect
+(a => b b => c)
+(b c)
+!! X::Parameter::InvalidConcreteness
+
+=== sig-named-default-from-attribute
+from: Collection 0.18.0 lib/Collection.rakumod:152
+license: Artistic-2.0
+feature: param :$named
+--- code
+my class Collection {
+    has $!current-file = 'index.md';
+    has %!used = 'logo.png' => <index.md about.md>;
+    method asset-is-used($asset, $type, :$by = $!current-file --> Bool) {
+        so %!used{$asset}.grep($by)
+    }
+}
+my $c = Collection.new;
+say $c.asset-is-used('logo.png', 'image');
+say $c.asset-is-used('logo.png', 'image', :by<faq.md>);
+--- expect
+True
+False
+
+=== sig-named-default-from-earlier-param
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:544
+license: Artistic-2.0
+feature: param :@named
+--- code
+my class Props {
+    has @.properties;
+    multi method copy(::?CLASS:D: ::?CLASS:D $orig, :@properties = $orig.properties) {
+        self.new(:@properties)
+    }
+}
+my $p = Props.new(properties => <color margin>);
+say Props.new.copy($p).properties;
+say Props.new.copy($p, :properties<border padding>).properties;
+--- expect
+[color margin]
+[border padding]
+
+=== sig-named-optional-question
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:43
+license: Artistic-2.0
+feature: param :$named?
+--- code
+my class Entry {
+    has $.desc;
+    submethod BUILD(Str :$path?, Int :$size?, Int :$filetype?, Int :$perm?, Int :$operation?)
+    {
+        $!desc = ($path // '-') ~ ' ' ~ ($size // 0) ~ ' ' ~ ($perm.defined ?? $perm.base(8) !! '-');
+    }
+}
+say Entry.new(:path<a.txt>, :size(12), :perm(0o644)).desc;
+say Entry.new.desc;
+--- expect
+a.txt 12 644
+- 0 -
+
+=== sig-named-slurpy-returns
+from: Backtrace::AsHTML 0.0.1 lib/Backtrace/AsHTML.pm6:9
+license: Artistic-2.0
+feature: param *% slurpy
+--- code
+my class Trace {
+    method as-html(*%opt) returns Str {
+        '<pre' ~ %opt.sort.map({ " {.key}=\"{.value}\"" }).join ~ '>'
+    }
+}
+say Trace.new.as-html;
+say Trace.new.as-html(:class<bt>, :id<t1>);
+--- expect
+<pre>
+<pre class="bt" id="t1">
+
+=== sig-named-anonymous-in-tweak
+from: CSS::Stylesheet 0.1.5 lib/CSS/Ruleset.rakumod:15
+license: Artistic-2.0
+feature: param :name($)
+--- code
+my class Ruleset {
+    has $.summary;
+    submethod TWEAK(:%ast is copy, :selectors($), :properties($), :media-query($), |c) {
+        %ast<seen> = True;
+        $!summary = %ast.keys.sort.join(',');
+    }
+    has $.selectors;
+}
+my $r = Ruleset.new(ast => { rule => 1 }, selectors => 'p', properties => 'x');
+say $r.summary;
+say $r.selectors;
+--- expect
+rule,seen
+p
+
+=== sig-named-where-pair-so
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:95
+license: Artistic-2.0
+feature: param where
+--- code
+my class Entry {
+    has Int $.raw = 0o100000;
+    multi method filetype(:$decode where :!so --> Int)
+    { $!raw }
+    multi method filetype(:$decode where :so --> List)
+    { ('regular file', $!raw) }
+}
+say Entry.new.filetype;
+say Entry.new.filetype(:decode);
+say Entry.new.filetype(:!decode);
+--- expect
+32768
+(regular file 32768)
+32768
+
+=== sig-named-where-whatever-so
+from: Pakku celastrina.6 lib/Pakku/Meta.rakumod:23
+license: Artistic-2.0
+feature: param where
+--- code
+my class Meta {
+    has @.depends = <JSON::Fast File::Temp>;
+    multi method deps ( Bool:D :$deps where *.so ) { @!depends.List }
+    multi method deps ( ) { () }
+}
+say Meta.new.deps(:deps);
+say Meta.new.deps;
+Meta.new.deps(:!deps);
+--- expect
+(JSON::Fast File::Temp)
+()
+
+=== sig-named-required-alias-where
+from: Base64 0.1.0 lib/Base64.rakumod:33
+license: Artistic-2.0
+feature: param :alias(:$named)
+--- code
+my proto sub decode(|) {*}
+multi sub decode(Bool:D :buf(:$bin)! where *.so, |c --> Buf)   { Buf.new(samewith(|c)) || Buf.new(0) }
+multi sub decode(Str:D $s) { $s.comb.map(*.ord) }
+say decode('AB');
+say decode('AB', :bin);
+say decode('AB', :buf).WHAT;
+--- expect
+(65 66)
+Buf:0x<41 42>
+(Buf)
+
+=== sig-named-key-value-pair-call
+from: JSON::RPC 1.0.6 lib/JSON/RPC/Client.rakumod:33
+license: Artistic-2.0
+feature: method assuming
+--- code
+sub transport(Str :$uri!, Str :$body = '{}') { "POST $uri $body" }
+my class Client {
+    has $!transport;
+    submethod BUILD(Str :$uri) {
+        $!transport = &transport.assuming( uri => $uri );
+    }
+    method call($body) { $!transport(:$body) }
+}
+my $c = Client.new(uri => 'http://rpc');
+say $c.call('{"id":1}');
+--- expect
+POST http://rpc {"id":1}

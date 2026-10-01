@@ -1,0 +1,551 @@
+# Case, trimming and string tests: lc/uc/tc/tclc/fc/wordcase, trim*, starts-with/ends-with/contains, indent.
+
+=== str-lc-trim-chain
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:129
+license: Artistic-2.0
+feature: method lc
+--- code
+my $prop-name;
+for '  Font-Size ', "\tCOLOR\n" {
+    $prop-name = .trim.lc;
+    say "[$prop-name]";
+}
+--- expect
+[font-size]
+[color]
+
+=== str-lc-eq-key-compare
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:175
+license: Artistic-2.0
+feature: method lc
+--- code
+my $lkey = 'content-type';
+for (Content-Type => 'text/html', Accept => '*/*') -> $pair {
+    if $pair.key.lc eq $lkey {
+        say $pair.value;
+    }
+}
+--- expect
+text/html
+
+=== str-lc-contains-both-sides
+from: Color::Names 2.0.0 lib/Color/Names.rakumod:11
+license: BSD-2-Clause
+feature: method contains
+--- code
+my $colors = { r => { name => 'Dark Red' }, g => { name => 'Green' }, b => { name => 'Reddish Brown' } };
+my $needle = 'RED';
+my @found = $colors.keys.grep: { $colors{$_}<name>.lc.contains: $needle.lc };
+say @found.sort;
+--- expect
+(b r)
+
+=== str-lc-trim-eq-close
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/ResponseSerializer.rakumod:85
+license: Artistic-2.0
+feature: method lc
+--- code
+for ' Keep-Alive', 'CLOSE ' {
+    say "$_: ", .lc.trim eq 'close';
+}
+--- expect
+ Keep-Alive: False
+CLOSE : True
+
+=== str-lc-falsy-string-config
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:19
+license: Artistic-2.0
+feature: method lc
+--- code
+sub as-bool($value) {
+    if $value.lc eq 'false' || $value eq '0' || $value.chars == 0 {
+        return False;
+    }
+    True
+}
+say <FALSE 0 yes False>.map(&as-bool), as-bool('');
+--- expect
+(False False True False)False
+
+=== str-uc-in-block-interpolation
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DryRun.rakumod:225
+license: Artistic-2.0
+feature: method uc
+--- code
+for 'pending', '' -> $status {
+    my $suffix = $status.chars ?? " ({$status.uc})" !! '';
+    say "example$suffix";
+}
+--- expect
+example (PENDING)
+example
+
+=== str-uc-hash-key-from-match
+from: Bailador 0.0.19 lib/Bailador/Request.pm:101
+license: MIT
+feature: method uc
+--- code
+my %headers;
+for 'content_type: text/plain', 'x_token: abc' {
+    if / (\w+) ':' \s* (.+) / {
+        %headers{ $/[0].Str.uc } = $/[1].Str;
+    }
+}
+say %headers.sort.map(*.kv.join('=')).join(', ');
+--- expect
+CONTENT_TYPE=text/plain, X_TOKEN=abc
+
+=== str-uc-unicode-codepoint
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:97
+license: Artistic-2.0
+feature: method uc
+--- code
+my $hex-str = '1f600';
+say 'U+' ~ $hex-str.uc;
+say 'straße'.uc;
+--- expect
+U+1F600
+STRASSE
+
+=== str-tc-hash-lookup
+from: DateTime::Grammar 0.1.3 lib/DateTime/Actions/Raku.rakumod:157
+license: MIT
+feature: method tc
+--- code
+my %wkday = Mon => 1, Tue => 2, Wed => 3;
+for <mon TUE wed> {
+    say %wkday{$_.lc.tc} // 'none', ' ', %wkday{$_.tc} // 'none';
+}
+--- expect
+1 1
+2 none
+3 3
+
+=== str-tc-in-method-interpolation
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:514
+license: Artistic-2.0
+feature: method tc
+--- code
+my @ordinals = <zeroth first second third>;
+my $elems = 2;
+say "@ordinals[$elems].tc() arguments are of different types";
+--- expect
+Second arguments are of different types
+
+=== str-tc-hyper-keys
+from: Data::Generators 0.1.11 lib/Data/Generators/RandomFunctions.rakumod:218
+license: Artistic-2.0
+feature: method tc
+--- code
+my %words = english => 1, bulgarian => 2;
+say "one of { %words.keys.sort».tc.join(', ') } or Whatever";
+--- expect
+one of Bulgarian, English or Whatever
+
+=== str-tclc-after-subst
+from: Air 0.1.32 lib/Air/Form.rakumod:369
+license: Artistic-2.0
+feature: method tclc
+--- code
+for 'first-name', 'E-MAIL-address' -> $name {
+    my $label;
+    my $display = $label ?? $label !! $name.subst('-', ' ', :g).tclc;
+    say $display;
+}
+--- expect
+First name
+E mail address
+
+=== str-tclc-method-call-interpolation
+from: HTTP::HPACK 1.0.3 lib/HTTP/HPACK.rakumod:145
+license: Artistic-2.0
+feature: method tclc
+--- code
+my class X::Overflow is Exception {
+    has $.what;
+    has $.offset;
+    method message() { "$!what.tclc() at byte $!offset overflows input buffer" }
+}
+say X::Overflow.new(what => 'INTEGER', offset => 7).message;
+--- expect
+Integer at byte 7 overflows input buffer
+
+=== str-tclc-substr-enum-lookup
+from: TAP 0.3.15 lib/TAP.rakumod:273
+license: Artistic-2.0
+feature: method tclc
+--- code
+my enum Directive <Skip Todo>;
+for 'SKIPPED', 'todo' {
+    say Directive::{.substr(0,4).tclc};
+}
+--- expect
+Skip
+Todo
+
+=== str-tclc-or-uc-closure
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:398
+license: Artistic-2.0
+feature: method subst
+--- code
+my $str = 'the HTML and css guide';
+say $str.subst: /\S+/, { /<lower>/ ?? .tclc !! .uc }, :g;
+--- expect
+The HTML And Css Guide
+
+=== str-fc-eq-both
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure.rakumod:38
+license: Artistic-2.0
+feature: method fc
+--- code
+my class Thing { has $.name }
+my @known = Thing.new(name => 'Lamp'), Thing.new(name => 'STRASSE');
+for 'lamp', 'straße' -> $name {
+    say @known.first(*.name.fc eq $name.fc).?name // 'nothing';
+}
+--- expect
+Lamp
+STRASSE
+
+=== str-fc-sort-key
+from: Prompt 0.0.11 lib/Prompt.rakumod:254
+license: Artistic-2.0
+feature: method fc
+--- code
+my @keys = <banana Apple cherry apple Banana>;
+say @keys.sort(*.fc);
+say @keys.sort;
+--- expect
+(Apple apple banana Banana cherry)
+(Apple Banana apple banana cherry)
+
+=== str-wordcase-assign
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows.rakumod:122
+license: Artistic-2.0
+feature: method wordcase
+--- code
+my $lang = 'raku and PYTHON';
+$lang = $lang.wordcase;
+say $lang;
+--- expect
+Raku And Python
+
+=== str-wordcase-trans-header
+from: HTTP::Headers 0.5.0 lib/HTTP/Headers.pm6:283
+license: Artistic-2.0
+feature: method wordcase
+--- code
+for 'content_type', 'x-forwarded-for' -> $name {
+    my $std-name = $name.trans('_' => ' ', '-' => ' ').wordcase.trans(' ' => '-');
+    say $std-name;
+}
+--- expect
+Content-Type
+X-Forwarded-For
+
+=== str-wordcase-split-map
+from: Net::HTTP 0.1.0 lib/Net/HTTP/Utils.rakumod:7
+license: Artistic-2.0
+feature: method wordcase
+--- code
+sub hc(Str:D $str) { $str.split("-").map(*.wordcase).join("-") }
+say hc('content-LENGTH');
+--- expect
+Content-Length
+
+=== str-wordcase-with-subst-capture
+from: Red 0.2.5 lib/Red/Utils.rakumod:14
+license: Artistic-2.0
+feature: method wordcase
+--- code
+sub kebab-to-camel-case(Str() $_ --> Str) { S:g/"-"(\w)/{$0.uc}/ with .wordcase }
+say kebab-to-camel-case('user-account-id');
+--- expect
+UserAccountId
+
+=== str-trim-leading-after-substr
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:525
+license: Artistic-2.0
+feature: method trim-leading
+--- code
+my $entry = 'L12:     covered';
+my $rest = $entry.substr(4).trim-leading;
+say "[$rest]";
+--- expect
+[covered]
+
+=== str-trim-leading-append
+from: HTTP::Request::Supply 0.2.0 lib/HTTP/Request/Supply.pm6:350
+license: Artistic-2.0
+feature: method trim-leading
+--- code
+my $previous = 'X-Long: first';
+for "   second", "\tthird" -> $line {
+    $previous ~= ' ' ~ $line.trim-leading;
+}
+say $previous;
+--- expect
+X-Long: first second third
+
+=== str-trim-trailing-substr-fixed
+from: Data::Importers 0.1.8 lib/Data/Importers/HarwellBoeing.rakumod:91
+license: Artistic-2.0
+feature: method trim-trailing
+--- code
+my $line1 = sprintf('%-72s%-8s', 'Sparse test matrix', 'KEY1');
+my $title = $line1.substr(0, 72).trim-trailing;
+say "[$title]";
+--- expect
+[Sparse test matrix]
+
+=== str-trim-trailing-mutating
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:1097
+license: Artistic-2.0
+feature: method trim-trailing
+--- code
+my $size = "1a  \r\n";
+$size .= trim-trailing;
+say $size.raku;
+say :16($size);
+--- expect
+"1a"
+26
+
+=== str-trim-trailing-heredoc
+from: MUGS::Core 0.1.4 lib/MUGS/App/DevTool.rakumod:166
+license: Artistic-2.0
+feature: method trim-trailing
+--- code
+my $help = 'Usage: devtool [options]' ~ "\n"
+         ~ q:to/OPTIONS/.trim-trailing;
+              --verbose   say more
+              --quiet     say less
+
+            OPTIONS
+say $help;
+say '---';
+--- expect
+Usage: devtool [options]
+  --verbose   say more
+  --quiet     say less
+---
+
+=== str-starts-with-or
+from: Actionable 0.0.7 lib/Actionable.rakumod:176
+license: Artistic-2.0
+feature: method starts-with
+--- code
+for <$!a @!b %!c &!d> -> $name {
+    next if $name.starts-with('@') || $name.starts-with('%');
+    say $name;
+}
+--- expect
+$!a
+&!d
+
+=== str-starts-with-colon-arg
+from: Anolis 1.0.0 lib/Anolis.rakumod:181
+license: Artistic-2.0
+feature: method starts-with
+--- code
+for '0;title', '2;icon' -> $string {
+    if $string.starts-with: '0;' {
+        say "title: $string.substr(2)";
+    }
+    else {
+        say "other: $string";
+    }
+}
+--- expect
+title: title
+other: 2;icon
+
+=== str-starts-with-junction
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:110
+license: Artistic-2.0
+feature: method starts-with
+--- code
+for '<unknown file>', '-e', 'lib/A.rakumod' -> $filename {
+    say $filename, ': ', so $filename.starts-with('<' | '-');
+}
+--- expect
+<unknown file>: True
+-e: True
+lib/A.rakumod: False
+
+=== str-starts-with-grep-whatever
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:64
+license: Artistic-2.0
+feature: method starts-with
+--- code
+my $unique = <--reporter=html --fix --reporter=html --reporter=json>.Bag;
+my @collect;
+push @collect, $unique.keys.grep(*.starts-with('--reporter=')).map(*.substr(11)).unique.Slip;
+say @collect.sort;
+--- expect
+(html json)
+
+=== str-ends-with-in-where
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:387
+license: Artistic-2.0
+feature: method ends-with
+--- code
+multi sub default-value($ where .starts-with('border-') && .ends-with('-color')) { 'currentcolor' }
+multi sub default-value($) { 'initial' }
+say default-value('border-top-color');
+say default-value('border-width');
+--- expect
+currentcolor
+initial
+
+=== str-ends-with-junction-die
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:45
+license: Artistic-2.0
+feature: method ends-with
+--- code
+for 'Bad input.', 'Really?', 'Oops' -> $message {
+    say $message.ends-with('.' | '?') ?? $message !! "$message.";
+}
+--- expect
+Bad input.
+Really?
+Oops.
+
+=== str-ends-with-ternary-append
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:30
+license: Artistic-2.0
+feature: method ends-with
+--- code
+my $name = 'lang';
+for 'count()', 'string' {
+    say $_ ~ (.ends-with(')') ?? '' !! '(' ~ $name ~ ', .)');
+}
+--- expect
+count()
+string(lang, .)
+
+=== str-ends-with-negated
+from: Compress::Bzip2 0.4.1 lib/Compress/Bzip2.pm6:78
+license: Artistic-2.0
+feature: method ends-with
+--- code
+for 'data.txt', 'data.txt.bz2' -> $filename is copy {
+    if !$filename.ends-with(".bz2") {
+        $filename ~= '.bz2';
+    }
+    say $filename;
+}
+--- expect
+data.txt.bz2
+data.txt.bz2
+
+=== str-contains-newline
+from: Code::Coverable 0.0.14 lib/Code/Coverable.rakumod:42
+license: Artistic-2.0
+feature: method contains
+--- code
+for "one line", "two\nlines" -> $string {
+    say $string.contains("\n") ?? 'multi' !! 'single';
+}
+--- expect
+single
+multi
+
+=== str-contains-on-literal
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:265
+license: Artistic-2.0
+feature: method contains
+--- code
+my $in-calc = True;
+for <+ a * %> {
+    say "$_: ", ($in-calc && '+-/*'.contains($_));
+}
+--- expect
++: True
+a: False
+*: True
+%: False
+
+=== str-contains-then-subst
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:1373
+license: Artistic-2.0
+feature: method contains
+--- code
+for '1.5', '42', '1e10' -> $basic {
+    say $basic.contains('.') ?? $basic !! $basic.subst(/('e' | $)/, {".0$0"});
+}
+--- expect
+1.5
+42.0
+1.0e10
+
+=== str-contains-topic-ternary-S
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:118
+license: Artistic-2.0
+feature: method contains
+--- code
+my $base-name = 'size';
+for 'clear-*', 'reset' -> $opt {
+    say do given $opt { .contains('*') ?? S:g/\*/$base-name/ !! $opt }
+}
+--- expect
+clear-size
+reset
+
+=== str-indent-message
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/X/Wrapper.rakumod:28
+license: Artistic-2.0
+feature: method indent
+--- code
+my $message = "Died at line 3\nin block <unit>";
+my $details = True;
+print $details ?? "; exception details:\n\n" ~ $message.indent(4) !! $message;
+say '|';
+--- expect
+; exception details:
+
+    Died at line 3
+    in block <unit>|
+
+=== str-indent-after-subst-crlf
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Request.rakumod:92
+license: Artistic-2.0
+feature: method indent
+--- code
+my $raw = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+say "HTTP Request\n" ~ $raw.trim.subst("\r\n", "\n", :g).indent(2);
+--- expect
+HTTP Request
+  GET / HTTP/1.1
+  Host: example.com
+
+=== str-indent-map-whatever
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:777
+license: Artistic-2.0
+feature: method indent
+--- code
+my @option-descs = '--verbose  say more', '--help  this text';
+my @lines = flat "Usage:", ('', 'prog', '[options...]').join(' '), '', @option-descs.map(*.indent(4));
+.say for @lines;
+--- expect
+Usage:
+ prog [options...]
+
+    --verbose  say more
+    --help  this text
+
+=== str-indent-negative-and-computed
+from: Pakku celastrina.6 lib/Pakku/Command/Help.rakumod:400
+license: Artistic-2.0
+feature: method indent
+--- code
+my $indent = 10;
+for (add => 'install', rm => 'remove') {
+    say .key ~ ' → '.indent( $indent - .key.chars ) ~ .value;
+}
+say "    four\n  two".indent(-2);
+--- expect
+add        → install
+rm         → remove
+  four
+two

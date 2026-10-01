@@ -1,0 +1,662 @@
+# try, CATCH with when/default, .resume/.rethrow/.throw, custom exception
+# classes, fail and Failure, warn with CONTROL, quietly.
+
+=== ctl-try-block-defor
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:91
+license: Artistic-2.0
+feature: prefix try
+--- code
+my %response = i => '4096', j => 'many';
+my $iters = try { %response<i>.Int } // 0;
+my $bad = try { %response<j>.Int } // 0;
+say $iters;
+say $bad;
+say $!.^name;
+--- expect
+4096
+0
+X::Str::Numeric
+
+=== ctl-try-block-or-die
+from: Backtrace::AsHTML 0.0.1 lib/Backtrace/AsHTML.pm6:107
+license: Artistic-2.0
+feature: prefix try
+--- code
+sub opener($file) { $file.ends-with('.txt') ?? "handle:$file" !! die "no such file" }
+sub load($file) {
+    my $fh = try { opener($file) } or die "cannot open $file: $!";
+    $fh
+}
+say load('a.txt');
+say load('a.bin');
+--- expect
+handle:a.txt
+!! X::AdHoc
+
+=== ctl-try-statement-lookup
+from: App::Prove6 0.0.18 lib/App/Prove6.rakumod:11
+license: Artistic-2.0
+feature: prefix try
+--- code
+my class Harness { }
+sub load($classname) {
+    my $loaded = try ::($classname);
+    return $loaded if $loaded !eqv Any;
+    'not found'
+}
+say load('Int').^name;
+say load('No::Such::Class');
+--- expect
+Int
+not found
+
+=== ctl-try-method-on-mixed
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Spy.rakumod:18
+license: Artistic-2.0
+feature: prefix try
+--- code
+my @things = &say, 42, sub foo { };
+for @things -> $m {
+    my $name = try { $m.name };
+    say $name.defined ?? "name: $name" !! 'no name';
+}
+--- expect
+name: say
+no name
+name: foo
+
+=== ctl-try-in-pair-value
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:584
+license: Artistic-2.0
+feature: prefix try
+--- code
+sub zlib-version { '1.3' }
+sub zstd-version { die 'not linked' }
+my %versions = libz => try { zlib-version }, libzstd => try { zstd-version };
+say "$_: {%versions{$_} // 'n/a'}" for %versions.keys.sort;
+--- expect
+libz: 1.3
+libzstd: n/a
+
+=== ctl-try-nil-identity
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:3
+license: Artistic-2.0
+feature: prefix try
+--- code
+my $colorizor = (try die 'no module') === Nil;
+say $colorizor;
+my $ok = (try 42) === Nil;
+say $ok;
+--- expect
+True
+False
+
+=== ctl-try-block-with-catch-when
+from: Bailador 0.0.19 lib/Bailador/Request.pm:20
+license: MIT
+feature: phaser CATCH
+--- code
+sub unescape($s, :$no_utf8) { $no_utf8 ?? "latin:$s" !! ($s.contains('%FF') ?? die('bad utf8') !! "utf8:$s") }
+sub uri_unescape($uri) {
+    my $decoded;
+    try {
+        $decoded = unescape($uri);
+        CATCH {
+            when X::AdHoc {
+                $decoded = unescape($uri, :no_utf8);
+            }
+        }
+    }
+    $decoded
+}
+say uri_unescape('a%20b');
+say uri_unescape('a%FF');
+--- expect
+utf8:a%20b
+latin:a%FF
+
+=== ctl-catch-when-junction-types
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:59
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+my class X::Missing is Exception { method message { 'missing' } }
+my class X::FailGoal is Exception { method message { 'goal' } }
+sub run($what) {
+    CATCH {
+        when X::Missing | X::FailGoal { return "more input ({.message})" }
+        when X::AdHoc { return "adhoc: {.message}" }
+        default { return "other: {.^name}" }
+    }
+    $what()
+}
+say run({ X::Missing.new.throw });
+say run({ X::FailGoal.new.throw });
+say run({ die 'plain' });
+say run({ X::NYI.new(feature => q[f]).throw });
+say run({ 'fine' });
+--- expect
+more input (missing)
+more input (goal)
+adhoc: plain
+other: X::NYI
+fine
+
+=== ctl-catch-when-regex-message
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:591
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+sub decode($blob) {
+    CATCH {
+        when /^ 'read_buf out of bounds' / {
+            return 'Early end of input';
+        }
+        default { .rethrow }
+    }
+    die 'read_buf out of bounds at 3' if $blob < 0;
+    die 'corrupt' if $blob == 0;
+    "decoded $blob"
+}
+say decode(5);
+say decode(-1);
+say decode(0);
+--- expect
+decoded 5
+Early end of input
+!! X::AdHoc
+
+=== ctl-catch-default-resume
+from: LogP6 1.6.4 lib/LogP6.rakumod:117
+license: Artistic-2.0
+feature: method resume
+--- code
+my @errors;
+sub logp6-error($e) { @errors.push: $e.message }
+my @done;
+for <a b c> {
+    @done.push: $_;
+    warn "skip $_" if $_ eq 'b';
+    CATCH { default { logp6-error($_); .resume } }
+    CONTROL { when CX::Warn { @errors.push: "warned: {.message}"; .resume } }
+}
+sub cfg { my $x = die 'broken writer'; "after die, got {$x.^name}" }
+say do { CATCH { default { logp6-error($_); .resume } }; cfg() };
+say @done;
+.say for @errors;
+--- expect
+after die, got Any
+[a b c]
+warned: skip b
+broken writer
+
+=== ctl-control-warn-resume
+from: Gnome::N 0.1.54 lib/Gnome/N/GObjectSupport.rakumod:127
+license: Artistic-2.0
+feature: phaser CONTROL
+--- code
+my @seen;
+sub convert($v) {
+    CONTROL { when CX::Warn {  @seen.push: .message; .resume; } }
+    warn "deprecated value $v" if $v < 0;
+    $v.abs
+}
+say convert(-3);
+say convert(4);
+say @seen;
+--- expect
+3
+4
+[deprecated value -3]
+
+=== ctl-control-keep-warnings
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:104
+license: Artistic-2.0
+feature: phaser CONTROL
+--- code
+my class Unit {
+    has @.warnings;
+    has $.keep-warnings = True;
+    method eval(&code) {
+        CONTROL {
+            when CX::Warn {
+                $!keep-warnings ?? @!warnings.push($_) !! .message.say;
+                .resume;
+            }
+        }
+        code()
+    }
+}
+my $u = Unit.new;
+say $u.eval({ warn 'first'; warn 'second'; 'result' });
+say $u.warnings.map(*.message);
+say $u.warnings[0].^name;
+--- expect
+result
+(first second)
+CX::Warn
+
+=== ctl-quietly-block
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/NumericWordForms.rakumod:211
+license: Artistic-2.0
+feature: prefix quietly
+--- code
+my %forms = english => { three => 3 }, french => { trois => 3 };
+sub from-word($spec, :$lang) {
+    warn "no $lang" unless %forms{$lang}{$spec}:exists;
+    %forms{$lang}{$spec}
+}
+my $res;
+for <english french> -> $l {
+    quietly {
+        $res = from-word('trois', lang => $l);
+    }
+    last if $res.defined;
+}
+say $res;
+--- expect
+3
+
+=== ctl-quietly-expression
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:677
+license: Artistic-2.0
+feature: prefix quietly
+--- code
+my %response = headers => { };
+my $keep = %response<status> // 200 == 200
+    && quietly %response<headers><connection> ne 'close';
+say $keep;
+%response<headers><connection> = 'close';
+say quietly %response<headers><connection> ne 'close';
+--- expect
+True
+False
+
+=== ctl-custom-exception-message
+from: App::RaCoCo 2.0.1 lib/App/Racoco/X.rakumod:6
+license: Artistic-2.0
+feature: method message
+--- code
+my class WrongPath is Exception {
+    has $.path;
+    has $.path-name;
+    method message() { "$.path-name path ｢$!path｣ does not exists." }
+}
+try WrongPath.new(path => '/no/where', path-name => 'lib').throw;
+say $!.message;
+say $! ~~ Exception;
+say $!.^name;
+--- expect
+lib path ｢/no/where｣ does not exists.
+True
+WrongPath
+
+=== ctl-exception-hierarchy-cause
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/X.rakumod:16
+license: Artistic-2.0
+feature: method message
+--- code
+my class Fatal is Exception { }
+my class NotAllowed is Fatal {
+    has Str:D $.op is required;
+    has Str $.cause;
+    method message {
+        "Operation '$!op' is not allowed at this time" ~ ($!cause ?? ": $!cause" !! "")
+    }
+}
+for NotAllowed.new(op => 'store'), NotAllowed.new(op => 'clear', cause => 'locked') -> $ex {
+    $ex.throw;
+    CATCH { when Fatal { say .message } }
+}
+say NotAllowed.new(op => 'x') ~~ Fatal;
+--- expect
+Operation 'store' is not allowed at this time
+Operation 'clear' is not allowed at this time: locked
+True
+
+=== ctl-exception-message-returns-str
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:656
+license: Artistic-2.0
+feature: method message
+--- code
+my class X::PortMIDI is Exception {
+    has Int $.code is required;
+    has Str $.what is required;
+    method message() returns Str {
+        "Error { $!what } : { $!code }";
+    }
+}
+sub set-filter($rc) {
+    X::PortMIDI.new(code => $rc, what => 'setting filter').throw if $rc;
+    'filter set'
+}
+say set-filter(0);
+set-filter(-3);
+CATCH { when X::PortMIDI { say .message; say .code } }
+--- expect
+filter set
+Error setting filter : -3
+-3
+
+=== ctl-die-typed-object
+from: Bailador 0.0.19 lib/Bailador/App.pm:348
+license: MIT
+feature: sub die
+--- code
+my class X::NoResult is Exception {
+    has $.method;
+    has $.uri;
+    method message { "controller returned no result for $!method $!uri" }
+}
+sub dispatch($method, $uri) {
+    die X::NoResult.new(:$method, :$uri);
+}
+dispatch('GET', '/home');
+CATCH { when X::NoResult { say .message; say .uri } }
+--- expect
+controller returned no result for GET /home
+/home
+
+=== ctl-die-builtin-method-notfound
+from: CSS::Properties 0.10.9 lib/CSS/Box.rakumod:192
+license: Artistic-2.0
+feature: sub die
+--- code
+my class Box {
+    method FALLBACK(Str $name) {
+        $name.starts-with('margin')
+            ?? "box $name"
+            !! die X::Method::NotFound.new: :method($name), :typename(self.^name);
+    }
+}
+say Box.new.margin-top;
+Box.new.colour;
+--- expect
+box margin-top
+!! X::Method::NotFound
+
+=== ctl-throw-nyi
+from: Bailador 0.0.19 lib/Bailador/CLI.pm:14
+license: MIT
+feature: method throw
+--- code
+sub skeleton($type) {
+    return 'basic skeleton' if $type eq 'basic';
+    X::NYI.new(feature => 'skeleton with type ' ~ $type).throw;
+}
+say skeleton('basic');
+try skeleton('fancy');
+say $!.^name;
+say $!.feature;
+skeleton('mvc');
+--- expect
+basic skeleton
+X::NYI
+skeleton with type fancy
+!! X::NYI
+
+=== ctl-adhoc-subclass-payload
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:118
+license: Artistic-2.0
+feature: sub die
+--- code
+my class X::Malformed is X::AdHoc {}
+my $ex = X::Malformed.new(:payload("Extra data after decoded value"));
+say $ex.message;
+say $ex ~~ X::AdHoc;
+try die $ex;
+say $!.payload;
+say $!.^name;
+--- expect
+Extra data after decoded value
+True
+Extra data after decoded value
+X::Malformed
+
+=== ctl-adhoc-new-message
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:209
+license: Artistic-2.0
+feature: sub die
+--- code
+my @broken;
+sub break-all(Exception $e) { @broken.push: $e.message }
+break-all(X::AdHoc.new(message => 'Connection to server lost'));
+say @broken;
+my $e = X::AdHoc.new(payload => 'via payload');
+say $e.message;
+--- expect
+[Unexplained error]
+via payload
+
+=== ctl-fail-typed-handled-check
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:66
+license: Artistic-2.0
+feature: sub fail
+--- code
+my class X::Libarchive is Exception {
+    has $.errno;
+    has $.error;
+    method message { "Error {$!errno}: $!error"; }
+}
+sub write-entry($ro) {
+    fail X::Libarchive.new: errno => 30, error => 'Read-only entry' if $ro;
+    True
+}
+my $r = write-entry(True);
+say $r.handled;
+say $r.so;
+say $r.handled;
+say $r.exception.message;
+say write-entry(False);
+--- expect
+False
+False
+True
+Error 30: Read-only entry
+True
+
+=== ctl-failure-smartmatch-throw
+from: Bailador 0.0.19 lib/Bailador/Route.pm:24
+license: MIT
+feature: sub fail
+--- code
+sub execute($ok) { $ok ?? 'body' !! fail 'route failed' }
+for True, False -> $ok {
+    my $result = execute($ok);
+    if $result ~~ Failure {
+        try $result.exception.throw;
+        say "caught: $!.message()";
+    }
+    else {
+        say $result;
+    }
+}
+--- expect
+body
+caught: route failed
+
+=== ctl-exception-to-failure
+from: Concurrent::Stack 1.3 lib/Concurrent/Stack.rakumod:40
+license: Artistic-2.0
+feature: method Failure
+--- code
+my class X::Empty is Exception {
+    has $.operation;
+    method message { "Cannot $!operation an empty stack" }
+}
+my class Stack {
+    has @!items;
+    method push($v) { @!items.push: $v; self }
+    method peek {
+        @!items
+          ?? @!items.tail
+          !! X::Empty.new(:operation<peek>).Failure
+    }
+}
+my $s = Stack.new;
+with $s.peek { say "top $_" } else { say "empty: {.exception.message}" }
+$s.push(7);
+with $s.peek { say "top $_" } else { say 'empty' }
+--- expect
+empty: Cannot peek an empty stack
+top 7
+
+=== ctl-fail-unless-dev
+from: LibUSB 0.0.3 lib/LibUSB.rakumod:81
+license: Artistic-2.0
+feature: sub fail
+--- code
+my class X::NoDevice is Exception { method message { 'No device selected' } }
+my class USB {
+    has $!dev;
+    method select($d) { $!dev = $d; self }
+    method read { fail X::NoDevice unless $!dev; "data from $!dev" }
+}
+say USB.new.read.exception.^name;
+say USB.new.select('usb0').read;
+say USB.new.read // 'fallback';
+my $x = USB.new.read;
+say $x;
+--- expect
+X::AdHoc
+data from usb0
+fallback
+!! X::AdHoc
+
+=== ctl-catch-default-rethrow-after-cleanup
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:297
+license: Artistic-2.0
+feature: method rethrow
+--- code
+my $locked = False;
+sub guarded(&code) {
+    $locked = True;
+    my \r = code();
+    $locked = False;
+    CATCH { $locked = False; .rethrow }
+    r
+}
+say guarded({ 'ok' });
+try guarded({ die 'inner boom' });
+say $!.message;
+say $locked;
+--- expect
+ok
+inner boom
+False
+
+=== ctl-error-collect-rethrow
+from: Cro::Core 0.8.10 lib/Cro/MessageWithBody.rakumod:64
+license: Artistic-2.0
+feature: method rethrow
+--- code
+sub decode-with($blob, @encodings) {
+    my $result;
+    my $error;
+    for @encodings -> $try-enc {
+        $result = $blob.decode($try-enc);
+        CATCH {
+            default {
+                $error = $_;
+            }
+        }
+    }
+    $result // $error.rethrow
+}
+say decode-with(Blob.new(104, 105), ["utf-8"]);
+say decode-with(Blob.new(104, 105), ["bogus-enc", "ascii"]);
+decode-with(Blob.new(104), ["bogus-enc"]);
+--- expect
+hi
+hi
+!! X::AdHoc
+
+=== ctl-catch-default-return
+from: Crust 0.0.1 lib/Crust/Middleware/Auth/Basic.pm6:37
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+sub parse-auth($header) {
+    CATCH { default { return } };
+    my ($user, $pass) = $header.split(':', 2);
+    die 'no password' without $pass;
+    "$user/$pass"
+}
+say parse-auth('bob:secret');
+say parse-auth('bob').raku;
+--- expect
+bob/secret
+Nil
+
+=== ctl-catch-default-throw-other
+from: Crane 0.1.2 lib/Crane/Patch.rakumod:85
+license: Unlicense
+feature: phaser CATCH
+--- code
+my class X::PatchAddFailed is Exception { method message { 'patch add failed' } }
+sub add(%h, $k) {
+    %h{$k} = 1 / ($k eq 'zero' ?? 0 !! 1);
+    %h{$k}.Str;
+    CATCH { default { X::PatchAddFailed.new.throw } }
+    %h.elems
+}
+say add({}, 'a');
+add({}, 'zero');
+--- expect
+1
+!! X::PatchAddFailed
+
+=== ctl-catch-when-exception-note
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:702
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+sub parse(@args) {
+    CATCH { when Exception { say "error: {.message}"; return 2 } };
+    die "Unknown option {@args[0]}" if @args[0].starts-with('--x');
+    0
+}
+say parse(['--verbose']);
+say parse(['--xyz']);
+--- expect
+0
+error: Unknown option --xyz
+2
+
+=== ctl-note-message-with-error
+from: CSS::Module 0.7.7 lib/CSS/Module.rakumod:102
+license: Artistic-2.0
+feature: node With
+--- code
+sub parse($val) {
+    try { die "bad value $val" if $val < 0; $val };
+    .message.say with $!;
+    $!.defined
+}
+say parse(5);
+say parse(-1);
+--- expect
+False
+bad value -1
+True
+
+=== ctl-when-multi-nomatch
+from: Crane 0.1.2 lib/Crane/Add.rakumod:33
+license: Unlicense
+feature: phaser CATCH
+--- code
+multi sub add(Int $a, Int $b) { $a + $b }
+sub safe-add($a, $b) {
+    CATCH {
+        when X::Multi::NoMatch
+        {
+            return 'no match';
+        }
+    }
+    add($a, $b)
+}
+say safe-add(1, 2);
+say safe-add('x', 2);
+--- expect
+3
+no match

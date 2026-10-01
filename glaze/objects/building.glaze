@@ -1,0 +1,442 @@
+# Building and shaping objects: BUILD with attribute-binding named
+# parameters, TWEAK with extra named, clone with changes, COERCE, class-level
+# `my` state, `our $.x`, custom exceptions, gist/Str overrides, `also is`.
+
+=== obj-build-binds-attr-named
+from: Algorithm::SetUnion 0.0.1 lib/Algorithm/SetUnion.pm6:9
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class SetUnion {
+    has Int $.size;
+    has @.parent;
+    submethod BUILD(Int :$!size) {
+        @!parent = ^$!size;
+    }
+}
+my $s = SetUnion.new(size => 4);
+say $s.size, ' ', $s.parent;
+say SetUnion.new.parent.elems;
+--- expect
+4 [0 1 2 3]
+0
+
+=== obj-build-defaults-in-signature
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem/Examiner.rakumod:7
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Examiner {
+    has $.type;
+    has $.count;
+    submethod BUILD(:$!type = Any, :$!count = 1) {}
+}
+my $e = Examiner.new;
+say $e.type.^name, ' ', $e.count;
+say Examiner.new(type => Int, count => 3).count;
+--- expect
+Any 1
+3
+
+=== obj-build-required-and-slurpy-attr
+from: Cro::TLS 0.8.10 lib/Cro/TLS.rakumod:61
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my subset Port of Int where 1..65535;
+my class Connector {
+    has $.host;
+    has $.port;
+    has %.tls-config;
+    submethod BUILD(Str :$!host = 'localhost', Port :$!port!, *%!tls-config) {}
+}
+my $c = Connector.new(port => 443, ca-file => 'ca.pem', verify => True);
+say $c.host, ':', $c.port;
+say $c.tls-config.keys.sort;
+Connector.new(port => 0);
+--- expect
+localhost:443
+(ca-file verify)
+!! X::TypeCheck::Binding::Parameter
+
+=== obj-build-non-attr-named-and-flag
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Log/File.rakumod:8
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class LogFile {
+    has $!out;
+    has $.flush;
+    submethod BUILD(:$logs, :$errors, :$!flush = True) {
+        $!out = ($logs // 'stdout') ~ '+' ~ ($errors // $logs // 'stderr');
+    }
+    method target { $!out }
+}
+say LogFile.new.target, ' ', LogFile.new.flush;
+say LogFile.new(logs => 'a.log', :!flush).target, ' ', LogFile.new(:!flush).flush;
+--- expect
+stdout+stderr True
+a.log+a.log False
+
+=== obj-build-method-not-submethod
+from: DB::SQLite 0.7 lib/DB/SQLite.rakumod:11
+license: BSD-2-Clause
+feature: node Method
+--- code
+my class SQLite {
+    has $.filename;
+    has $.busy-timeout;
+    has %.flags;
+    method BUILD(:$!filename = '', :$!busy-timeout = 10000, *%!flags) {}
+}
+my $db = SQLite.new(filename => 'x.db', :readonly);
+say $db.filename, ' ', $db.busy-timeout, ' ', $db.flags.keys;
+--- expect
+x.db 10000 (readonly)
+
+=== obj-tweak-attr-default-nil
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Request.rakumod:77
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Request {
+    has $.request-uri;
+    submethod TWEAK(:$!request-uri = Nil) { }
+}
+say Request.new.request-uri.raku;
+say Request.new(request-uri => '/x').request-uri;
+--- expect
+Any
+/x
+
+=== obj-tweak-is-copy-named
+from: CSS::Module 0.7.7 lib/CSS/Module.rakumod:85
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Module {
+    has %.index;
+    submethod TWEAK(:%alias, :$prop-names! is copy) {
+        $prop-names = $prop-names.split(' ').List if $prop-names ~~ Str;
+        %!index = $prop-names.map({ $_ => $++ });
+        %!index{.key} = %!index{.value} for %alias;
+    }
+}
+my $m = Module.new(prop-names => 'color margin', alias => { colour => 'color' });
+say $m.index.sort.map(*.kv.join('=')).join(' ');
+Module.new;
+--- expect
+color=0 colour=0 margin=1
+!! X::AdHoc
+
+=== obj-tweak-ignores-extra-named
+from: CSS::Stylesheet 0.1.5 lib/CSS/Ruleset.rakumod:15
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Ruleset {
+    has $.selectors;
+    has %.ast;
+    submethod TWEAK(:%ast is copy, :selectors($), :properties($), |c) {
+        %ast<seen> = True;
+        %!ast = %ast;
+    }
+}
+my $r = Ruleset.new(selectors => 'h1', properties => 'color: red', ast => { rule => 1 });
+say $r.selectors, ' ', $r.ast.keys.sort;
+--- expect
+h1 (rule seen)
+
+=== obj-clone-negated-named
+from: Graph 0.1.3 lib/Graph.rakumod:499
+license: Artistic-2.0
+feature: method clone
+--- code
+my class Graph {
+    has Bool $.directed = True;
+    has @.edges;
+    method undirected { return self.clone(:!directed); }
+}
+my $g = Graph.new(edges => [1 => 2]);
+my $u = $g.undirected;
+say $g.directed, ' ', $u.directed, ' ', $u.edges;
+say $u === $g;
+--- expect
+True False [1 => 2]
+False
+
+=== obj-clone-colon-var-named
+from: Terminal::Capabilities 0.0.21 lib/Terminal/Capabilities/Autodetect.rakumod:63
+license: Artistic-2.0
+feature: method clone
+--- code
+my class Caps {
+    has Bool $.emoji-text = False;
+    has Bool $.emoji-reg  = False;
+    has Str  $.symbols    = 'ASCII';
+}
+my $under-caps = Caps.new(symbols => 'Uni1');
+my ($emoji-text, $emoji-reg) = True, True;
+my $caps   = $under-caps.clone(:$emoji-text, :$emoji-reg);
+say $caps.symbols, ' ', $caps.emoji-text, ' ', $caps.emoji-reg;
+say $under-caps.emoji-text;
+--- expect
+Uni1 True True
+False
+
+=== obj-clone-shares-array
+from: Terminal::Table 0.1.1 lib/Terminal/Table/Frame.rakumod:286
+license: MIT
+feature: method clone
+--- code
+my class Frame {
+    has @.lines;
+    has @.padding = 0, 0;
+    method pad(*@new-padding) { self.clone(:lines(@!lines.map(' ' ~ *)), padding => @new-padding) }
+}
+my $f = Frame.new(lines => <a b>);
+my $p = $f.pad(1, 1);
+say $p.lines, ' ', $p.padding;
+say $f.lines, ' ', $f.padding;
+my $c = $f.clone;
+$c.lines.push: 'c';
+say $f.lines.elems;
+--- expect
+[ a  b] [1 1]
+[a b] [0 0]
+3
+
+=== obj-clone-nested-push
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client/CookieJar.rakumod:115
+license: Artistic-2.0
+feature: method clone
+--- code
+my class Cookie { has $.name; has $.domain; has $.path = '/' }
+my class CookieState { has $.cookie; has $.creation-time = 1 }
+my @cookies;
+my $state = CookieState.new(cookie => Cookie.new(name => 'sid'));
+my ($domain, $path) = 'example.com', '/app';
+given $state.cookie {
+    @cookies.push: $state.clone(cookie => $_.clone(:$domain, :$path));
+}
+say @cookies[0].cookie.domain, @cookies[0].cookie.path, ' ', @cookies[0].cookie.name;
+say $state.cookie.domain.raku;
+--- expect
+example.com/app sid
+Any
+
+=== obj-coerce-from-hash
+from: CSS::Module 0.7.7 lib/CSS/Module/Property.rakumod:43
+license: Artistic-2.0
+feature: method COERCE
+--- code
+my class Property {
+    has Str $.name;
+    has Bool $.inherit = False;
+    multi method COERCE(%meta) { self.new: |%meta }
+}
+my class Module {
+    has Property() %.props;
+}
+my $m = Module.new(props => { color => { name => 'color', inherit => True } });
+say $m.props<color>.^name, ' ', $m.props<color>.inherit;
+sub prop(Property() $p) { $p.name }
+say prop({ name => 'margin' });
+--- expect
+Property True
+margin
+
+=== obj-coerce-parse-str
+from: CSS::Stylesheet 0.1.5 lib/CSS/MediaQuery.rakumod:19
+license: Artistic-2.0
+feature: method COERCE
+--- code
+my class MediaQuery {
+    has @.ast;
+    method parse(Str $s) { self.new(ast => $s.split(/\s* and \s*/)) }
+    multi method COERCE(Str $media-query) { self.parse: $media-query }
+}
+my class Ruleset {
+    has MediaQuery() $.media-query;
+}
+say Ruleset.new(media-query => 'screen and (color)').media-query.ast;
+--- expect
+[screen (color)]
+
+=== obj-class-my-counter
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Entity/ResourceAccessSingleton.rakumod:48
+license: Artistic-2.0
+feature: node Class
+--- code
+my class ResourceAccess {
+    my ResourceAccess $instance = Nil;
+    my Int $numberOfInstances = 0;
+    method getNumberOfInstances() { $numberOfInstances }
+    method new {!!!}
+    submethod instance {
+        $instance = ResourceAccess.bless unless $instance;
+        $numberOfInstances += 1;
+        $instance;
+    }
+}
+say ResourceAccess.instance === ResourceAccess.instance;
+say ResourceAccess.getNumberOfInstances;
+ResourceAccess.new;
+--- expect
+True
+2
+!! X::StubCode
+
+=== obj-our-dot-class-attr
+from: LWP::Simple 0.109 lib/LWP/Simple.rakumod:31
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Simple {
+    has Str $.default_encoding = 'utf-8';
+    our $.force_encoding;
+    our $.class_default_encoding = 'utf-8';
+}
+say Simple.class_default_encoding;
+say Simple.new.force_encoding.raku;
+say Simple.new.default_encoding;
+--- expect
+utf-8
+Any
+utf-8
+
+=== obj-new-typeobject-invocant-slurpy
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:88
+license: Artistic-2.0
+feature: method new
+--- code
+my class Vec {
+    has @.values;
+    method STORE(@v, :$INITIALIZE) { @!values = @v; self }
+    method new(::?CLASS:U: **@values is raw) {
+        self.bless(|%_).STORE(@values, :INITIALIZE)
+    }
+}
+say Vec.new(1, 2, 3).values;
+say Vec.new.values.elems;
+Vec.new(1).new(2);
+--- expect
+[1 2 3]
+0
+!! X::Parameter::InvalidConcreteness
+
+=== obj-exception-message-attrs
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/X.rakumod:16
+license: Artistic-2.0
+feature: method message
+--- code
+my class Fatal is Exception { }
+my class NotAllowed is Fatal {
+    has Str:D $.op is required;
+    has Str $.cause;
+    method message {
+        "Operation '$!op' is not allowed at this time" ~ ($!cause ?? ": $!cause" !! "")
+    }
+}
+say NotAllowed.new(op => 'clear').message;
+try NotAllowed.new(op => 'set', cause => 'frozen').throw;
+say $!.message, ' ', $! ~~ Fatal;
+NotAllowed.new(op => 'x').throw;
+--- expect
+Operation 'clear' is not allowed at this time
+Operation 'set' is not allowed at this time: frozen True
+!! NotAllowed
+
+=== obj-exception-stub-method-subclass
+from: App::RaCoCo 2.0.1 lib/App/Racoco/X.rakumod:3
+license: Artistic-2.0
+feature: method message
+--- code
+my class WrongPath is Exception {
+  has $.path;
+  method message() { "$.path-name path ｢$!path｣ does not exists." }
+  method path-name() { ... }
+}
+my class WrongLibPath is WrongPath {
+  method path-name() { 'lib' }
+}
+say WrongLibPath.new(path => 'src').message;
+--- expect
+lib path ｢src｣ does not exists.
+
+=== obj-exception-also-is
+from: Crane 0.1.2 lib/X/Crane.rakumod:5
+license: Unlicense
+feature: node Class
+--- code
+my class X::Crane::Op {
+    also is Exception;
+    has Str:D $.operation is required;
+    method message() { "Crane op $!operation failed" }
+}
+{
+    X::Crane::Op.new(operation => 'move').throw;
+    CATCH { default { say .^name, ': ', .message } }
+}
+say X::Crane::Op.^parents.map(*.^name);
+--- expect
+X::Crane::Op: Crane op move failed
+(Exception)
+
+=== obj-gist-defined-only
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:85
+license: Artistic-2.0
+feature: method gist
+--- code
+my class Tree {
+    has @.points;
+    has @.labels;
+    multi method gist(::?CLASS:D:-->Str) {
+        my $lblPart = @!labels.elems > 0 ?? ", labels => {@!labels.elems}" !! '';
+        return "Tree(points => {@!points.elems}" ~ $lblPart ~ ')';
+    }
+}
+say Tree.new(points => [1, 2, 3]);
+say Tree.new(points => [1], labels => <a>);
+say Tree;
+--- expect
+Tree(points => 3)
+Tree(points => 1, labels => 1)
+(Tree)
+
+=== obj-gist-uses-str
+from: Bailador 0.0.19 lib/Bailador/Test.pm:15
+license: MIT
+feature: method gist
+--- code
+my class Response {
+    has $.status = 200;
+    method Str() { "HTTP $!status" }
+    method gist() { self.Str }
+}
+my $r = Response.new(status => 404);
+say $r;
+put $r;
+say "got: $r";
+say [$r, Response.new];
+--- expect
+HTTP 404
+HTTP 404
+got: HTTP 404
+[HTTP 404 HTTP 200]
+
+=== obj-gist-interpolates-str-method
+from: BitEnum 0.5 lib/BitEnum.rakumod:75
+license: Artistic-2.0
+feature: method gist
+--- code
+my class Flags {
+    has Int $.value = 0;
+    method Str() { (^4).grep({ $!value +& (1 +< $_) }).map({ "bit$_" }).join('|') }
+    method gist()         { "$!value = $.Str()" }
+}
+say Flags.new(value => 5);
+say Flags.new(value => 5).Str;
+--- expect
+5 = bit0|bit2
+bit0|bit2

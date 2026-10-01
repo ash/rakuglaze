@@ -1,0 +1,358 @@
+# Pair objects as modules use them: Pair.new, colonpair forms, Pair in a
+# signature and in multi dispatch, `~~ Pair`, `.pairs[0]`, a rw value.
+
+=== hash-pair-new-paren
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Message.rakumod:106
+license: Artistic-2.0
+feature: method new
+--- code
+my @values = 'text/html;q=0.8', 'application/json', 'text/plain;q=0.5';
+my @p = @values.map: -> $v {
+    my ($value, $q) = $v.split(';q=');
+    Pair.new($value, +($q // 1));
+}
+say @p.sort(-*.value).map(*.key).join(' ');
+say @p[0].^name;
+--- expect
+application/json text/html text/plain
+Pair
+
+=== hash-pair-new-colon-array-value
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:21
+license: Artistic-2.0
+feature: method new
+--- code
+multi sub add-source-lines(@pairs, *%_) { @pairs.map({ "{.key}:{.value.join(',')}" }).join(' ') }
+multi sub add-source-lines($file, @lines, *%_) {
+    add-source-lines [Pair.new: $file, @lines], |%_
+}
+say add-source-lines('a.raku', [3, 5]);
+--- expect
+a.raku:3,5
+
+=== hash-pair-new-colon-closure
+from: Lines::Containing 0.0.11 lib/Lines/Containing.rakumod:144
+license: Artistic-2.0
+feature: method new
+--- code
+my $with-nr = True;
+my &mapper = $with-nr
+    ?? -> $linenr, $line { Pair.new: $linenr, $line }
+    !! -> $linenr, $line { $line };
+say <alpha beta gamma>.kv.map(&mapper).grep(*.value.contains('a')).map(*.gist).join(' | ');
+--- expect
+0 => alpha | 1 => beta | 2 => gamma
+
+=== hash-pair-new-sub-callable-value
+from: String::Utils 0.0.41 lib/String/Utils.rakumod:821
+license: Artistic-2.0
+feature: method new
+--- code
+sub make-export($out, &code) {
+    Pair.new: "&$out", &code
+}
+my $p = make-export('shout', *.uc);
+say $p.key;
+say $p.value()('hi');
+--- expect
+&shout
+HI
+
+=== hash-pair-new-in-map-key
+from: Map::Match 0.0.10 lib/Map/Match.rakumod:15
+license: Artistic-2.0
+feature: method new
+--- code
+my sub pair(       %map, str $key) { Pair.new: $key, %map.AT-KEY($key) }
+my %m = a => 1, b => 2;
+say pair(%m, 'b');
+say pair(%m, 'z').raku;
+--- expect
+b => 2
+:z(Any)
+
+=== hash-pair-param-sub
+from: Cro::Core 0.8.10 lib/Cro/MediaType.rakumod:122
+license: Artistic-2.0
+feature: type Pair
+--- code
+sub param-str(Pair $p) {
+    $p.value ~~ /^ <[\w-]>+ $/ ?? "{$p.key}={$p.value}" !! "{$p.key}=\"{$p.value}\""
+}
+say param-str((charset => 'utf-8'));
+say param-str((boundary => 'a b'));
+--- expect
+charset=utf-8
+boundary="a b"
+
+=== hash-pair-multi-topic-param
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:412
+license: Artistic-2.0
+feature: type Pair
+--- code
+my class Writer {
+    multi method write(Pair $_) { "{.key}<{self.write(.value)}>" }
+    multi method write(Str $_) { $_ }
+    multi method write(Int $_) { "#$_" }
+}
+say Writer.new.write((ident => 'red'));
+say Writer.new.write((num => 3));
+say Writer.new.write((outer => (inner => 'x')));
+--- expect
+ident<red>
+num<#3>
+outer<inner<x>>
+
+=== hash-pair-multi-defined-sub
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:144
+license: Artistic-2.0
+feature: type Pair
+--- code
+my %opts;
+multi sub set-option(Pair:D $opt) { %opts{$opt.key} = $opt.value }
+multi sub set-option(Str:D $opt) { %opts{$opt} = True }
+set-option($_) for (:lazy), 'clearer', (builder => 'mk');
+say %opts.sort.map(*.gist).join(' ');
+--- expect
+builder => mk clearer => True lazy => True
+
+=== hash-pair-multi-method-set
+from: Bailador 0.0.19 lib/Bailador/Configuration.pm:156
+license: MIT
+feature: type Pair
+--- code
+my class Config {
+    has %.values;
+    multi method set(Pair $x) { %!values{$x.key} = $x.value }
+    multi method set(Str $k, $v) { %!values{$k} = $v }
+}
+my $c = Config.new;
+$c.set((port => 8080));
+$c.set('host', 'localhost');
+say $c.values.sort.map(*.gist).join(' ');
+--- expect
+host => localhost port => 8080
+
+=== hash-pair-param-error-sub
+from: Bailador 0.0.19 lib/Bailador.pm:36
+license: MIT
+feature: type Pair
+--- code
+sub error(Pair $x) {
+    "status {$x.key}: {$x.value}"
+}
+say error(404 => 'not found');
+say error((500 => 'server'));
+--- expect
+status 404: not found
+status 500: server
+
+=== hash-pair-smartmatch-ternary
+from: Air 0.1.32 lib/Air/Form.rakumod:596
+license: Artistic-2.0
+feature: type Pair
+--- code
+for (label => 'Are you human?'), True -> $captcha {
+    my $lbl = $captcha ~~ Pair ?? $captcha.value !! Nil;
+    say $lbl.raku;
+}
+--- expect
+"Are you human?"
+Any
+
+=== hash-pair-isa-ternary
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:33
+license: Artistic-2.0
+feature: method isa
+--- code
+my $units = 'px';
+for (num => 12), 7 -> $ast {
+    my $p = $units => $ast.isa(Pair) ?? $ast.value !! $ast;
+    say $p;
+}
+--- expect
+px => 12
+px => 7
+
+=== hash-pair-pairs-zero-key
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:248
+license: Artistic-2.0
+feature: method pairs
+--- code
+for { 'expr:width' => 3 }, { color => 'red' }, 'plain' {
+    if $_ ~~ Associative && (my $p0 := .pairs[0]).key.starts-with('expr:') {
+        say 'expression ', $p0.value;
+    }
+    else {
+        say 'other';
+    }
+}
+--- expect
+expression 3
+other
+other
+
+=== hash-pair-single-named-head
+from: LibXML 0.11.3 lib/LibXML/Item.rakumod:43
+license: Artistic-2.0
+feature: method pairs
+--- code
+my class X2 {
+    multi method ast-to-xml(Pair $p) { "<{$p.key}>{$p.value}</{$p.key}>" }
+}
+multi sub ast-to-xml(*%p where .elems == 1) { X2.ast-to-xml(%p.pairs.head) }
+say ast-to-xml(:b<bold>);
+say (try ast-to-xml(:a(1), :b(2))) // 'no match';
+--- expect
+<b>bold</b>
+no match
+
+=== hash-pair-dynamic-method-name
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:39
+license: Artistic-2.0
+feature: method call
+--- code
+my class XP {
+    multi method xpath(Pair:D $_) { self."xpath-{.key}"( .value ) }
+    method xpath-element($v) { "//$v" }
+    method xpath-id($v) { "[@id='$v']" }
+}
+say XP.new.xpath((element => 'div'));
+say XP.new.xpath((id => 'main'));
+--- expect
+//div
+[@id='main']
+
+=== hash-pair-first-key-lc
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodyParsers.rakumod:124
+license: Artistic-2.0
+feature: method first
+--- code
+my @parameters = (charset => 'utf-8'), (Boundary => '----x');
+my $boundary = @parameters.first(*.key.lc eq 'boundary');
+say $boundary.value;
+say $boundary.^name;
+--- expect
+----x
+Pair
+
+=== hash-pair-value-rw-hash-pairs
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:562
+license: Artistic-2.0
+feature: method value
+--- code
+my %props = width => '10', height => '4';
+sub coercer($v) { $v ~ 'px' }
+for %props.pairs -> \p {
+    p.value = coercer p.value;
+}
+say %props.sort.map(*.gist).join(' ');
+--- expect
+height => 4px width => 10px
+
+=== hash-pair-colonpair-flags
+from: Air::Plugin::Hilite 0.0.10 lib/Air/Plugin/Hilite.rakumod:69
+license: Artistic-2.0
+feature: node Pair
+--- code
+my class H {
+    has $!code = 'say 1';
+    has $!lang = 'raku';
+    method prm { my %prm = :contents($!code), :$!lang, :!label; %prm }
+}
+say H.new.prm.sort.map(*.raku).join(' ');
+--- expect
+:contents("say 1") :label(Bool::False) :lang("raku")
+
+=== hash-pair-colonpair-angle-value
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Queue.rakumod:71
+license: Artistic-2.0
+feature: node Pair
+--- code
+sub parse($line) {
+    return %( :type<unknown> ) unless $line.defined;
+    %( :type<line>, :text($line) )
+}
+say parse(Str)<type>;
+say parse('x')<text>;
+--- expect
+unknown
+x
+
+=== hash-pair-empty-list-value
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/FrameSerializer.rakumod:110
+license: Artistic-2.0
+feature: node Pair
+--- code
+my %frame = flags => 1, stream-identifier => 0, settings => ();
+say %frame<settings>.elems;
+say %frame<settings>.^name;
+say %frame.keys.sort;
+--- expect
+0
+List
+(flags settings stream-identifier)
+
+=== hash-pair-sort-cmp-whatever
+from: Hash::MultiValue 0.7 lib/Hash/MultiValue.pm6:448
+license: Artistic-2.0
+feature: method sort
+--- code
+my @all-pairs = (b => 1), Pair, (a => 2), (b => 0);
+say @all-pairs.grep(*.defined).sort(*.key cmp *.key).map(*.gist).join(' ');
+--- expect
+a => 2 b => 1 b => 0
+
+=== hash-pair-destructure-key-value-names
+from: Collection 0.18.0 lib/Collection.rakumod:692
+license: Artistic-2.0
+feature: signature unpack
+--- code
+my @valids = (cleanup => { level => 1 }), (render => { level => 2 });
+for @valids -> (:key($plug), :value(%plugin-conf)) {
+    say "$plug at %plugin-conf<level>";
+}
+--- expect
+cleanup at 1
+render at 2
+
+=== hash-pair-destructure-array-value
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:45
+license: Artistic-2.0
+feature: signature unpack
+--- code
+my @file-lines = ('a.raku' => [1, 2]), ('b.raku' => [7]);
+my @out = @file-lines.map: -> (:key($filename), :value(@linenrs)) {
+    "$filename:{@linenrs.join(',')}"
+};
+say @out;
+--- expect
+[a.raku:1,2 b.raku:7]
+
+=== hash-pair-list-map-key-value-swap
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:89
+license: Artistic-2.0
+feature: method map
+--- code
+my class Cov { has $.source }
+my %coverables = a => Cov.new(source => 'A.raku'), b => Cov.new(source => 'B.raku');
+my $m = %coverables.map({ .key => .value.source }).Map;
+say $m<b>;
+say $m.^name;
+--- expect
+B.raku
+Map
+
+=== hash-pair-map-clone-values
+from: Path::Router 0.5.1 lib/Path/Router/Route.pm6:107
+license: Artistic-2.0
+feature: method map
+--- code
+my %defaults = list => [1, 2];
+my %copy = %(%defaults.map({ .key => .value.clone }));
+%copy<list>.push: 3;
+say %defaults<list>;
+say %copy<list>;
+--- expect
+[1 2]
+[1 2 3]

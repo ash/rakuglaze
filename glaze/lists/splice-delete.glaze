@@ -1,0 +1,186 @@
+# splice in its many arities, :delete / :exists / :v on array elements.
+
+=== list-splice-remove-front
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:422
+license: Artistic-2.0
+feature: method splice
+--- code
+my @cdif = 1, 2, 3, 4, 5;
+my @gone = @cdif.splice( 0, 2 );
+say @gone;
+say @cdif;
+--- expect
+[1 2]
+[3 4 5]
+
+=== list-splice-insert
+from: Array::Sorted::Util 0.0.11 lib/Array/Sorted/Util.rakumod:178
+license: Artistic-2.0
+feature: method splice
+--- code
+my @a = 1, 3, 5;
+my $pos = 2;
+my \value = 4;
+@a.splice($pos, 0, value);
+say @a;
+--- expect
+[1 3 4 5]
+
+=== list-splice-whatever-to-end
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DSL.rakumod:577
+license: Artistic-2.0
+feature: method splice
+--- code
+my @failures = <f1 f2 f3 f4>;
+my $watermark = 1;
+say @failures.splice($watermark, *);
+say @failures;
+--- expect
+[f2 f3 f4]
+[f1]
+
+=== list-splice-drain-join
+from: Bailador 0.0.19 lib/Bailador/Test.pm:16
+license: MIT
+feature: method splice
+--- code
+my @buf = 'he', 'llo';
+sub wipe() { @buf.splice(0, @buf.elems).join: '' }
+say wipe();
+say @buf.elems;
+--- expect
+hello
+0
+
+=== list-splice-replace-tail
+from: PDF 0.6.15 lib/PDF/IO/Filter/ASCII85.rakumod:41
+license: Artistic-2.0
+feature: method splice
+--- code
+constant PadChar = 'u';
+my @a85 = <a b c>;
+@a85.splice(*-1, 1, PadChar xx 5);
+say @a85.join;
+--- expect
+abuuuuu
+
+=== list-splice-whatever-minus-rotate
+from: PDF::Class 0.5.30 lib/PDF/Function/PostScript.rakumod:101
+license: Artistic-2.0
+feature: method splice
+--- code
+my @stack = 1, 2, 3, 4, 5;
+my ($n, $j) = 3, 1;
+my @rolled = @stack.splice(* - $n).rotate($j);
+say @rolled;
+say @stack;
+--- expect
+[4 5 3]
+[1 2]
+
+=== list-splice-truncate
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:275
+license: Artistic-2.0
+feature: method splice
+--- code
+my @counters = 1, 2, 3, 4;
+my $level = 2;
+@counters.splice($level);
+say @counters;
+--- expect
+[1 2]
+
+=== list-splice-colon-insert-after
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny.pm6:897
+license: Artistic-2.0
+feature: method splice
+--- code
+my @children = <a b c>;
+my $i = @children.first(* eq 'b', :k);
+@children.splice: $i+1, 0, <x y>;
+say @children;
+--- expect
+[a b x y c]
+
+=== list-delete-element-hole
+from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:860
+license: MIT
+feature: adverb :delete
+--- code
+my @rows = <r0 r1 r2>;
+my $row-index = 1;
+@rows[$row-index]:delete;
+say @rows.elems;
+say @rows[1].defined;
+@rows[2]:delete;
+say @rows.elems;
+--- expect
+3
+False
+1
+
+=== list-delete-singleton-values
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:181
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+sub singleton(@values is copy) {
+    my %once; my %duplicates;
+    for @values.kv -> $index, $_ {
+        my $key = .defined ?? .Str !! .^name;
+        if %duplicates{$key} { @values[$index]:delete }
+        elsif %once{$key}:exists {
+            @values[%once{$key}:delete]:delete;
+            @values[$index]:delete;
+            %duplicates{$key} = 1;
+        }
+        else { %once{$key} = $index }
+    }
+    @values[]:v
+}
+say singleton(<a b a c b a d>);
+--- expect
+(c d)
+
+=== list-delete-returns-value
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny.pm6:837
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my @children = 'root', 'other';
+my $tree = @children[0]:delete;
+say $tree;
+say @children[0]:exists;
+say @children[1]:exists;
+--- expect
+root
+False
+True
+
+=== list-exists-index
+from: JSONL 0.1.6 lib/JSONL/Line.rakumod:29
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my $value = [10, Any, 30];
+for 0..3 -> $index {
+    say $index, ': ', $value[$index]:exists;
+}
+--- expect
+0: True
+1: True
+2: True
+3: False
+
+=== list-slice-v-adverb
+from: Text::CSV 0.022 lib/Text/CSV.rakumod:887
+license: Artistic-2.0
+feature: adverb :v
+--- code
+my @fields = <a b c>;
+my @crange = 0, 2, 7;
+say @crange ?? (@fields[@crange]:v) !! @fields;
+say @fields[@crange];
+--- expect
+(a c)
+(a c (Any))

@@ -1,0 +1,414 @@
+# Cutting strings: substr, substr-rw, index, rindex, flip.
+
+=== str-substr-from-offset
+from: Actionable 0.0.7 lib/Actionable.rakumod:177
+license: Artistic-2.0
+feature: method substr
+--- code
+my class Attr { has $.name }
+for Attr.new(name => '$!colour'), Attr.new(name => '@!items') -> $attr {
+    my $name = $attr.name.substr(2);
+    say $name;
+}
+--- expect
+colour
+items
+
+=== str-substr-prefix-loop
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:155
+license: Artistic-2.0
+feature: method substr
+--- code
+my $word = 'hello';
+for 1..$word.chars {
+    my $abbrev = $word.substr(0, $_);
+    print $abbrev, ' ';
+}
+say '';
+--- expect
+h he hel hell hello 
+
+=== str-substr-whatever-end
+from: Air::Plugin::Hilite 0.0.10 lib/Air/Plugin/Hilite.rakumod:52
+license: Artistic-2.0
+feature: method substr
+--- code
+my @js-links = '"a.js"', '"lib/b.js"';
+@js-links .= map: *.substr(1,*-1);
+say @js-links.join('|');
+--- expect
+a.js|lib/b.js
+
+=== str-substr-chars-of-prefix
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:181
+license: Artistic-2.0
+feature: method substr
+--- code
+my @executed;
+for 'behave-executed: t/a.t', 'behave-executed: t/b.t' -> $line {
+    @executed.push: $line.substr('behave-executed: '.chars);
+}
+say @executed;
+--- expect
+[t/a.t t/b.t]
+
+=== str-substr-offset-and-tail-whatever
+from: Bailador 0.0.19 lib/Bailador/Gradual.pm:37
+license: MIT
+feature: method substr
+--- code
+my $views = 'views';
+my @pages;
+for 'views/index.html.tmpl', 'views/about.html.tmpl' -> $thing {
+    @pages.append($thing.substr(1 + $views.chars, *-10));
+}
+say @pages;
+--- expect
+[index about]
+
+=== str-substr-last-char
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:221
+license: Artistic-2.0
+feature: method substr
+--- code
+for 'my $x = 1;', 'sub f {' -> $cleaned {
+    my $last = $cleaned.substr(*-1);
+    say "$cleaned -> $last";
+}
+--- expect
+my $x = 1; -> ;
+sub f { -> {
+
+=== str-substr-whatever-minus-var
+from: Collection 0.18.0 lib/Collection/Progress.rakumod:74
+license: Artistic-2.0
+feature: method substr
+--- code
+my $text-len = 12;
+my $inf = 'processing chapter seventeen';
+$inf = '... ' ~ $inf.substr( * - $text-len + 4 ) if $inf.chars > ( $text-len - 4 );
+say $inf;
+--- expect
+... eventeen
+
+=== str-substr-tail-three-ternary
+from: Lingua::EN::Numbers 2.8.3 lib/Lingua/EN/Numbers.pm6:65
+license: Artistic-2.0
+feature: method substr
+--- code
+for 7, 12, 1234567 -> $denom {
+    my $cen = $denom.chars > 3 ?? $denom.substr(*-3) !! $denom;
+    say $cen;
+}
+--- expect
+7
+12
+567
+
+=== str-substr-whatever-range-end
+from: Markdown::Grammar 0.6.4 lib/Markdown/Grammar.rakumod:18
+license: Artistic-2.0
+feature: method substr
+--- code
+for "ls -l\n", "pwd" -> $command {
+    my $ending = $command.substr(*- 1, *) eq "\n" ?? '' !! "\n";
+    say $ending.raku;
+}
+--- expect
+""
+"\n"
+
+=== str-substr-ampersand-call
+from: PDF 0.6.15 lib/X/PDF.rakumod:90
+license: Artistic-2.0
+feature: method substr
+--- code
+my $input = ('abcdefghij' x 8);
+say $input.chars > 60
+    ?? [~] $input.&substr(0, 32), ' ... ', $input.&substr(*-20)
+    !! $input;
+--- expect
+abcdefghijabcdefghijabcdefghijab ... abcdefghijabcdefghij
+
+=== str-substr-trailing-loop
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Filters.rakumod:60
+license: Artistic-2.0
+feature: method substr
+--- code
+my @chs = <x y>;
+my $s = 'abcxyxy';
+while $s.chars > 0 && $s.substr(*-1, 1) eq any(@chs) {
+    $s = $s.substr(0, *-1);
+}
+say $s;
+--- expect
+abc
+
+=== str-substr-numeric-index-into-list
+from: CSS::Properties 0.10.9 lib/CSS/Font.rakumod:84
+license: Artistic-2.0
+feature: method substr
+--- code
+my $weight = '700';
+my $w = <thin extralight light book regular medium semibold bold extrabold black>[$weight.substr(0,1)];
+say $w;
+--- expect
+bold
+
+=== str-substr-rw-assign
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:34
+license: Artistic-2.0
+feature: method substr-rw
+--- code
+my $name-uk = 'lightgray';
+with $name-uk.index("gray") {
+    $name-uk.substr-rw($_, 4) = 'grey';
+}
+say $name-uk;
+--- expect
+lightgrey
+
+=== str-substr-rw-sub-insert
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/EditableBuffer.rakumod:58
+license: Artistic-2.0
+feature: call substr-rw
+--- code
+my $contents = 'helo world';
+my $pos = 3;
+my $content = 'l';
+substr-rw($contents, $pos, 0) = $content;
+say $contents;
+--- expect
+hello world
+
+=== str-substr-rw-overwrite
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:547
+license: MIT
+feature: call substr-rw
+--- code
+my $line = '..........';
+my $cursor-col = 3;
+my $str = 'abc';
+substr-rw($line, $cursor-col, $str.chars) = $str;
+say $line;
+--- expect
+...abc....
+
+=== str-index-with-offset
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:495
+license: Artistic-2.0
+feature: method index
+--- code
+my $file-part = 'sub foo (lib/Foo.rakumod:12)';
+my $open = $file-part.rindex(' (');
+my $close = $file-part.index(')', $open);
+say $file-part.substr($open + 2, $close - $open - 2);
+--- expect
+lib/Foo.rakumod:12
+
+=== str-index-with-modifier
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Base/Actions.rakumod:101
+license: Artistic-2.0
+feature: method index
+--- code
+for 'border-color', 'margin' {
+    my $name = $_;
+    $name .= substr(0, $_) with $name.index('-');
+    say $name;
+}
+--- expect
+border
+margin
+
+=== str-index-defined-or
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodyParsers.rakumod:62
+license: Artistic-2.0
+feature: method index
+--- code
+for 'a=1', 'flag' -> $string-sp {
+    my int $eq-idx = $string-sp.index('=') // -1;
+    say $eq-idx;
+}
+--- expect
+1
+-1
+
+=== str-index-defined-test
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:365
+license: Artistic-2.0
+feature: method index
+--- code
+for 'nth-last-child', 'nth-child' -> $nth {
+    my $end = $nth.index('-last-').defined;
+    say "$nth: $end";
+}
+--- expect
+nth-last-child: True
+nth-child: False
+
+=== str-index-not-nil
+from: DB::Xoos 0.1.1 lib/DB/Xoos.pm6:115
+license: Artistic-2.0
+feature: method index
+--- code
+my $base = 'App';
+for 'x/lib/App/Model.pm6', 'x/t/test.t' -> $f {
+    next unless $f.index("lib/$base") !~~ Nil;
+    say $f.substr($f.index("lib/$base") + 4, $f.rindex('.') - $f.index("lib/$base") - 4);
+}
+--- expect
+App/Model
+
+=== str-index-zero-is-falsy
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Message.rakumod:188
+license: MIT
+feature: method index
+--- code
+for 'text/html', '/root', 'plain' -> $third {
+    if $third.index('/') {
+        say "$third: has slash after start";
+    }
+    else {
+        say "$third: no";
+    }
+}
+--- expect
+text/html: has slash after start
+/root: no
+plain: no
+
+=== str-index-without-guard
+from: IO::Socket::Async::SSL 0.8.2 lib/IO/Socket/Async/SSL.rakumod:1106
+license: Artistic-2.0
+feature: method index
+--- code
+sub wildcard($name) {
+    return False without $name.index('*');
+    True
+}
+say wildcard('*.example.com');
+say wildcard('www.example.com');
+--- expect
+True
+False
+
+=== str-index-int-pointy
+from: Identity::Utils 0.0.29 lib/Identity/Utils.rakumod:373
+license: Artistic-2.0
+feature: method index
+--- code
+my $identity = 'Foo::Bar:ver<1.2>:auth<zef:me>';
+with $identity.rindex('::') -> int $offset {
+    with $identity.index(':', $offset + 2) -> int $chars {
+        say $identity.substr(0, $chars);
+    }
+}
+--- expect
+Foo::Bar
+
+=== str-rindex-with-substr
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:1553
+license: Artistic-2.0
+feature: method rindex
+--- code
+for '/static/css/site.css', 'favicon.ico' -> $path {
+    say do with $path.rindex('/') { $path.substr($_ + 1) } else { $path }
+}
+--- expect
+site.css
+favicon.ico
+
+=== str-rindex-defined-or-chain
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:528
+license: Artistic-2.0
+feature: method rindex
+--- code
+for '2026-10-01T12:00:00.250', '2026-10-01T12:00:00+02', '12:00' -> $ts {
+    my $cutoff = $ts.rindex(".") // $ts.rindex("-") // $ts.rindex("+");
+    say $cutoff // 'none';
+}
+--- expect
+19
+7
+none
+
+=== str-rindex-topic-plus-one
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:56
+license: Artistic-2.0
+feature: method rindex
+--- code
+my $lines = [];
+for 'covered line 12', 'covered line 7' {
+    $lines.push: .substr(.rindex(" ") + 1).Int
+}
+say $lines.sum;
+--- expect
+19
+
+=== str-rindex-from-position
+from: Map::Match 0.0.10 lib/Map/Match.rakumod:70
+license: Artistic-2.0
+feature: method rindex
+--- code
+my $keys = "alpha\0beta\0gamma";
+my $left = $keys.rindex("\0", 12);
+say $left;
+say $keys.rindex("\0", 5);
+say $keys.rindex("\0", 4) // 'Nil';
+--- expect
+10
+5
+Nil
+
+=== str-flip-comb-thousands
+from: FStrings 0.0.1 lib/FStrings.rakumod:40
+license: Artistic-2.0
+feature: method flip
+--- code
+my $sep = ',';
+for '1234567', '999', '1000' -> $int-part is copy {
+    $int-part = $int-part.flip.comb(3).join($sep).flip;
+    say $int-part;
+}
+--- expect
+1,234,567
+999
+1,000
+
+=== str-flip-split-hyper-flip
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:393
+license: Artistic-2.0
+feature: method flip
+--- code
+my $authority = 'user:p@ss@example.com';
+my ( $host, $auth ) = $authority.flip.split( '@', 2 )».flip;
+say $host;
+say $auth;
+--- expect
+example.com
+user:p@ss
+
+=== str-flip-comb-hyper-reverse
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:580
+license: Artistic-2.0
+feature: method flip
+--- code
+my $num = '123456789';
+my @chunks = $num.flip.comb(4)».flip.reverse;
+say @chunks;
+--- expect
+[1 2345 6789]
+
+=== str-flip-or-reverse
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Filters.rakumod:264
+license: Artistic-2.0
+feature: method flip
+--- code
+sub reverse-filter($value) {
+    $value ~~ Str ?? $value.flip !! $value.reverse.list;
+}
+say reverse-filter('stressed');
+say reverse-filter([1, 2, 3]);
+--- expect
+desserts
+(3 2 1)

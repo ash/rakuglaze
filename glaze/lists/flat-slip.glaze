@@ -1,0 +1,204 @@
+# Flattening: flat (sub, method, :hammer), slurpies, | and slip/Slip/Empty.
+
+=== list-flat-sub-ranges
+from: File::Temp 0.0.12 lib/File/Temp.rakumod:6
+license: Artistic-2.0
+feature: call flat
+--- code
+my @filechars = flat('a'..'z', 'A'..'Z', 0..9, '_');
+say @filechars.elems;
+say @filechars[0, 26, 52, *-1];
+--- expect
+63
+(a A 0 _)
+
+=== list-flat-listop-mixed
+from: Base64 0.1.0 lib/Base64.rakumod:4
+license: Artistic-2.0
+feature: call flat
+--- code
+my @chars64base = 'A'..'C';
+my Str @chars64std  = flat @chars64base, '+', '/';
+say @chars64std;
+--- expect
+[A B C + /]
+
+=== list-flat-named-arg-brackets
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:162
+license: Artistic-2.0
+feature: call flat
+--- code
+sub route(:@prefix) { @prefix.join('/') }
+my @prefix = 'api';
+my @own-prefix = 'v1', 'users';
+say route(:prefix[flat @prefix, @own-prefix]);
+--- expect
+api/v1/users
+
+=== list-flat-method-after-map
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:89
+license: Artistic-2.0
+feature: method flat
+--- code
+my @raw = 'a,b', '', 'c';
+my @parts = (
+    @raw.map(*.split(','))
+).flat.grep(*.chars).Array;
+say @parts;
+--- expect
+[a b c]
+
+=== list-flat-hammer
+from: Graph 0.1.3 lib/Graph/Leaper.rakumod:15
+license: Artistic-2.0
+feature: method flat
+--- code
+my $moves = $[$[1, 2], $[3, $[4]]];
+say $moves.flat.elems;
+say $moves.flat(:hammer).elems;
+say $moves.flat(:hammer).all ~~ Int:D;
+--- expect
+2
+4
+True
+
+=== list-flat-of-itemized-list
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher.rakumod:18
+license: Artistic-2.0
+feature: method flat
+--- code
+my @others = 'b', 'c';
+my $self = 'a';
+my @matchers = (($self, |@others).flat.List);
+say @matchers;
+say ($self, @others).flat.elems;
+say ($self, $@others).flat.elems;
+--- expect
+[a b c]
+3
+2
+
+=== list-reallyflat-deepmap-take
+from: Data::Generators 0.1.11 lib/Data/Generators/RandomFunctions.rakumod:11
+license: Artistic-2.0
+feature: decl slurpy +@
+--- code
+sub reallyflat (+@list) {
+    gather @list.deepmap: *.take
+}
+say reallyflat([1, [2, [3, 4]], 5]);
+say reallyflat(1, 2).elems;
+--- expect
+(1 2 3 4 5)
+2
+
+=== list-slurpy-unflattening
+from: Bailador 0.0.19 lib/Bailador/Test.pm:24
+license: MIT
+feature: decl slurpy **@
+--- code
+sub show(**@args) { @args.map({ .^name ~ ':' ~ .elems }).join(' ') }
+say show(1, [2, 3], (4, 5, 6));
+sub flat-show(*@args) { @args.elems }
+say flat-show(1, [2, 3], (4, 5, 6));
+--- expect
+Int:1 Array:2 List:3
+6
+
+=== list-slip-prefix-several
+from: Data::Importers 0.1.8 lib/Data/Exporters/HarwellBoeing.rakumod:202
+license: Artistic-2.0
+feature: prefix |
+--- code
+my @header = 'H';
+my @ptr-lines = 'p1', 'p2';
+my @val-lines = 'v1';
+my $content = (|@header, |@ptr-lines, |@val-lines).join("\n");
+say $content;
+--- expect
+H
+p1
+p2
+v1
+
+=== list-slip-conditional-skip
+from: CSS::Nested 0.0.1 lib/CSS/Nested.rakumod:85
+license: Artistic-2.0
+feature: prefix |
+--- code
+my @p = 'a', 'b', 'c';
+my @c = 'x', 'y';
+my @r = [ |@p.head(*-1), 'mid', |(@c.skip if @c) ];
+say @r;
+my @none;
+say [ 'start', |(@none.skip if @none) ];
+--- expect
+[a b mid y]
+[start]
+
+=== list-slip-empty-defined-or
+from: Air 0.1.32 lib/Air/Base.rakumod:326
+license: Artistic-2.0
+feature: term Empty
+--- code
+my @own = 'header';
+my $nav;
+my $tagline = 'tag';
+my @inners = |@own, $nav // Empty, $tagline // Empty;
+say @inners;
+--- expect
+[header tag]
+
+=== list-slip-sub-mixed
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:323
+license: Artistic-2.0
+feature: call slip
+--- code
+$_ = <color:red margin:0>;
+say ('{' , slip(.map({ '  ' ~ $_ })), '}').join: "\n";
+--- expect
+{
+  color:red
+  margin:0
+}
+
+=== list-slip-method-padding
+from: Base64 0.1.0 lib/Base64.rakumod:26
+license: Artistic-2.0
+feature: method Slip
+--- code
+my $pad = '=';
+for 0, 2 -> $padding {
+    say (<Q U>, ((^$padding).map({"$pad"}).Slip if $padding)).flat.join;
+}
+--- expect
+QU
+QU==
+
+=== list-slip-into-hash
+from: CSS::Properties 0.10.9 lib/CSS/Font.rakumod:78
+license: Artistic-2.0
+feature: method Slip
+--- code
+my @faces = 'Arial', 'Helvetica';
+my @family = 'sans-serif',;
+my %patt;
+%patt<family> = (@faces.Slip, @family.Slip);
+say %patt<family>.elems;
+say %patt<family>.join(', ');
+--- expect
+3
+Arial, Helvetica, sans-serif
+
+=== list-slip-map-of-slips
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:115
+license: Artistic-2.0
+feature: method Slip
+--- code
+my %ct = a => { x => 1 }, b => { y => 2, z => 3 };
+my @dataset = %ct.sort.map( -> (:key($k), :value(%v)) { %v.sort.map({ %(from => $k, to => $_.key, weight => $_.value) }) }).map(*.Slip);
+say @dataset.elems;
+say @dataset.map({ .<from> ~ .<to> }).join(' ');
+--- expect
+3
+ax by bz

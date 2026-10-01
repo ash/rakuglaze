@@ -1,0 +1,531 @@
+# Hash subscripts as modules write them: slices, nested autovivification,
+# `//=` caches, counters, `.push` onto an element, slice adverbs.
+
+=== hash-slice-angle-destructure
+from: Air 0.1.32 lib/Air/Form.rakumod:362
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+my %ch = question => 'What is 6*7?', token => 'abc', extra => 1;
+my ($q, $t) = %ch<question token>;
+say $q;
+say $t;
+--- expect
+What is 6*7?
+abc
+
+=== hash-slice-assign-list
+from: FastCGI 0.9.0 lib/FastCGI/Protocol.rakumod:136
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+sub parse_begin_request_body($content) { $content.comb(2).map({ :16($_) }) }
+my %record;
+%record<role flags> = parse_begin_request_body('0103');
+say %record<role>, ' ', %record<flags>;
+say %record.keys.sort;
+--- expect
+1 3
+(flags role)
+
+=== hash-slice-assign-mixed
+from: TAP::Harness 0.0.4 lib/TAP.pm:229
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+my %args;
+my $explanation = 'no network';
+%args<skip-all explanation> = True, ~$explanation;
+say %args<skip-all>;
+say %args<explanation>;
+--- expect
+True
+no network
+
+=== hash-slice-any-junction
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:464
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+my %case = tc => True;
+my $implied-lc = True;
+if $implied-lc && %case<uc tc tclc sc pc>.any {
+    say 'some case set';
+}
+%case = ();
+say so %case<uc tc tclc sc pc>.any;
+--- expect
+some case set
+False
+
+=== hash-slice-by-array
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/CSR.rakumod:166
+license: Artistic-2.0
+feature: postcircumfix {}
+--- code
+my @col-index = 0, 3, 5;
+my @values = 1.5, 2.5, 3.5;
+my %row;
+for ^@col-index -> $j {
+    %row{@col-index[$j]} = @values[$j];
+}
+say %row.sort(*.key.Int).map({ "{.key}:{.value}" }).join(' ');
+--- expect
+0:1.5 3:2.5 5:3.5
+
+=== hash-slice-slip-array
+from: LLM::Prompts 0.2.15 lib/LLM/Prompts.rakumod:181
+license: Artistic-2.0
+feature: postcircumfix {}
+--- code
+my @records = { Name => 'a', Topic => 'x', Kind => 1 },
+              { Name => 'b', Topic => 'y', Kind => 2 };
+my @record-fields = <Topic Kind>;
+my @r = @records.map({ $_<Name> => $_{|@record-fields} });
+say "{.key}: {.value.join(',')}" for @r;
+--- expect
+a: x,1
+b: y,2
+
+=== hash-slice-kv-adverb
+from: Text::CSV 0.022 lib/Text/CSV.rakumod:632
+license: Artistic-2.0
+feature: adverb :kv
+--- code
+my $hdr = 'a,b;c,d';
+my $sep-set = <, ; |>;
+my %sep = $hdr.comb.Bag{$sep-set.list}:kv;
+say %sep.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+,=2 ;=1
+
+=== hash-slice-k-adverb
+from: IRC::TextColor 0.4.1 lib/IRC/TextColor.rakumod:91
+license: Artistic-2.0
+feature: adverb :k
+--- code
+my %irc-colors = red => 4, green => 3, blue => 2;
+my %args = red => True, purple => True, blue => True;
+my @color = %irc-colors{%args.keys}:k;
+say @color.sort;
+--- expect
+(blue red)
+
+=== hash-slice-k-any
+from: Log::Any 0.9.5 lib/Log/Any/Filter.pm6:42
+license: Artistic-2.0
+feature: adverb :k
+--- code
+my %severities = info => 1, warning => 2, error => 3;
+sub matches($severity, @wanted) {
+    so $severity ~~ any( %severities{@wanted}:k );
+}
+say matches('error', <error fatal>);
+say matches('info', <error fatal>);
+--- expect
+True
+False
+
+=== hash-slice-v-adverb
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:508
+license: Artistic-2.0
+feature: adverb :v
+--- code
+my %paths = a => [1, 2];
+my @found = [|(%paths{'a'}:v), 3];
+my @none  = [|(%paths{'zz'}:v), 3];
+say @found.raku;
+say @none.raku;
+--- expect
+[1, 2, 3]
+[3]
+
+=== hash-slice-p-adverb-hash
+from: MUGS::Core 0.1.4 lib/MUGS/Universe.rakumod:24
+license: Artistic-2.0
+feature: adverb :p
+--- code
+my %schema = name => Str, size => Int;
+my $contents = { name => 'Earth', size => 3, junk => 'x' };
+my %h = hash($contents{%schema.keys}:p);
+say %h.sort.map(*.gist).join(' ');
+--- expect
+name => Earth size => 3
+
+=== hash-slice-p-push-pair
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/Trie.rakumod:125
+license: Artistic-2.0
+feature: adverb :p
+--- code
+my %children = a => 3, b => 5;
+my @res;
+for <a z b> -> $key1 {
+    @res.push: %children{$key1}:p;
+}
+say @res.raku;
+--- expect
+[:a(3), (), :b(5)]
+
+=== hash-nested-assign
+from: Graph 0.1.3 lib/Graph.rakumod:169
+license: Artistic-2.0
+feature: postcircumfix {}
+--- code
+my %adjacency-map;
+for (<a b 1>, <a c 4>, <b c 2>) -> ($from, $to, $weight) {
+    %adjacency-map{$from}{$to} = $weight;
+}
+for %adjacency-map.keys.sort -> $f {
+    say "$f: ", %adjacency-map{$f}.sort.map({ "{.key}={.value}" }).join(' ');
+}
+--- expect
+a: b=1 c=4
+b: c=2
+
+=== hash-nested-plus-assign
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:543
+license: Artistic-2.0
+feature: postcircumfix {}
+--- code
+my %hits;
+for <lib/A 3 1>, <lib/A 3 2>, <lib/B 7 1> -> ($file-part, $line-num, $count) {
+    %hits{$file-part}{$line-num} += $count;
+}
+say %hits<lib/A><3>;
+say %hits<lib/B><7>;
+say %hits.keys.sort;
+--- expect
+3
+1
+(lib/A lib/B)
+
+=== hash-nested-three-levels
+from: App::GPTrixie 0.29 lib/GPT/HandleFileDeps.pm6:61
+license: Artistic-2.0
+feature: postcircumfix {}
+--- code
+my %toret;
+my class Named { has $.name }
+my $struct = Named.new(name => 'point');
+for <x y> -> $f {
+    my $field = Named.new(name => $f);
+    %toret<structs>{$struct.name}{$field.name}<field> = $field;
+}
+say %toret<structs><point>.keys.sort;
+say %toret<structs><point><y><field>.name;
+--- expect
+(x y)
+y
+
+=== hash-nested-angle-chain-default
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:1298
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+my %prev = summary => { lines => { percentage => 87.5 } };
+my $prev-pct = (%prev<summary><lines><percentage> // 0e0).Real;
+say $prev-pct;
+my %none;
+say (%none<summary><lines><percentage> // 0e0).Real;
+say %none.elems;
+--- expect
+87.5
+0
+0
+
+=== hash-nested-exists-no-autoviv
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:740
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %options = auth => { if-asked => True };
+say %options<auth><if-asked>:exists;
+my %bare;
+say %bare<auth><if-asked>:exists;
+say %bare.keys;
+--- expect
+True
+False
+()
+
+=== hash-nested-defined-or-chain
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/CyclicNameWidth.rakumod:35
+license: Artistic-2.0
+feature: infix //
+--- code
+my %c = format => { wide => { 1 => 'Monday' }, abbreviated => { 1 => 'Mon', 2 => 'Tue' } };
+for 1, 2 -> $id {
+    say %c<stand-alone><wide>{$id} // %c<stand-alone><abbreviated>{$id} // %c<format><wide>{$id} // %c<format><abbreviated>{$id};
+}
+--- expect
+Monday
+Tue
+
+=== hash-element-key-assign
+from: Date::Event 0.0.12 lib/Date/Event.rakumod:111
+license: Artistic-2.0
+feature: postcircumfix <>
+--- code
+my %h;
+my $i = 0;
+for <new-year spring> -> $name {
+    %h{$i}<name> = $name;
+    %h{$i}<id> = $i;
+    $i++;
+}
+say %h{1}<name>, ' ', %h{0}<id>;
+--- expect
+spring 0
+
+=== hash-defined-or-assign-cache
+from: Cromponent 0.0.13 lib/Cromponent/CroTemplateOverrides.rakumod:62
+license: Artistic-2.0
+feature: infix //=
+--- code
+my %cache;
+my $calls = 0;
+sub compile($name) { $calls++; "<$name>" }
+for <a b a a> -> $name {
+    %cache{$name} //= compile($name);
+}
+say %cache<a>;
+say $calls;
+--- expect
+<a>
+2
+
+=== hash-defined-or-assign-option
+from: CSS::Stylesheet 0.1.5 lib/CSS/AtPageRule.rakumod:47
+license: Artistic-2.0
+feature: infix //=
+--- code
+sub opts(*%opt) {
+    %opt<color-names> //= True;
+    %opt
+}
+say opts()<color-names>;
+say opts(:!color-names)<color-names>;
+--- expect
+True
+False
+
+=== hash-defined-or-assign-empty-hash
+from: HTTP::Tinyish 0.4.2 lib/HTTP/Tinyish/Base.rakumod:41
+license: Artistic-2.0
+feature: infix //=
+--- code
+my %res = status => 200;
+%res<headers> //= {};
+%res<headers><x-a> = 1;
+say %res<headers>.keys;
+say %res<headers> ~~ Hash;
+--- expect
+(x-a)
+True
+
+=== hash-defined-or-assign-with
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:406
+license: Artistic-2.0
+feature: infix //=
+--- code
+for { default => 3 }, { default => 'x', type => Int }, {} -> %option {
+    %option<type> //= %option<default>.WHAT with %option<default>;
+    say %option<type>.^name;
+}
+--- expect
+Int
+Str
+Any
+
+=== hash-defined-or-assign-paren-push
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Cable/Channel.rakumod:86
+license: Artistic-2.0
+feature: infix //=
+--- code
+my %timers;
+my class Chan { has $.name; method add($every) { (%timers{self} //= []).push: %( :callback(&say), :$every ) } }
+my $c = Chan.new(name => 'x');
+$c.add(5);
+$c.add(10);
+say %timers{$c}.map(*<every>).join(',');
+--- expect
+5,10
+
+=== hash-defined-or-assign-sethash
+from: LogP6 1.6.4 lib/LogP6.rakumod:791
+license: Artistic-2.0
+feature: infix //=
+--- code
+my %cliches-to-traits;
+for <main debug>, <main trace>, <aux debug> -> ($cliche, $trait) {
+    (%cliches-to-traits{$cliche} //= SetHash.new){$trait} = True;
+}
+say %cliches-to-traits<main>.keys.sort;
+say %cliches-to-traits<aux>.elems;
+--- expect
+(debug trace)
+1
+
+=== hash-defined-or-assign-subhash
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/ActionText/RichTextable.rakumod:84
+license: Artistic-2.0
+feature: infix //=
+--- code
+my %declarations;
+my class Post {}
+for <body summary> -> $name {
+    (%declarations{Post} //= {}){$name} = True;
+}
+say %declarations{Post}.keys.sort;
+--- expect
+(body summary)
+
+=== hash-increment-seen
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Spy.rakumod:22
+license: Artistic-2.0
+feature: postfix ++
+--- code
+my %seen;
+my @out;
+for <foo bar foo baz bar> -> $name {
+    next if %seen{$name}++;
+    @out.push: $name;
+}
+say @out;
+say %seen<foo>;
+--- expect
+[foo bar baz]
+2
+
+=== hash-increment-count
+from: JSONL 0.1.6 lib/JSONL/Reader.rakumod:118
+license: Artistic-2.0
+feature: postfix ++
+--- code
+my %types;
+for 1, 'a', 2.5, 'b', 3 -> $v {
+    my $type = $v.^name;
+    %types{$type}++;
+}
+say %types.sort.map({ "{.key}:{.value}" }).join(' ');
+--- expect
+Int:2 Rat:1 Str:2
+
+=== hash-plus-assign-accumulate
+from: Graph 0.1.3 lib/Graph/Bipartitish.rakumod:111
+license: Artistic-2.0
+feature: infix +=
+--- code
+my %ly = a => 1;
+my $delta = 0.5;
+for <a b> -> $v {
+    %ly{$v} += $delta;
+}
+say %ly<a>, ' ', %ly<b>;
+--- expect
+1.5 0.5
+
+=== hash-concat-assign
+from: Raku::Pod::Render 4.10.6 lib/RenderPod/Test-Templates.rakumod:279
+license: Artistic-2.0
+feature: infix ~=
+--- code
+my %warn;
+for <x y x> -> $key {
+    %warn{$key} ~= "warn-$key;";
+}
+say %warn<x>;
+say %warn<y>;
+--- expect
+warn-x;warn-x;
+warn-y;
+
+=== hash-element-push-colon
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:158
+license: Artistic-2.0
+feature: method push
+--- code
+my %abbrevs;
+for <apple apricot banana> -> $word {
+    my $abbrev = $word.substr(0, 1);
+    %abbrevs{$abbrev}.push: $word;
+}
+say %abbrevs<a>.raku;
+say %abbrevs<b>.^name;
+--- expect
+$["apple", "apricot"]
+Array
+
+=== hash-element-push-paren
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:404
+license: Artistic-2.0
+feature: method push
+--- code
+my class Problem { has $.input; has $.msg }
+my @problems = Problem.new(input => 'name', msg => 'empty'),
+               Problem.new(msg => 'global'),
+               Problem.new(input => 'name', msg => 'short');
+my %validation-by-control;
+for @problems {
+    %validation-by-control{.input // ''}.push($_);
+}
+say "'{.key}': {.value.map(*.msg).join(',')}" for %validation-by-control.sort;
+--- expect
+'': global
+'name': empty,short
+
+=== hash-element-append-list
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:178
+license: Artistic-2.0
+feature: method append
+--- code
+my %merged;
+for (a => [1, 2]), (b => [3]), (a => [4]) -> $p {
+    my $key = $p.key;
+    my @configs = |$p.value;
+    %merged{$key}.append(@configs);
+}
+say %merged<a>;
+say %merged<b>;
+--- expect
+[1 2 4]
+[3]
+
+=== hash-element-append-andthen
+from: Net::HTTP 0.1.0 lib/Net/HTTP/Response.rakumod:32
+license: Artistic-2.0
+feature: method append
+--- code
+my @header-lines = 'Set-Cookie: a=1', 'Host:  example', 'Set-Cookie: b=2';
+my %header andthen do { %header{.[0]}.append(.[1].trim-leading) for @header-lines>>.split(':', 2) }
+say %header<Set-Cookie>;
+say %header<Host>;
+--- expect
+[a=1 b=2]
+[example]
+
+=== hash-deref-scalar
+from: HTTP::Server::Tiny 0.0.2 lib/HTTP/Server/Tiny.pm6:135
+license: Artistic-2.0
+feature: prefix %
+--- code
+my class Ctx {
+    has %!env;
+    method set($env) { %!env = %$env; self }
+    method keys { %!env.keys.sort }
+}
+my $env = { REQUEST_METHOD => 'GET', PATH_INFO => '/' };
+say Ctx.new.set($env).keys;
+--- expect
+(PATH_INFO REQUEST_METHOD)
+
+=== hash-deref-slip-named
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:466
+license: Artistic-2.0
+feature: prefix %
+--- code
+sub coerce-color(:$r = 0, :$g = 0, :$b = 0) { sprintf '#%02x%02x%02x', $r, $g, $b }
+my $node = { r => 255, b => 16 };
+say coerce-color(|%$node);
+--- expect
+#ff0010

@@ -1,0 +1,80 @@
+# Subsets and enums as modules declare them.
+
+=== subset-of-pair-junction
+from: Air 0.1.32 lib/Air/Base.rakumod:400
+license: Artistic-2.0
+feature: decl subset
+--- code
+my class Internal {}
+my class External {}
+my subset NavItem of Pair where .value ~~ Internal | External;
+say (a => Internal.new) ~~ NavItem;
+say (a => 42) ~~ NavItem;
+--- expect
+True
+False
+
+=== subset-where-any-list
+from: BDD::Behave 0.9.5 lib/BDD/Behave/DocExtractor.rakumod:10
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset DocFormat of Str where { $_ eq any(<markdown html json>) };
+sub render(DocFormat $f) { "as $f" }
+say render('html');
+say render('pdf');
+--- expect
+as html
+!! X::TypeCheck::Binding::Parameter
+
+=== subset-where-array-shape
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:347
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset Pair2 of Array where ($_.elems == 2) && ($_[1] ~~ Int);
+say [1, 2] ~~ Pair2;
+say [1, 'x'] ~~ Pair2;
+say [1, 2, 3] ~~ Pair2;
+--- expect
+True
+False
+False
+
+=== enum-word-list
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:9
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum Digest <SHA1 SHA256 SHA384 SHA512>;
+say SHA256;
+say SHA256.value;
+say Digest(2);
+say Digest::.keys.sort.join(',');
+say SHA512 > SHA1;
+--- expect
+SHA256
+1
+SHA384
+SHA1,SHA256,SHA384,SHA512
+True
+
+=== enum-lexical-lookup
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:88
+license: Artistic-2.0
+feature: decl enum
+--- code
+my enum PvtMode <pvmForce pvmNever pvmAsAttr pvmAuto>;
+my $m = pvmAsAttr;
+say $m.key;
+say $m ~~ PvtMode;
+say PvtMode.enums.elems;
+given $m {
+    when pvmNever  { say 'never' }
+    when pvmAsAttr { say 'as attr' }
+}
+--- expect
+pvmAsAttr
+True
+4
+as attr

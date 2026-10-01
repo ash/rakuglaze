@@ -1,0 +1,839 @@
+# Set, Bag, Mix and their mutable forms as modules use them: membership,
+# union, intersection, difference, subset tests, counting with Bag,
+# SetHash as a seen-set.
+
+=== hash-set-elem-constant
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:16
+license: Artistic-2.0
+feature: infix ∈
+--- code
+my constant PARALLEL-MODES = set <files examples none>;
+sub valid-mode($mode) { so $mode ∈ PARALLEL-MODES }
+say valid-mode('files');
+say valid-mode('threads');
+--- expect
+True
+False
+
+=== hash-set-elem-hash-keys
+from: Collection 0.18.0 lib/Collection.rakumod:676
+license: Artistic-2.0
+feature: infix (elem)
+--- code
+my %config = plugin-options => { cleanup => 1, render => 2 };
+for <render deploy> -> $plug {
+    if $plug (elem) %config<plugin-options>.keys {
+        say "$plug configured";
+    }
+    else {
+        say "$plug default";
+    }
+}
+--- expect
+render configured
+deploy default
+
+=== hash-set-not-elem-hash-keys
+from: Intl::Format::Number 0.4.0 lib/Intl/Format/Number.rakumod:161
+license: Artistic-2.0
+feature: infix !(elem)
+--- code
+my %digit-offset = latn => 0x30, arab => 0x660;
+for { number-system => 'latn' }, { number-system => 'thai' } {
+    if .<number-system> !(elem) %digit-offset.keys {
+        say "unknown {.<number-system>}";
+    }
+    else {
+        say "known {.<number-system>}";
+    }
+}
+--- expect
+known latn
+unknown thai
+
+=== hash-set-elem-grep-list
+from: Color::Names 2.0.0 lib/Color/Names.rakumod:45
+license: BSD-2-Clause
+feature: infix ∈
+--- code
+my @valid = <X11 CSS3 XKCD>;
+my @sources = <CSS3 Bogus X11>;
+for @sources.grep({ $_ ∈ @valid }) -> $source {
+    say "load $source";
+}
+say @sources.grep({ $_ ∉ @valid });
+--- expect
+load CSS3
+load X11
+(Bogus)
+
+=== hash-set-elem-where-word-list
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows.rakumod:144
+license: Artistic-2.0
+feature: infix ∈
+--- code
+sub translate(Str $target where $_ ∈ <SQL SQL::Standard SQLite>, Str $cmd) { "$target: $cmd" }
+say translate('SQLite', 'select');
+say (try translate('Mongo', 'select')) // $!.^name;
+--- expect
+SQLite: select
+X::TypeCheck::Binding::Parameter
+
+=== hash-set-elem-grep-pairs
+from: DSL::Entity::MachineLearning 0.1.2 lib/DSL/Entity/MachineLearning.rakumod:63
+license: Artistic-2.0
+feature: infix ∈
+--- code
+my %args = format => 'json', splitter => ',', verbose => True;
+my %args2 = %args.grep({ $_.key ∈ <format splitter> });
+say %args2.keys.sort;
+--- expect
+(format splitter)
+
+=== hash-set-not-elem-grep-pairs-hash
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:132
+license: Artistic-2.0
+feature: infix ∉
+--- code
+my %args = field-names => <a b>, multicolumn => 2, border => 1, align => 'left';
+my %rest = |%args.grep({ $_.key ∉ <field-names multicolumn multi-column> }).Hash;
+say %rest.keys.sort;
+--- expect
+(align border)
+
+=== hash-set-not-elem-lc-hyper
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/JoinAcross.rakumod:97
+license: Artistic-2.0
+feature: infix !(elem)
+--- code
+for <inner LEFT cross> -> $join-spec {
+    if $join-spec.lc !(elem) <Inner Left Right Outer>>>.lc {
+        say "bad join $join-spec";
+    }
+}
+--- expect
+bad join cross
+
+=== hash-set-elem-hash-values
+from: MUGS::Core 0.1.4 lib/MUGS/Client.rakumod:183
+license: Artistic-2.0
+feature: infix ∈
+--- code
+my class Client {}
+my $a = Client.new;
+my $b = Client.new;
+my %games = g1 => $a;
+say $a ∈ %games.values;
+say $b ∈ %games.values;
+--- expect
+True
+False
+
+=== hash-set-cont-sethash
+from: HTTP::Headers 0.5.0 lib/HTTP/Headers.pm6:248
+license: Artistic-2.0
+feature: infix ∋
+--- code
+my @headers = (Accept => 'a'), (Host => 'h'), (Accept => 'b');
+my $seen = SetHash.new;
+my %h;
+for flat @headers».kv -> $k, $v {
+    if $seen ∋ $k {
+        %h{$k}.push: $v;
+    }
+    else {
+        %h{$k} = [$v];
+        $seen{$k} = True;
+    }
+}
+say %h.sort.map({ "{.key}={.value.join('+')}" }).join(' ');
+--- expect
+Accept=a+b Host=h
+
+=== hash-set-cont-word
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:442
+license: Artistic-2.0
+feature: infix ∋
+--- code
+my $allowed = set <li dd dt p>;
+for <p div li> -> $tag {
+    say "$tag closes" if $allowed ∋ $tag;
+}
+--- expect
+p closes
+li closes
+
+=== hash-set-intersection-keys
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/DataPart.rakumod:105
+license: Artistic-2.0
+feature: infix (&)
+--- code
+my $data1 = { a => 1, b => 2, c => 3 };
+my $data2 = { b => 0, c => 0, d => 0 };
+my $common = $data1.keys (&) $data2.keys;
+say $common.^name;
+say $common.keys.sort;
+--- expect
+Set
+(b c)
+
+=== hash-set-intersection-sethash-map
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:85
+license: Artistic-2.0
+feature: infix (&)
+--- code
+my $hits = SetHash.new(<3 5 9 12>);
+my $executable = set <1 3 5 7 9>;
+my @covered = ($hits (&) $executable).keys.map(*.Int).sort.List;
+say @covered;
+my @missed = ($executable (-) $hits).keys.map(*.Int).sort.List;
+say @missed;
+--- expect
+[3 5 9]
+[1 7]
+
+=== hash-set-intersection-elems-count
+from: LLM::Functions 0.5.10 lib/LLM/Tooling.rakumod:169
+license: Artistic-2.0
+feature: infix (&)
+--- code
+my @expectedKeys = <name description parameters required>;
+for { name => 1, description => 2, parameters => 3, required => 4, extra => 5 }, { name => 1 } -> %info {
+    say (%info.keys (&) @expectedKeys).elems == 4;
+}
+--- expect
+True
+False
+
+=== hash-set-intersection-set-coercers
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/JoinAcross.rakumod:83
+license: Artistic-2.0
+feature: infix (&)
+--- code
+my @ap = (id => 1), (name => 2), (age => 3);
+my @bpKeys = <id age city>;
+my $s = Set(@ap>>.key) (&) Set(@bpKeys);
+say $s.keys.sort;
+--- expect
+(age id)
+
+=== hash-set-difference-keys
+from: Air 0.1.32 lib/Air/Functional.rakumod:254
+license: Artistic-2.0
+feature: infix (-)
+--- code
+my @all-tags = <div span br hr img p>;
+my @singular-tags = <br hr img>;
+my @regular-tags = (@all-tags (-) @singular-tags).keys;
+say @regular-tags.sort;
+--- expect
+(div p span)
+
+=== hash-set-difference-range
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:466
+license: Artistic-2.0
+feature: infix (-)
+--- code
+my @data = <a b c d e>;
+my @pos = 1, 3;
+my @dropTake = ((^@data.elems) (-) @pos).keys;
+say @dropTake.sort;
+say @data[@dropTake.sort];
+--- expect
+(0 2 4)
+(a c e)
+
+=== hash-set-difference-required-named
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router/LinkGenerator.rakumod:100
+license: Artistic-2.0
+feature: infix (-)
+--- code
+my %allowed-named = id => True, page => False;
+my $required-nameds = set <id>;
+for { page => 2 }, { id => 3 } -> %nameds {
+    my $passed-nameds = %nameds.keys.Set;
+    my $missing-nameds = $required-nameds (-) $passed-nameds;
+    say $missing-nameds ?? "missing {$missing-nameds.keys}" !! 'ok';
+}
+say %allowed-named.keys.Set.elems;
+--- expect
+missing id
+ok
+2
+
+=== hash-set-difference-defined-or
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:72
+license: Artistic-2.0
+feature: infix (-)
+--- code
+my %coverable = 'a.raku' => (1, 2, 3, 4), 'b.raku' => (5, 6);
+my %covered = 'a.raku' => (2, 4);
+my %missed = %coverable.map({
+    my $key = .key;
+    $key => (.value (-) (%covered{$key} // ()))
+});
+say "{.key}: {.value.keys.sort}" for %missed.sort;
+--- expect
+a.raku: 1 3
+b.raku: 5 6
+
+=== hash-set-difference-keys-glob
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:85
+license: Artistic-2.0
+feature: infix (-)
+--- code
+my @rules = '*.txt', '*.raku', 'README', '*.md';
+my @ext = '*.md';
+my @glob  = keys @rules.grep(*.contains('*')) (-) @ext;
+say @glob.sort;
+--- expect
+(*.raku *.txt)
+
+=== hash-set-union-three-sethash
+from: Path::Router 0.5.1 lib/Path/Router.pm6:271
+license: Artistic-2.0
+feature: infix ∪
+--- code
+my $required = <controller action>;
+my $optional = <id>;
+my %match = format => 'json';
+my %path-map = controller => 'c', id => 3;
+my $wanted = ($required.list ∪ $optional.list ∪ set %match.keys).SetHash;
+$wanted{$_} :delete for %path-map.keys;
+say $wanted.keys.sort;
+say $wanted.^name;
+--- expect
+(action format)
+SetHash
+
+=== hash-set-set-sub-keys
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/DataPart.rakumod:99
+license: Artistic-2.0
+feature: call set
+--- code
+my $data1 = { 1 => 1, 2 => 1 };
+my $data2 = { 2 => 0, 3 => 0 };
+say set($data1.keys, $data2.keys).keys.sort;
+say set($data1.keys, $data2.keys).^name;
+--- expect
+(1 2 3)
+Set
+
+=== hash-set-bag-union-plus
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/Data.rakumod:49
+license: Artistic-2.0
+feature: infix (+)
+--- code
+my $parts1 = { 'a.raku' => 1, 'b.raku' => 2 };
+my $parts2 = { 'b.raku' => 5, 'c.raku' => 1 };
+my $parts = ($parts1.keys (+) $parts2.keys).keys;
+say $parts.sort;
+say ($parts1.keys (+) $parts2.keys)<b.raku>;
+--- expect
+(a.raku b.raku c.raku)
+2
+
+=== hash-set-reduce-bag-addition
+from: Data::Generators 0.1.11 lib/Data/Generators/ResourceAccess.rakumod:88
+license: Artistic-2.0
+feature: infix (+)
+--- code
+my %specieToPetNames = cat => bag(<Tom Max Max>), dog => bag(<Max Rex>);
+my $petNameToCount = Bag([(+)] %specieToPetNames.values);
+say $petNameToCount.^name;
+say $petNameToCount.sort.map({ "{.key}:{.value}" }).join(' ');
+--- expect
+Bag
+Max:3 Rex:1 Tom:1
+
+=== hash-set-subset-keys
+from: LLM::Prompts 0.2.15 lib/LLM/Prompts.rakumod:42
+license: Artistic-2.0
+feature: infix ⊆
+--- code
+my %stencil = name => '', topic => '', body => '';
+for { name => 'x' }, { name => 'x', color => 'red' } -> %prompt {
+    say %prompt.keys ⊆ %stencil.keys;
+}
+--- expect
+True
+False
+
+=== hash-set-proper-subset-unless
+from: Collection 0.18.0 lib/Collection/TestPlugin.rakumod:194
+license: Artistic-2.0
+feature: infix (<)
+--- code
+for { custom-raku => 1, template-raku => 2, extra => 3 }, { custom-raku => 1, template-raku => 2 }, { custom-raku => 1 } -> %config {
+    unless <custom-raku template-raku> (<) %config.keys {
+        say 'not a proper subset';
+        next;
+    }
+    say 'proper subset';
+}
+--- expect
+proper subset
+not a proper subset
+not a proper subset
+
+=== hash-set-subset-or-equal-word
+from: App::GPTrixie 0.29 lib/GPT/FileFilter.pm6:30
+license: Artistic-2.0
+feature: infix (<=)
+--- code
+my @files-list = <foo.h bar.h @7>;
+for ('foo.h', 3), ('baz.h', 7), ('qux.h', 9) -> ($basename, $file-id) {
+    if $basename (<=) @files-list || ('@' ~ $file-id) (<=)  @files-list {
+        say "$basename kept";
+    }
+}
+--- expect
+foo.h kept
+baz.h kept
+
+=== hash-set-superset-keys
+from: RakuConfig 0.8.2 lib/RakuConfig.rakumod:143
+license: Artistic-2.0
+feature: infix (>=)
+--- code
+my @required = <name version>;
+my $test-keys = True;
+for { name => 'x', version => 1, auth => 'a' }, { name => 'y' } -> %config {
+    unless !$test-keys or %config.keys (>=) @required {
+        say 'missing keys';
+        next;
+    }
+    say 'complete';
+}
+--- expect
+complete
+missing keys
+
+=== hash-set-proper-subset-status
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:700
+license: Artistic-2.0
+feature: infix ⊂
+--- code
+my $redirect-codes = set 301, 302, 303, 307, 308;
+for 302, 200 {
+    say "$_ redirect: ", so .self ⊂ $redirect-codes;
+}
+say (302,) ⊂ $redirect-codes;
+--- expect
+302 redirect: True
+200 redirect: False
+True
+
+=== hash-set-symmetric-difference-bool
+from: Test::Deeply::Relaxed 0.1.3 lib/Test/Deeply/Relaxed.rakumod:26
+license: Artistic-2.0
+feature: infix ⊖
+--- code
+sub same-set($got, $expected) { return !($got ⊖ $expected) }
+say same-set(set(<a b>), set(<b a>));
+say same-set(set(<a b>), set(<a c>));
+say same-set(<a a b>.Bag, <a b>.Bag);
+--- expect
+True
+False
+False
+
+=== hash-set-symmetric-difference-bag-sum
+from: String::Utils 0.0.41 lib/String/Utils.rakumod:806
+license: Artistic-2.0
+feature: infix (^)
+--- code
+my $needle = 'listen';
+my Bag $this := $needle.comb.Bag;
+for <silent tinsel lister> -> $word {
+    say "$word: ", ($this (^) $word.comb.Bag).values.sum;
+}
+--- expect
+silent: 0
+tinsel: 0
+lister: 2
+
+=== hash-set-symmetric-difference-if
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/Calendars.rakumod:60
+license: Artistic-2.0
+feature: infix ⊖
+--- code
+my @expected = <gregorian buddhist>;
+for { gregorian => 1, buddhist => 2 }, { gregorian => 1, hebrew => 3 } -> %calendars {
+    if @expected ⊖ %calendars.keys {
+        say 'differs: ', (@expected ⊖ %calendars.keys).keys.sort;
+    }
+    else {
+        say 'same';
+    }
+}
+--- expect
+same
+differs: (buddhist hebrew)
+
+=== hash-set-coerce-unique-count
+from: Prettier::Table 1.1.3 lib/Prettier/Table/Constrains.rakumod:103
+license: MIT
+feature: method Set
+--- code
+for <a b c>, <a b a> -> @values {
+    unless @values.elems == @values.Set.elems {
+        say "duplicates in {@values}";
+        next;
+    }
+    say "unique {@values}";
+}
+--- expect
+unique a b c
+duplicates in a b a
+
+=== hash-set-coerce-reporters
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:57
+license: Artistic-2.0
+feature: method Set
+--- code
+my @reporters = <--reporter=html --reporter=json --reporter=html -x>;
+my $unique = @reporters.Set;
+my @collect;
+push @collect, $unique.keys.grep(*.starts-with('--reporter=')).map(*.substr(11)).unique.Slip;
+say @collect.sort;
+--- expect
+(html json)
+
+=== hash-set-coerce-hash-from-set
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Optimizer.rakumod:208
+license: Artistic-2.0
+feature: method Set
+--- code
+my @children = <margin-top margin-left margin-top>;
+my %props = %(@children.Set);
+say %props.keys.sort;
+say %props<margin-top>;
+--- expect
+(margin-left margin-top)
+True
+
+=== hash-set-coerce-split-trim
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:75
+license: Artistic-2.0
+feature: method Set
+--- code
+for 'localhost, .example.com ,10.0.0.1', Str -> $no-proxy {
+    my $s = $no-proxy
+        ?? $no-proxy.split(',')».trim.Set
+        !! set();
+    say $s.keys.sort;
+}
+--- expect
+(.example.com 10.0.0.1 localhost)
+()
+
+=== hash-set-sethash-attr-new
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:59
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my class Cov {
+    has SetHash $.hits            = SetHash.new;
+    method hit($line) { $!hits{$line} = True }
+}
+my $c = Cov.new;
+$c.hit($_) for 3, 7, 3;
+say $c.hits.elems;
+say $c.hits.keys.sort;
+--- expect
+2
+(3 7)
+
+=== hash-set-sethash-set-method
+from: Collection 0.18.0 lib/Collection/RefreshPlugins.rakumod:133
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my %released;
+for <ash 1.0>, <ash 1.1>, <bob 0.1> -> ($a, $v) {
+    with %released<plug> {
+        $_<auths>.set($a);
+        $_{$a}<vers>.push: $v;
+    }
+    else {
+        %released<plug> = %( auths => SetHash.new($a), $a => %( vers => [$v] ) );
+    }
+}
+say %released<plug><auths>.keys.sort;
+say %released<plug><ash><vers>;
+--- expect
+(ash bob)
+[1.0 1.1]
+
+=== hash-set-sethash-visited
+from: Graph 0.1.3 lib/Graph.rakumod:658
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my %adjacency-map = a => { b => 1, c => 1 }, b => { c => 1 }, c => { a => 1 };
+my $visited = SetHash.new;
+my @queue = 'a';
+while @queue {
+    my $v = @queue.shift;
+    next if $visited{$v};
+    $visited.set($v);
+    @queue.append: %adjacency-map{$v}.keys.sort;
+}
+say $visited.keys.sort;
+--- expect
+(a b c)
+
+=== hash-set-sethash-typed-dot-new
+from: JSON::Unmarshal 0.18 lib/JSON/Unmarshal.rakumod:151
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my SetHash $used-json-keys .= new;
+my %json = name => 'x', age => 3, extra => 1;
+for <name age> { $used-json-keys{$_} = True if %json{$_}:exists }
+say (%json.keys.Set (-) $used-json-keys).keys;
+--- expect
+(extra)
+
+=== hash-set-sethash-coerce-call
+from: HTTP::Server::Tiny 0.0.2 lib/HTTP/Server/Tiny.pm6:150
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my %env;
+%env<p6w.protocol.enabled> = SetHash('request-response', 'psgi');
+say %env<p6w.protocol.enabled>.^name;
+say %env<p6w.protocol.enabled>.keys.sort;
+say %env<p6w.protocol.enabled><psgi>;
+--- expect
+SetHash
+(psgi request-response)
+True
+
+=== hash-set-sethash-unset
+from: Path::Router 0.5.1 lib/Path/Router.pm6:272
+license: Artistic-2.0
+feature: type SetHash
+--- code
+my $wanted = <a b c d>.SetHash;
+$wanted{$_} :delete for <b d>;
+$wanted.unset('a');
+say $wanted.keys;
+say $wanted.elems;
+--- expect
+(c)
+1
+
+=== hash-set-bag-comb-frequency
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/FuzzyMatching.rakumod:94
+license: Artistic-2.0
+feature: method Bag
+--- code
+my $candidate = 'banana';
+my %candidateFreq = $candidate.comb.Bag;
+say %candidateFreq.sort.map({ "{.key}={.value}" }).join(' ');
+say %candidateFreq.^name;
+--- expect
+a=3 b=1 n=2
+Hash
+
+=== hash-set-bag-pairs-occurrences
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:222
+license: Artistic-2.0
+feature: method Bag
+--- code
+my @values = <a b a c b a>;
+my @occurrences;
+@occurrences[.value].push(.key) for @values.Bag.pairs;
+say @occurrences.kv.map(-> $n, $k { $k ?? "$n:{$k.sort}" !! Empty }).join(' ');
+--- expect
+1:c 2:b 3:a
+
+=== hash-set-bag-mode
+from: Stats 0.0.6 lib/Stats.pm6:50
+license: Artistic-2.0
+feature: method Bag
+--- code
+multi sub mode(Baggy $x --> List) {
+    my $mode_freq = $x.values.max;
+    return $x.pairs.grep({.value == $mode_freq}).map({.key}).sort.list;
+}
+multi sub mode(List $x --> List) {
+    return mode($x.Bag);
+}
+say mode((1, 2, 2, 3, 3));
+say mode((5, 5, 1));
+--- expect
+(2 3)
+(5)
+
+=== hash-set-bag-kxxv-median
+from: Stats 0.0.6 lib/Stats.pm6:17
+license: Artistic-2.0
+feature: method kxxv
+--- code
+my $x = (3 => 2, 1 => 1, 7 => 1).Bag;
+my @all = $x.kxxv.flat.sort;
+say @all;
+say @all[@all.elems div 2];
+--- expect
+[1 3 3 7]
+3
+
+=== hash-set-bag-total-sub
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/Data.rakumod:18
+license: Artistic-2.0
+feature: call bag
+--- code
+my %covered = 'a.raku' => bag(3, 3, 5);
+for <a.raku b.raku> -> $k {
+    my $b = %covered{$k} // bag();
+    say "$k: {$b.total} hits on {$b.elems} lines";
+}
+--- expect
+a.raku: 3 hits on 2 lines
+b.raku: 0 hits on 0 lines
+
+=== hash-set-bag-from-hits
+from: App::RaCoCo 2.0.1 lib/App/Racoco/CoveredLinesCollector.rakumod:54
+license: Artistic-2.0
+feature: method Bag
+--- code
+my %raw = 'a.raku' => [(3 => 2), (4 => 0), (3 => 1), (9 => Any)];
+my %res = %raw.map({ $_.key => $_.value.map({ (($_.value // 0).Int // 0) }).grep(* > 0).Bag });
+say %res<a.raku>.sort.map({ "{.key}x{.value}" }).join(' ');
+--- expect
+1x1 2x1
+
+=== hash-set-baghash-hash
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers.rakumod:46
+license: Artistic-2.0
+feature: method BagHash
+--- code
+sub tally(@data) {
+    return @data.BagHash.Hash
+}
+my %t = tally(<x y x z x>);
+say %t.^name;
+say %t.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+Hash
+x=3 y=1 z=1
+
+=== hash-set-baghash-empty-list
+from: Dan 0.0.3 lib/Dan.rakumod:635
+license: Artistic-2.0
+feature: method BagHash
+--- code
+my $dupes = ().BagHash;
+$dupes{$_}++ for <a b a>;
+say $dupes.^name;
+say $dupes<a>, ' ', $dupes<b>, ' ', $dupes<z>;
+$dupes<a>--;
+$dupes<b>--;
+say $dupes.keys;
+--- expect
+BagHash
+2 1 0
+(a)
+
+=== hash-set-baghash-gist-tally
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem/Examiner.rakumod:186
+license: Artistic-2.0
+feature: method BagHash
+--- code
+my @t = 1, 'a', 2, 3.5, 'b';
+my $tbag = @t>>.gist.BagHash;
+say $tbag.pairs.sort({ $_.key }).map(*.gist).join(' ');
+--- expect
+1 => 1 2 => 1 3.5 => 1 a => 1 b => 1
+
+=== hash-set-baghash-zip-weights
+from: Graph 0.1.3 lib/Graph/Random.rakumod:71
+license: Artistic-2.0
+feature: method BagHash
+--- code
+my @vertexes = <a b c>;
+my @degrees = 2, 0, 3;
+my $vertexBag = (@vertexes Z=> @degrees).BagHash;
+say $vertexBag.total;
+say $vertexBag.keys.sort;
+--- expect
+5
+(a c)
+
+=== hash-set-baghash-new-bound
+from: Hash::MultiValue 0.7 lib/Hash/MultiValue.pm6:55
+license: Artistic-2.0
+feature: type BagHash
+--- code
+my %encountered := BagHash.new;
+for <k1 k2 k1> -> $k {
+    say "$k seen before" if %encountered{$k}++;
+}
+say %encountered.^name;
+say %encountered.total;
+--- expect
+k1 seen before
+BagHash
+3
+
+=== hash-set-baghash-grab
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/DHTML.rakumod:20
+license: Artistic-2.0
+feature: method grab
+--- code
+my $class_bag = (^1).BagHash;
+my %s;
+%s<class> //= 'ddt_' ~ $class_bag.grab(1);
+say %s<class>;
+say $class_bag.elems;
+--- expect
+ddt_0
+0
+
+=== hash-set-mix-weights
+from: Data::Generators 0.1.11 lib/Data/Generators/RandomTabularDataset.rakumod:150
+license: Artistic-2.0
+feature: call Mix
+--- code
+my $m = Mix((long => 0.3, wide => 0.7));
+say $m.^name;
+say $m.total;
+say $m<wide>;
+say $m.keys.sort;
+--- expect
+Mix
+1
+0.7
+(long wide)
+
+=== hash-set-mix-zip
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/ChildRandomChooser.rakumod:53
+license: Artistic-2.0
+feature: call Mix
+--- code
+my %children = a => 0.5, b => 1.5, c => 2;
+my @keys = %children.keys.sort;
+my $mix = Mix(@keys Z=> @keys.map({ %children{$_} }));
+say $mix.total;
+say $mix.sort(*.key).map({ "{.key}:{.value}" }).join(' ');
+--- expect
+4
+a:0.5 b:1.5 c:2
+
+=== hash-set-mix-hash-rescale
+from: Data::Transformers 0.0.2 lib/Data/Transformers/Rescale.rakumod:84
+license: Artistic-2.0
+feature: type Mix
+--- code
+sub rescale($x) {
+    given $x {
+        when $_ ~~ Mix:D { rescale($_.Hash) }
+        when $_ ~~ Hash:D { $_.sort.map({ "{.key}={.value * 2}" }).join(' ') }
+    }
+}
+say rescale((a => 0.25, b => 1).Mix);
+--- expect
+a=0.5 b=2

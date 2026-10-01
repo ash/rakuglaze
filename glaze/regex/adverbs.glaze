@@ -1,0 +1,371 @@
+# Regex and match adverbs: :i :g :s :c :r :x :global, on m//, rx//, .match and s///.
+
+=== rx-m-i-in-when
+from: Color 1.004001 lib/Color.rakumod:175
+license: Artistic-2.0
+feature: regex adverb :i
+--- code
+sub to-string(Str $type = 'hex') {
+    do given $type {
+        when m:i/^ hex \d? $/ { "hex form ($type)" }
+        when m:i/^ [ rgba?d? | cmyk | hs<[vl]>a? ] $/ {
+            ( my $out_type = $type ) ~~ s/d$//;
+            "$out_type\(...)"
+        }
+        default { 'unknown' }
+    }
+}
+say to-string($_) for <HEX hex8 rgbad CMYK hsla xyz>;
+--- expect
+hex form (HEX)
+hex form (hex8)
+rgba(...)
+CMYK(...)
+hsla(...)
+unknown
+
+=== rx-m-i-quoted-literal
+from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/Client.rakumod:108
+license: Artistic-2.0
+feature: regex adverb :i
+--- code
+for 'WebSocket', 'websocket', 'h2c', Str -> $upgrade {
+    if $upgrade && $upgrade ~~ m:i/'websocket'/ {
+        say 'upgrade ok';
+    }
+    else {
+        say 'no upgrade: ', $upgrade // '(none)';
+    }
+}
+--- expect
+upgrade ok
+upgrade ok
+no upgrade: h2c
+no upgrade: (none)
+
+=== rx-rx-i-in-grep
+from: Bailador 0.0.19 lib/Bailador/Request.pm:132
+license: MIT
+feature: regex adverb :i
+--- code
+my %env = HTTP_HOST => 'x', content_type => 'text/plain', REQUEST_METHOD => 'GET', Http_Accept => '*/*';
+for %env.keys.grep(rx:i/^[HTTP||CONTENT]/).sort -> $key {
+    say $key;
+}
+--- expect
+HTTP_HOST
+Http_Accept
+content_type
+
+=== rx-rx-i-conditional
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:97
+license: Artistic-2.0
+feature: regex adverb :i
+--- code
+for False, True -> $i {
+    my $unescaped = 'Foo';
+    my $unescaped-re = $i ?? rx:i{ $unescaped } !! rx{ $unescaped };
+    my $word-re = rx{ [ ^ | \s+ ] $unescaped-re [ \s+ | $ ] };
+    say $i, ': ', <foo Foo>.map({ "a $_ b" ~~ $word-re ?? 'y' !! 'n' }).join;
+}
+--- expect
+False: ny
+True: yy
+
+=== rx-m-g-pairs-radix
+from: Bitcoin::Core::Secp256k1 0.0.28 lib/Bitcoin/Core/Secp256k1.rakumod:70
+license: Artistic-2.0
+feature: regex adverb :g
+--- code
+my $privkey = '0a1bff00';
+my $keybuf = buf8.new(($privkey ~~ m:g/../).map({ :16($_.Str) }));
+say $keybuf.list;
+say ($privkey ~~ m:g/../).WHAT.^name;
+--- expect
+(10 27 255 0)
+List
+
+=== rx-m-g-alternated-captures
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/HttpAuthentication.rakumod:59
+license: Artistic-2.0
+feature: regex adverb :g
+--- code
+my $rest = 'realm="Site", nonce=abc123, qop="auth"';
+for $rest ~~ m:g/ (<[\w\-]>+) \s* '=' \s* [ '"' (<-["]>*) '"' | (<-[\s,]>+) ] / -> $match {
+    say ~$match[0], ' -> ', ~$match[1];
+}
+--- expect
+realm -> Site
+nonce -> abc123
+qop -> auth
+
+=== rx-m-g-line-anchors-frugal
+from: Sparky-Job-Api 0.0.13 lib/Sparky/JobApi.rakumod:101
+license: Artistic-2.0
+feature: regex adverb :g
+--- code
+my $s = "meta: name=a\nother line\nmeta:   kind=build  \nmeta:x";
+for $s ~~ m:g/^^ "meta:" \s+ (.*?) $$/ -> $m {
+    say "[{$m[0]}]";
+}
+--- expect
+[name=a]
+[kind=build  ]
+
+=== rx-m-g-env-placeholders
+from: Sparrow6 0.0.96 lib/Sparrow6/DSL/Common.rakumod:136
+license: Artistic-2.0
+feature: regex adverb :g
+--- code
+my %env = HOME => '/home/u', USER => 'u';
+my $val = 'path=.env[HOME]/x by .env[USER] .env[NOPE]';
+for $val ~~ m:g/".env[" (\w+) "]"/ -> $e {
+    my $name = $e[0].Str;
+    $val = $val.subst(".env[$name]", %env{$name} // '');
+}
+say $val;
+--- expect
+path=/home/u/x by u 
+
+=== rx-m-s-word-boundary-named
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:424
+license: Artistic-2.0
+feature: regex adverb :s
+--- code
+my %kern;
+for 'KPX A V -80', 'KPX .notdef B 5', 'XKPX a b 1', 'KPX T o -18' {
+    next unless m:s/ <|w> KPX  $<glyph1>=['.'?\w+] $<glyph2>=['.'?\w+] $<kern>=[< + - >?\d+] /;
+    %kern{ $<glyph1> }{ $<glyph2> } = $<kern>.Int;
+}
+for %kern.keys.sort -> $a { say $a, ' ', %kern{$a}.sort.map({ "{.key}={.value}" }).join(',') }
+--- expect
+.notdef B=5
+A V=-80
+T o=-18
+
+=== rx-m-s-capture-markers-coerced
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:432
+license: Artistic-2.0
+feature: regex <( )>
+--- code
+given 'C 65 ; WX 722 ; N A ; B 15 0 706 674 ; L f fi ;' {
+    my Str $name  = ~ m:s/ <|w> N <(<[ \x21..\x7F ]>+)> ';' /;
+    my Numeric $wx    = + m:s/ <|w> WX <(\d+)>     ';' /;
+    say "$name $wx";
+    warn "no bbox: $_"
+        unless m:s/ <|w> B [ (< + - >?\d+) ]+ ';' /;
+    my Array $bbox = [ @0».Int ];
+    say $bbox.raku;
+}
+--- expect
+A 722
+$[15, 0, 706, 674]
+
+=== rx-comb-rx-s-sigspace
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:440
+license: Artistic-2.0
+feature: method comb
+--- code
+my %lig;
+given 'C 102 ; WX 333 ; N f ; L i fi ; L l fl ;' {
+    for .comb(rx:s/ L <ident> <ident> ';' /) {
+        if m:s/ L <succ=.ident> <lig=.ident> / {
+            %lig{$<succ>.Str} = $<lig>.Str;
+        }
+    }
+}
+say %lig.sort.map({ "{.key}->{.value}" }).join(' ');
+--- expect
+i->fi l->fl
+
+=== rx-m-i-s-combined-in-when
+from: LibXML 0.11.3 lib/LibXML/Parser.rakumod:257
+license: Artistic-2.0
+feature: regex adverb :s
+--- code
+sub source($_) {
+    when Str  { m:i:s/^ '<'/ ?? :string($_) !! :file($_) }
+}
+say source('  <doc/>').key;
+say source('doc.xml').key;
+--- expect
+string
+file
+
+=== rx-m-c-g-i-positions
+from: PostCocoon::Url 1.1 lib/PostCocoon/Url.rakumod:34
+license: Artistic-2.0
+feature: regex adverb :c
+--- code
+my $data = 'a b/Č';
+for $data ~~ m:c:g:i/<-[a .. z 0 .. 9 \- \. _]>/ -> $match {
+    my $current-match = ~$match;
+    say $match.from, '..', $match.to, ' ',
+        $current-match.encode("utf-8")>>.base(16).map({ "%" ~ $_ }).join;
+}
+--- expect
+
+=== rx-match-rx-g-pointy-slash
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:63
+license: Artistic-2.0
+feature: method match
+--- code
+my $input = 'r=fyko+d2lbbFgONRv9qkxdawL,s=QSXCR+Q6sek8bf92,i=4096';
+my %parsed;
+for $input.match(rx{ $<key>=<[a..z]> '=' $<value>=[<-[,]>+] }, :g) -> $/ {
+    %parsed{~$<key>} = ~$<value>;
+}
+say %parsed.sort.map({ "{.key}: {.value}" }).join("\n");
+--- expect
+i: 4096
+r: fyko+d2lbbFgONRv9qkxdawL
+s: QSXCR+Q6sek8bf92
+
+=== rx-match-adverb-on-call
+from: Data::Translators 0.1.18 lib/Data/Translators/HTML.rakumod:173
+license: Artistic-2.0
+feature: method match
+--- code
+my $html = '<table><tr><TH>Name</TH><th>Age</th></tr></table>';
+if $html.match( /:i '<th>' $<header>=(.*?) '</th>' /):g {
+    say $/.elems;
+    say $/.map({ ~$_<header> }).join(',');
+}
+--- expect
+2
+Name,Age
+
+=== rx-match-g-sort-tail-chars
+from: Pod::To::Markdown 0.2.2 lib/Pod/To/Markdown.rakumod:130
+license: Artistic-2.0
+feature: method match
+--- code
+for 'plain', 'has `one` tick', 'has ``` three' -> $text {
+    my int $length = $text.match(/'`'*/, :g).sort.tail.chars + 1;
+    say "$length: ", '`' x $length;
+}
+--- expect
+1: `
+2: ``
+4: ````
+
+=== rx-match-g-count-coerced
+from: PDF::Content 0.9.11 lib/PDF/Content/Text/Box.rakumod:273
+license: Artistic-2.0
+feature: method match
+--- code
+for "a\nb\nc", "one line" {
+    if .match("\n", :g) -> UInt() $nl {
+        say "newlines: $nl";
+    }
+    else {
+        say 'no newlines';
+    }
+}
+--- expect
+newlines: 2
+no newlines
+
+=== rx-match-i-adverb-arg
+from: File::Which 1.0.4 lib/File/Which/Win32.rakumod:38
+license: MIT
+feature: method match
+--- code
+my @PATHEXT = '', '.EXE', '.BAT', '.CMD';
+for <setup.exe run.Bat notes.txt> -> $file {
+    say $file, ': ', so @PATHEXT[1..@PATHEXT.elems - 1].grep({ $file.match(/ $_ $ /, :i) });
+}
+--- expect
+setup.exe: False
+run.Bat: False
+notes.txt: False
+
+=== rx-inline-i-alternation-anchor
+from: Text::CodeProcessing 0.6.0 lib/Text/CodeProcessing.rakumod:512
+license: Artistic-2.0
+feature: method match
+--- code
+for <README.md notes.Rmd doc.ORG intro.pod6 x.txt> -> $fileName {
+    say $fileName, ' ', so $fileName.match(/ :i .* \. [md | Rmd | qmd | org | pod6] $ /);
+}
+--- expect
+README.md True
+notes.Rmd True
+doc.ORG True
+intro.pod6 True
+x.txt False
+
+=== rx-comb-ratchet-lines
+from: Text::Tabs 1.0 lib/Text/Tabs.pm6:34
+license: Artistic-2.0
+feature: regex adverb :r
+--- code
+my $text = "a\tb\nline two\n\nend";
+say $text.comb(/:r ^^ \N* \n?/).map(*.raku).join(' ');
+--- expect
+"a\tb\n" "line two\n" "\n" "end"
+
+=== rx-s-global-long-adverb
+from: Backtrace::AsHTML 0.0.1 lib/Backtrace/AsHTML.pm6:117
+license: Artistic-2.0
+feature: quote s///
+--- code
+my $line = "\tfoo\tbar";
+(my $l = $line) ~~ s:global/\t/  /;
+say $l.raku;
+say $line.raku;
+--- expect
+"  foo  bar"
+"\tfoo\tbar"
+
+=== rx-subst-global-named-arg
+from: DBIish 0.6.9 lib/DBDish/Connection.rakumod:193
+license: BSD-2-Clause
+feature: method subst
+--- code
+sub quote-identifier(Str $x) {
+    q["] ~ $x.subst(q{"}, q{""}, :global) ~ q["]
+}
+say quote-identifier('plain');
+say quote-identifier('we"ird"name');
+--- expect
+"plain"
+"we""ird""name"
+
+=== rx-subst-x-tilde-goal
+from: Raku::Pod::Render 4.10.6 lib/RenderPod/Highlighting.rakumod:90
+license: Artistic-2.0
+feature: method subst
+--- code
+my $result = '<div>a</div><div>b</div><div>c</div>';
+say $result.subst(/ '<div' ~ '</div>' .+? /, '', :x(2));
+say $result.subst(/ '<div' ~ '</div>' .+? /, '', :x(4));
+--- expect
+<div>c</div>
+<div>a</div><div>b</div><div>c</div>
+
+=== rx-inline-i-word-boundary
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Sql/Exec.rakumod:146
+license: Artistic-2.0
+feature: regex adverb :i
+--- code
+sub is-query(Str $stripped) { so $stripped ~~ /^ :i (select | with) <|w> / }
+say is-query($_) for 'SELECT * FROM t', 'with x as (...)', 'selection', 'insert';
+--- expect
+True
+True
+False
+False
+
+=== rx-m-s-comment-line-skip
+from: Unicode::PRECIS v0.5.2 lib/Unicode/PRECIS.pm6:35
+license: Artistic-2.0
+feature: regex adverb :s
+--- code
+for "# header", "   # indented", "0041 ; PVALID", "" -> $line {
+    next if $line ~~ m:s/^ \s* '#'/;
+    say "data: [$line]";
+}
+--- expect
+data: [0041 ; PVALID]
+data: []

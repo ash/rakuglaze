@@ -1,0 +1,458 @@
+# Walking a hash as modules do: .kv, .pairs, .keys, .values, sorting by key
+# and by value, destructuring a Pair in a signature, .invert and .antipairs.
+
+=== hash-for-kv-pointy
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:85
+license: Artistic-2.0
+feature: method kv
+--- code
+my %m = b => <bee bear>, a => <ant>;
+my @out;
+for %m.kv -> $k, $abbrev-list {
+    @out.push: "$k={$abbrev-list.elems}";
+}
+say @out.sort;
+--- expect
+(a=1 b=2)
+
+=== hash-for-kv-array-param
+from: App::GPTrixie 0.29 lib/GPT/FileGenerator.pm6:57
+license: Artistic-2.0
+feature: method kv
+--- code
+my %sortedh = x => [3, 1], y => [2];
+for %sortedh.sort(*.key).map(|*.kv) -> $k, @v {
+    say "$k: {@v.sort}";
+}
+--- expect
+x: 1 3
+y: 2
+
+=== hash-kv-map-join
+from: App::RaCoCo 2.0.1 lib/App/Racoco/RunProc.rakumod:26
+license: Artistic-2.0
+feature: method kv
+--- code
+my %vars = A => 1;
+my $vars-str = %vars.kv.map(-> $k, $v { "$k=$v&&" }).join(' set ');
+say $vars-str;
+%vars<B> = 2;
+say %vars.kv.elems;
+--- expect
+A=1&&
+4
+
+=== hash-kv-map-object-keyed
+from: Graph 0.1.3 lib/Graph.rakumod:817
+license: Artistic-2.0
+feature: method kv
+--- code
+my %ds = a => { b => 1, c => 2 }, b => { c => 5 };
+my Numeric %res{Positional} = %ds.kv.map(-> $k, %v { %v.map({ ($k, $_.key) => $_.value }) }).flat;
+say %res.elems;
+say %res.keys.map(*.join('-')).sort;
+say %res.values.sum;
+--- expect
+3
+(a-b a-c b-c)
+8
+
+=== hash-kv-map-subsignature
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:21
+license: Artistic-2.0
+feature: method kv
+--- code
+my %colors = red => { name => 'Red', rgb => [255, 0, 0] }, lime => { name => 'Lime', rgb => [0, 255, 0] };
+my @v = %colors.kv.map: -> Str $name, % ( :name($), :@rgb! ) {
+    $name => @rgb.join(',')
+};
+say @v.sort(*.key).map(*.gist).join(' | ');
+--- expect
+lime => 0,255,0 | red => 255,0,0
+
+=== hash-for-pairs-sort-key
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Runner.rakumod:347
+license: Artistic-2.0
+feature: method pairs
+--- code
+my %by-key = beta => [1, 2], alpha => [3];
+for %by-key.pairs.sort(*.key) -> $pair {
+    say $pair.key, ': ', $pair.value.elems;
+}
+--- expect
+alpha: 1
+beta: 2
+
+=== hash-for-pairs-sort-sigilless
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:597
+license: Artistic-2.0
+feature: method pairs
+--- code
+my %props = margin => '1px', color => 'red', border => 'none';
+for %props.pairs.sort -> \p {
+    say p.key, ': ', p.value;
+}
+--- expect
+border: none
+color: red
+margin: 1px
+
+=== hash-for-sort-pair-topic
+from: Actionable 0.0.7 lib/Actionable.rakumod:256
+license: Artistic-2.0
+feature: method sort
+--- code
+my %h = name => 'x', description => 'longer text';
+my $col1 = %h.keys.map(*.chars).max;
+my $col2 = %h.values.map(*.chars).max;
+for %h.sort -> $p {
+    say $p.key.fmt("%-{$col1}s"), ' | ', $p.value.fmt("%{$col2}s");
+}
+--- expect
+description | longer text
+name        |           x
+
+=== hash-for-sort-key-value-destructure
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:441
+license: Artistic-2.0
+feature: method sort
+--- code
+my %form = q => 'raku', page => 2, lang => 'en';
+my @parts;
+for %form.sort -> ( :key($key), :value($v) ) {
+    @parts.push: "$key=$v";
+}
+say @parts.join('&');
+--- expect
+lang=en&page=2&q=raku
+
+=== hash-for-sort-whatever-key-destructure
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Header.rakumod:65
+license: MIT
+feature: method sort
+--- code
+my %fields = Host => 'example.com', Accept => '*/*', Connection => 'close';
+for %fields.sort(*.key) -> (:key($k), :value($v)) {
+    say "$k: $v";
+}
+--- expect
+Accept: */*
+Connection: close
+Host: example.com
+
+=== hash-sort-value-map-key
+from: Dan 0.0.3 lib/Dan.rakumod:16
+license: Artistic-2.0
+feature: method sort
+--- code
+my %h = c => 3, a => 1, b => 2;
+say %h.sort(*.value).map(*.key);
+--- expect
+(a b c)
+
+=== hash-sort-negated-value-head
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/Trie.rakumod:851
+license: Artistic-2.0
+feature: method sort
+--- code
+my %res = yes => 7, no => 2, maybe => 4;
+say %res ?? %res.pairs.sort(-*.value).head.key !! Whatever;
+my %empty;
+say %empty ?? %empty.pairs.sort(-*.value).head.key !! Whatever;
+--- expect
+yes
+(Whatever)
+
+=== hash-sort-negated-subvalue-destructure
+from: Terminal::Print 0.978 lib/Terminal/Print/Util/Timing.pm6:51
+license: Artistic-2.0
+feature: method sort
+--- code
+my %timings = draw => { total => 12, count => 3 }, parse => { total => 40, count => 1 }, io => { total => 7, count => 9 };
+for %timings.sort(-*.value<total>) -> (:$key, :$value) {
+    say "$key: $value<total> over $value<count>";
+}
+--- expect
+parse: 40 over 1
+draw: 12 over 3
+io: 7 over 9
+
+=== hash-grep-sort-negated-block
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers/ParetoPrincipleStatistic.rakumod:48
+license: Artistic-2.0
+feature: method grep
+--- code
+my %hvec = a => 5, b => 'n/a', c => 9, d => 1;
+my @tally = %hvec.grep({ $_.value ~~ Numeric }).sort({ -$_.value });
+say @tally.map(*.key);
+say @tally>>.value;
+--- expect
+(c a d)
+[9 5 1]
+
+=== hash-sort-dollar-a-b-value
+from: Stats 0.0.6 lib/Stats.pm6:136
+license: Artistic-2.0
+feature: method sort
+--- code
+my $x = (10, 30, 20).List;
+my $mean = 20;
+my $sd = 10;
+my @z = $x.pairs.map({$_.key => ($_.key - $mean) / $sd }).sort({$^a.value <=> $^b.value}).list;
+say @z.map(*.key);
+--- expect
+(0 1 2)
+
+=== hash-antipairs-sort-value
+from: Terminal::UI 0.1.14 lib/Terminal/UI.rakumod:397
+license: MIT
+feature: method antipairs
+--- code
+my %pane = 0 => 'top', 1 => 'middle', 2 => 'bottom';
+my %by-name = %pane.antipairs;
+for %by-name.antipairs.sort(*.value) -> (:key($k),:value($v)) {
+    say "$k $v";
+}
+--- expect
+2 bottom
+1 middle
+0 top
+
+=== hash-keys-sort-map
+from: Anolis 1.0.0 lib/Anolis.rakumod:402
+license: Artistic-2.0
+feature: method keys
+--- code
+my %areas = 3 => <c>, 1 => <a b>, 2 => ();
+my @areas = %areas.keys.sort.map(-> $y {
+    "$y:" ~ %areas{$y}.elems
+});
+say @areas;
+--- expect
+[1:2 2:0 3:1]
+
+=== hash-for-keys-sort-topic
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Actions.rakumod:17
+license: Artistic-2.0
+feature: method keys
+--- code
+my %ruleish = zeta => 1, alpha => 2, mid => 3;
+for %ruleish.keys.sort {
+    say "$_ => %ruleish{$_}";
+}
+--- expect
+alpha => 2
+mid => 3
+zeta => 1
+
+=== hash-for-sort-keys-prefix
+from: LWP::Simple 0.109 lib/LWP/Simple.rakumod:402
+license: Artistic-2.0
+feature: sub sort
+--- code
+my %headers = 'User-Agent' => 'x', Accept => 'y', Host => 'z';
+for sort %headers.keys {
+    say "$_: %headers{$_}";
+}
+--- expect
+Accept: y
+Host: z
+User-Agent: x
+
+=== hash-keys-grep-value
+from: Air 0.1.32 lib/Air/Functional.rakumod:139
+license: Artistic-2.0
+feature: method keys
+--- code
+my %attrs = disabled => 'True', id => 'x', hidden => 'True', checked => 'False';
+my @bools = %attrs.keys.grep: { %attrs{$_} eq 'True' };
+say @bools.sort;
+--- expect
+(disabled hidden)
+
+=== hash-values-map-elems-sum
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:97
+license: Artistic-2.0
+feature: method values
+--- code
+my %covered = 'a.raku' => (1, 3, 5), 'b.raku' => (2,);
+say %covered.values.map(*.elems).sum;
+--- expect
+4
+
+=== hash-values-sum
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/Trie.rakumod:847
+license: Artistic-2.0
+feature: method values
+--- code
+my %res = a => 2, b => 3, c => 5;
+my $sum = %res.values.sum;
+say $sum;
+say %res.sort.map({ "{.key}:{.value / $sum}" }).join(' ');
+--- expect
+10
+a:0.2 b:0.3 c:0.5
+
+=== hash-values-max
+from: Graph 0.1.3 lib/Graph.rakumod:1212
+license: Artistic-2.0
+feature: method values
+--- code
+my %distances = a => 0, b => 3, c => 7, d => 2;
+say %distances.values.max;
+say %distances.values.min;
+--- expect
+7
+0
+
+=== hash-for-values-rw
+from: Distribution::Builder::MakeFromJSON 0.6 lib/Distribution/Builder/MakeFromJSON.pm6:54
+license: Artistic-2.0
+feature: method values
+--- code
+my %makefile-variables = CC => 'cc %PREFIX%', LD => 'ld';
+for %makefile-variables.values -> $value is rw {
+    $value = $value.subst('%PREFIX%', '/usr');
+}
+say %makefile-variables<CC>;
+say %makefile-variables<LD>;
+--- expect
+cc /usr
+ld
+
+=== hash-for-pairs-topic-pair
+from: Crust 0.0.1 lib/Crust/Middleware/ErrorDocument.pm6:34
+license: Artistic-2.0
+feature: method pairs
+--- code
+my %headers = 'Content-Type' => 'text/html', 'Content-Length' => 42;
+my @h;
+for %headers -> $pair {
+    @h.push: $pair.key.lc ~ '=' ~ $pair.value;
+}
+say @h.sort;
+--- expect
+(content-length=42 content-type=text/html)
+
+=== hash-pairs-first-value-identity
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/App.rakumod:145
+license: Artistic-2.0
+feature: method first
+--- code
+my $t1 = [1];
+my $t2 = [1];
+my %terminal = main => $t1, aux => $t2;
+say %terminal.pairs.first(*.value === $t2).key;
+say %terminal.pairs.first(*.value === $t1).key;
+--- expect
+aux
+main
+
+=== hash-pairs-first-key-lc
+from: LWP::Simple 0.109 lib/LWP/Simple.rakumod:122
+license: Artistic-2.0
+feature: method first
+--- code
+my $resp_headers = { 'Content-Type' => 'text/plain', 'Location' => 'https://example.com/new' };
+my $new_url = $resp_headers.pairs.first( *.key.lc eq 'location' ).value;
+say $new_url;
+--- expect
+https://example.com/new
+
+=== hash-first-block-value
+from: cro 0.8.10 lib/Cro/Tools/CLI.rakumod:27
+license: Artistic-2.0
+feature: method first
+--- code
+my %options = link => <a b>, port => 80;
+my @option-links = %options.first({ .key eq 'link' }).value.flat;
+say @option-links;
+--- expect
+[a b]
+
+=== hash-pairs-map-rename-key
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:475
+license: Artistic-2.0
+feature: method pairs
+--- code
+my class Props {
+    has %!important = color => True, 'margin_top' => False;
+    method property-name($k) { $k.subst('_', '-', :g) }
+    method important { %!important.pairs.map: { $.property-name(.key) => .value } }
+}
+say Props.new.important.sort(*.key).map(*.gist).join(' ');
+--- expect
+color => True margin-top => False
+
+=== hash-pairs-map-sort-strings
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:169
+license: Artistic-2.0
+feature: method pairs
+--- code
+sub format-key($k) { $k ~~ Str ?? "'$k'" !! $k.raku }
+my $value = { b => 2, a => 1 };
+my @entries = $value.pairs.map({ format-key(.key) ~ ' => ' ~ .value }).sort;
+say @entries.join(', ');
+--- expect
+'a' => 1, 'b' => 2
+
+=== hash-invert-our-alias
+from: FontFactory::Type1 1.1.1 lib/FontFactory/Type1/FontList.rakumod:25
+license: Artistic-2.0
+feature: method invert
+--- code
+my %Fonts = 'Times-Roman' => 't', 'Courier' => 'c';
+my %FontAliases = %Fonts.invert;
+say %FontAliases<t>;
+say %FontAliases.keys.sort;
+--- expect
+Times-Roman
+(c t)
+
+=== hash-invert-list-values
+from: Hash::MultiValue 0.7 lib/Hash/MultiValue.pm6:345
+license: Artistic-2.0
+feature: method invert
+--- code
+my %singles = colors => <red green>, size => 'L';
+my @inv = %singles.invert;
+say @inv.sort(*.key).map(*.gist).join(' ');
+--- expect
+L => size green => colors red => colors
+
+=== hash-invert-enums-hash-lookup
+from: Duckie 0.0.12 lib/Duckie/Result.rakumod:57
+license: MIT
+feature: method invert
+--- code
+my enum DuckDBType (DUCKDB_TYPE_INVALID => 0, DUCKDB_TYPE_BOOLEAN => 1, DUCKDB_TYPE_INTEGER => 4);
+my $type = 4;
+say DuckDBType.enums.invert.Hash{ $type }.Str.subst('DUCKDB_TYPE_', '');
+--- expect
+INTEGER
+
+=== hash-invert-hash-unless
+from: Terminal::UI 0.1.14 lib/Terminal/UI.rakumod:343
+license: MIT
+feature: method invert
+--- code
+my %ui-bindings = q => 'quit', r => 'refresh';
+for (quit => 'x'), (help => 'y') {
+    unless %ui-bindings.invert.Hash{.key} {
+        say "unbound: {.key}";
+    }
+}
+--- expect
+unbound: help
+
+=== hash-antipairs-hash-lookup
+from: zef 1.1.4 lib/Zef/CLI.rakumod:760
+license: Artistic-2.0
+feature: method antipairs
+--- code
+my %meta = provides => { 'Foo::Bar' => 'lib/Foo/Bar.rakumod', 'Foo' => 'lib/Foo.rakumod' };
+my $identity = 'lib/Foo/Bar.rakumod';
+my $lib = %meta<provides>.hash.antipairs.hash.{$identity};
+say $lib;
+--- expect
+Foo::Bar

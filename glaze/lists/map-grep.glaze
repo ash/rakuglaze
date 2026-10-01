@@ -1,0 +1,306 @@
+# map and grep as modules write them: blocks, WhateverCode, sub forms, smartmatch arguments, :k.
+
+=== list-map-colon-block
+from: Bailador 0.0.19 lib/Bailador/Request.pm:145
+license: MIT
+feature: method map
+--- code
+my $value = 'a%20b&c;d%21';
+my @values = $value.split(/<[&;]>/).map: { .subst(/'%' (<xdigit>**2)/, { chr :16(~$0) }, :g) };
+say @values.elems;
+say @values.join('|');
+--- expect
+3
+a b|c|d!
+
+=== list-map-sub-form
+from: Bailador 0.0.19 lib/Bailador/Command/routes.pm:13
+license: MIT
+feature: call map
+--- code
+my @path = <api users list>;
+my @indent = map {' ' x $_.chars - 1}, @path;
+say @indent.map({ "[$_]" }).join;
+say @indent».chars;
+--- expect
+[  ][    ][   ]
+[2 4 3]
+
+=== list-map-ampersand-sub
+from: Docker::File 1.1 lib/Docker/File.rakumod:198
+license: Artistic-2.0
+feature: method map
+--- code
+sub json-string(Str $s) { '"' ~ $s.subst('"', '\"', :g) ~ '"' }
+my @arr = 'echo', 'say "hi"';
+say '[' ~ @arr.map(&json-string).join(", ") ~ "]";
+--- expect
+["echo", "say \"hi\""]
+
+=== list-map-two-params
+from: PDF::Class 0.5.30 lib/PDF/Function/Exponential.rakumod:46
+license: Artistic-2.0
+feature: method map
+--- code
+my @Domain = 0, 1, -5, 5;
+my Range @domain = @Domain.map: -> $a, $b { Range.new($a, $b) };
+say @domain.elems;
+say @domain.map(*.raku).join(' ');
+say 3 ~~ @domain[1];
+--- expect
+2
+0..1 -5..5
+True
+
+=== list-map-default-second-param
+from: PDF 0.6.15 lib/PDF/IO/Filter/ASCIIHex.rakumod:52
+license: Artistic-2.0
+feature: method map
+--- code
+my $str = '4A6';
+my uint8 @bytes = $str.ords.map: -> $a, $b = '0'.ord { :16(($a, $b)».chr.join) };
+say @bytes;
+--- expect
+[74 96]
+
+=== list-map-destructure-zip
+from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:1531
+license: MIT
+feature: method map
+--- code
+my @field-names = <name age>;
+my @row = 'Ann', 42;
+say (@field-names Z @row).map(-> ($field, $value) { "$field=$value" }).list.join(', ');
+--- expect
+name=Ann, age=42
+
+=== list-map-pair-destructure
+from: Red 0.2.5 lib/Red/Column.rakumod:72
+license: Artistic-2.0
+feature: method map
+--- code
+my %h = b => 2, a => 1, c => 3;
+for %h.pairs.sort.map(-> (:$key, :$value) { "$key:$value" }) { .say }
+--- expect
+a:1
+b:2
+c:3
+
+=== list-map-pair-then-hash
+from: zef 1.1.4 lib/Zef/Repository.rakumod:135
+license: Artistic-2.0
+feature: method map
+--- code
+my @identities = 'Foo:ver<1>', './local', 'Bar', '/abs/path';
+my %searchable = @identities.grep({ not $_.starts-with("." | "/") }).map({ $_ => 1 });
+say %searchable.keys.sort;
+say %searchable<Bar>;
+--- expect
+(Bar Foo:ver<1>)
+1
+
+=== list-map-true-hash
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Render.rakumod:599
+license: Artistic-2.0
+feature: method hash
+--- code
+my %seen = <head1 para item>
+    .map({ $_ => True }).hash;
+say %seen<para>;
+say %seen<code>:exists;
+say %seen.elems;
+--- expect
+True
+False
+3
+
+=== list-map-key-value-pairs
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Entity/ResourceAccess.rakumod:18
+license: Artistic-2.0
+feature: method map
+--- code
+my %files = a => 'x.csv', b => 'y.csv';
+my @resources = %files.sort;
+@resources = @resources.map({ $_.key => $_.value.uc });
+say @resources.map(*.value).join(' ');
+say @resources[0].^name;
+--- expect
+X.CSV Y.CSV
+Pair
+
+=== list-map-whatever-index
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:759
+license: Artistic-2.0
+feature: method map
+--- code
+my @pairs = ('verbose', 'be loud'), ('n', 'count');
+my $width = max(@pairs.map(*.[0].chars));
+say $width;
+say @pairs.map({ .[0].fmt("%-{$width}s") ~ '|' }).join("\n");
+--- expect
+7
+verbose|
+n      |
+
+=== list-map-flat-pairs
+from: Data::Importers 0.1.8 lib/Data/Exporters/HarwellBoeing.rakumod:175
+license: Artistic-2.0
+feature: method flat
+--- code
+my @vals = 1+2i, 3-4i;
+my @flat = @vals.map({ .re, .im }).flat;
+say @flat.elems;
+say @flat;
+--- expect
+4
+[1 2 3 -4]
+
+=== list-map-empty-skips
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Optimizer.rakumod:129
+license: Artistic-2.0
+feature: term Empty
+--- code
+my %edge = top => 1, left => 4;
+my %prop-ast = top => 'x', color => 'y', left => 'z';
+my Int @parent-props = %prop-ast.keys.map({ %edge{$_} || Empty }).sort;
+say @parent-props;
+--- expect
+[1 4]
+
+=== list-grep-whatever-so
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:1524
+license: Artistic-2.0
+feature: method grep
+--- code
+my @path = '', 'api', '', 'v1', 'users';
+my $path = @path.grep(*.so).join: '/';
+say $path;
+--- expect
+api/v1/users
+
+=== list-grep-whatever-defined
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/JSON.rakumod:21
+license: Artistic-2.0
+feature: method grep
+--- code
+my @parts = 'describe', Str, 'it works', Any;
+say @parts.grep(*.defined).join(' ');
+say @parts.grep(*.defined).elems;
+--- expect
+describe it works
+2
+
+=== list-grep-type-object
+from: Pod::Utilities 0.0.1 lib/Pod/Utilities.pm6:63
+license: Artistic-2.0
+feature: method grep
+--- code
+my @contents = 'my $x', 1, 'say $x', Any, 2.5;
+say @contents.grep(Str).join("\n");
+say @contents.grep(Int);
+say @contents.grep(Numeric).elems;
+--- expect
+my $x
+say $x
+(1)
+2
+
+=== list-grep-pair-and-not-pair
+from: Inline::Perl5 0.62 lib/Inline/Perl5.pm6:1269
+license: Artistic-2.0
+feature: method grep
+--- code
+my @args = 1, a => 2, 'x', b => 3;
+say @args.grep({$_ !~~ Pair}).list;
+my %named = @args.grep(Pair).hash;
+say %named.sort;
+--- expect
+(1 x)
+(a => 2 b => 3)
+
+=== list-grep-regex
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:83
+license: Artistic-2.0
+feature: method grep
+--- code
+my @rules = 'di=01;34', '*.tar=31', 'ln=01;36', 'ex';
+my @type  = @rules.grep(/^ <[a..z]><[a..z]> '=' /);
+say @type;
+--- expect
+[di=01;34 ln=01;36]
+
+=== list-grep-none-junction
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:191
+license: Artistic-2.0
+feature: call none
+--- code
+my class Comment {}
+my class PI {}
+my class Tag {}
+my @children = Comment.new, PI.new;
+say @children.grep(none(Comment, PI)).elems == 0;
+@children.push: Tag.new;
+say @children.grep(none(Comment, PI)).elems;
+--- expect
+True
+1
+
+=== list-grep-any-list
+from: Collection 0.18.0 lib/Collection/TestPlugin.rakumod:192
+license: Artistic-2.0
+feature: call any
+--- code
+my %config = name => 1, version => 2, extra => 3;
+my @required = <name version author>;
+for %config.keys.grep(any(@required)).sort { .say }
+--- expect
+name
+version
+
+=== list-grep-k-indices
+from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:1495
+license: MIT
+feature: method grep
+--- code
+my @field-names = <City Area Population>;
+my $sort-by = 'Area';
+my $sort-index = @field-names.grep({ $_ eq $sort-by }, :k).first;
+say $sort-index;
+say <a b a c a>.grep('a', :k);
+--- expect
+1
+(0 2 4)
+
+=== list-grep-colon-placeholder
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:336
+license: Artistic-2.0
+feature: method grep
+--- code
+my @a = <p q r s>;
+my @matchVector = 0, Any, 2, Any;
+say @a[(^@matchVector).grep: { @matchVector[$^a].defined }];
+--- expect
+(p r)
+
+=== list-grep-seen-unique
+from: Bailador 0.0.19 lib/Bailador/Command/watch.pm:85
+license: MIT
+feature: method grep
+--- code
+my $seen = {};
+my @dirs = <lib t lib bin t>;
+say @dirs.grep: { !$seen{$_}++ };
+--- expect
+(lib t bin)
+
+=== list-grep-is-prime-sub
+from: Digest 1.1.0 lib/Digest/SHA2.rakumod:14
+license: Artistic-2.0
+feature: call grep
+--- code
+my @primes = grep *.is-prime, 2 .. *;
+say @primes[^10];
+say @primes[24];
+--- expect
+(2 3 5 7 11 13 17 19 23 29)
+97

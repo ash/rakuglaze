@@ -1,0 +1,572 @@
+# Typed hashes, object hashes (non-Str keys), `is default` on hashes, and a
+# hash in boolean, numeric and smartmatch context.
+
+=== hash-object-keyed-by-type
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:19
+license: Artistic-2.0
+feature: object hash
+--- code
+my role Digest {}
+my class SHA1 does Digest {}
+my class SHA256 does Digest {}
+my %info-for{Digest} = (
+    (SHA1)   => { :hash-size(20) },
+    (SHA256) => { :hash-size(32) },
+);
+say %info-for{SHA256}<hash-size>;
+say %info-for.keys.map(*.^name).sort;
+say %info-for{SHA1}:exists;
+--- expect
+32
+(SHA1 SHA256)
+True
+
+=== hash-object-keyed-mu
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:705
+license: Artistic-2.0
+feature: object hash
+--- code
+my %mu-map{Mu};
+%mu-map{1} = 'int one';
+%mu-map{'1'} = 'str one';
+%mu-map{1.0} = 'rat one';
+say %mu-map.elems;
+say %mu-map{1};
+say %mu-map{'1'};
+--- expect
+3
+int one
+str one
+
+=== hash-object-keyed-list
+from: CSS::Stylesheet 0.1.5 lib/CSS/Stylesheet.rakumod:198
+license: Artistic-2.0
+feature: object hash
+--- code
+my %at-rules{List};
+my $screen = ('screen',);
+%at-rules{$screen} = 'slot-a';
+say %at-rules{$screen};
+say %at-rules.keys[0].^name;
+my $print = ('print',);
+say %at-rules{$print}:exists;
+--- expect
+slot-a
+List
+False
+
+=== hash-object-keyed-uint-empty
+from: Gnome::Gdk3 0.20.0 lib/Gnome/Gdk3/RGBA.rakumod:84
+license: Artistic-2.0
+feature: object hash
+--- code
+my %rgba-hash{UInt} = %();
+%rgba-hash{255} = 'white';
+%rgba-hash{0} = 'black';
+say %rgba-hash.keys.sort;
+say %rgba-hash.keys[0].^name;
+%rgba-hash{-1} = 'bad';
+--- expect
+(0 255)
+Int
+!! X::TypeCheck::Binding::Parameter
+
+=== hash-object-attr-int-keys
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:200
+license: Artistic-2.0
+feature: object hash
+--- code
+my class Conn {
+    has %!outstanding-stream-responses{Int};
+    method add(Int $sid, $r) { %!outstanding-stream-responses{$sid} = $r }
+    method done(Int $sid) { %!outstanding-stream-responses{$sid}:delete }
+    method ids { %!outstanding-stream-responses.keys.sort }
+}
+my $c = Conn.new;
+$c.add($_, "r$_") for 1, 3, 5;
+say $c.done(3);
+say $c.ids;
+say $c.ids[0].WHAT.^name;
+--- expect
+r3
+(1 5)
+Int
+
+=== hash-object-attr-str-keys-cache
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:484
+license: Artistic-2.0
+feature: object hash
+--- code
+my class Props {
+    has %!ast-cache{Str};
+    has $.computed = 0;
+    method ast(Str $p) { %!ast-cache{$p} //= do { $!computed++; $p.uc } }
+}
+my $p = Props.new;
+say $p.ast('color'), $p.ast('color'), $p.ast('margin');
+say $p.computed;
+--- expect
+COLORCOLORMARGIN
+2
+
+=== hash-object-keyed-by-object-instance
+from: Terminal::Print 0.978 lib/Terminal/Print.pm6:68
+license: Artistic-2.0
+feature: object hash
+--- code
+my class Grid { has $.name }
+my %root-widget-map{Grid};
+my $g1 = Grid.new(name => 'main');
+my $g2 = Grid.new(name => 'main');
+%root-widget-map{$g1} = 'w1';
+%root-widget-map{$g2} = 'w2';
+say %root-widget-map.elems;
+say %root-widget-map{$g2};
+say %root-widget-map.keys.map(*.name).unique;
+--- expect
+2
+w2
+(main)
+
+=== hash-object-attr-mu-is-rw
+from: Red 0.2.5 lib/MetamodelX/Red/Dirtable.rakumod:9
+license: Artistic-2.0
+feature: object hash
+--- code
+my class Col { has $.name }
+my class Model { has %.dirty-cols{Mu} is rw }
+my $m = Model.new;
+my $c = Col.new(name => 'title');
+$m.dirty-cols{$c} = True;
+say $m.dirty-cols.keys».name;
+say $m.dirty-cols{Col.new(name => 'title')}:exists;
+--- expect
+(title)
+False
+
+=== hash-object-literal-colon-braces
+from: Red 0.2.5 lib/Red/PrepareCode.rakumod:60
+license: Artistic-2.0
+feature: object hash
+--- code
+my %*VALS := :{};
+%*VALS{42} = 'answer';
+%*VALS{(1, 2)} = 'pair';
+say %*VALS.keyof.^name;
+say %*VALS.keys.map(*.^name).sort;
+say %*VALS{42};
+--- expect
+Mu
+(Int Int Int)
+answer
+
+=== hash-typed-value-classify
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:396
+license: Artistic-2.0
+feature: typed hash
+--- code
+my $ast = [{ comment => 'c1' }, 'x', 'y', { comment => 'c2' }];
+my Array %sifted = classify { .isa(Hash) && (.<comment>:exists) ?? 'comment' !! 'elem' }, $ast.list;
+my Str $out = (%sifted<elem> // []).list.join: ',';
+say $out;
+say %sifted<comment>.map(*<comment>).join(' ');
+say %sifted.of.^name;
+--- expect
+x,y
+c1 c2
+Array
+
+=== hash-typed-str-object-str
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows.rakumod:73
+license: Artistic-2.0
+feature: typed hash
+--- code
+my Str %targetToSeparator{Str} =
+    Raku => "\n",
+    SQL => ";\n";
+say %targetToSeparator<SQL>.raku;
+say %targetToSeparator.of.^name, ' ', %targetToSeparator.keyof.^name;
+%targetToSeparator<R> = 42;
+--- expect
+";\n"
+Str Str
+!! X::TypeCheck::Assignment
+
+=== hash-typed-value-array-attr
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:108
+license: Artistic-2.0
+feature: typed hash
+--- code
+my class Box {
+    has Array %!box;
+    method set($k, *@v) { %!box{$k} = @v }
+    method get($k) { %!box{$k} }
+}
+my $b = Box.new;
+$b.set('margin', 1, 2, 3, 4);
+say $b.get('margin');
+say $b.get('none').raku;
+$b.set('padding');
+say $b.get('padding').elems;
+--- expect
+[1 2 3 4]
+Array
+0
+
+=== hash-typed-value-class-attr
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:152
+license: Artistic-2.0
+feature: typed hash
+--- code
+my class Entry { has $.value }
+my class C {
+    has Entry %!entries;
+    method put($k, $v) { %!entries{$k} = Entry.new(value => $v) }
+    method raw($k, $v) { %!entries{$k} = $v }
+    method get($k) { %!entries{$k} andthen .value }
+}
+my $c = C.new;
+$c.put('a', 1);
+say $c.get('a');
+say $c.get('b').raku;
+$c.raw('x', 5);
+--- expect
+1
+Empty
+!! X::TypeCheck::Assignment
+
+=== hash-typed-parameterized-coerce
+from: Image::PNG::Portable 0.3.2 lib/Image/PNG/Portable.rakumod:281
+license: Artistic-2.0
+feature: typed hash
+--- code
+my class PNG {
+    has %!text-metadata;
+    method init { %!text-metadata := Hash[Str, Str]({}); self }
+    method set($k, $v) { %!text-metadata{$k} = $v }
+    method meta { %!text-metadata }
+}
+my $png = PNG.new.init;
+$png.set('Title', 'Logo');
+say $png.meta.^name;
+say $png.meta<Title>;
+$png.set('Year', 2024);
+--- expect
+Hash[Str,Str]
+Logo
+!! X::TypeCheck::Assignment
+
+=== hash-typed-parameterized-new-grep
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/DataPart.rakumod:23
+license: Artistic-2.0
+feature: typed hash
+--- code
+my $covered = { 1 => 2, 4 => 0, 9 => 1 };
+my $coverable = { 1 => True };
+my $purple-lines := Hash[UInt, Any].new: $covered.hash.grep({!$coverable{.key}});
+say $purple-lines.^name;
+say $purple-lines.keys.sort;
+--- expect
+Hash[UInt,Any]
+(4 9)
+
+=== hash-typed-parameterized-attr
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:152
+license: Artistic-2.0
+feature: typed hash
+--- code
+my class PluginKey { has $.id }
+my class Router {
+    has Hash[Array, PluginKey] $.plugin-config;
+}
+my $k = PluginKey.new(id => 'x');
+my $h = Hash[Array, PluginKey].new;
+$h{$k} = [1, 2];
+my $r = Router.new(plugin-config => $h);
+say $r.plugin-config{$k};
+say $r.plugin-config.keyof.^name;
+--- expect
+[1 2]
+PluginKey
+
+=== hash-typed-of-new
+from: JSON::Unmarshal 0.18 lib/JSON/Unmarshal.rakumod:211
+license: Artistic-2.0
+feature: typed hash
+--- code
+my Int %x;
+my %ret := Hash[%x.of].new;
+%ret<a> = 1;
+say %ret.^name;
+say %ret.of.^name;
+%ret<b> = 'two';
+--- expect
+Hash[Int]
+Int
+!! X::TypeCheck::Assignment
+
+=== hash-typed-whatever-or-type
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:98
+license: Artistic-2.0
+feature: typed hash
+--- code
+my class Store {
+    has $!values = {};
+    has $!key = 'define';
+    has $!type;
+    submethod BUILD(:$!type) {}
+    method store($k, $v) {
+        $!values{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
+        $!values{$!key}{$k} = $v;
+        $!values{$!key}
+    }
+}
+say Store.new(type => Int).store('n', 3).^name;
+say Store.new(type => Any).store('n', 'x').^name;
+--- expect
+Hash[Int]
+Hash
+
+=== hash-typed-subset-keys
+from: File::Presence 0.2.0 lib/File/Presence.pm6:6
+license: Unlicense
+feature: decl subset
+--- code
+my subset PresenceHash of Hash where { .keys.sort ~~ <d e f r w x> }
+my %p = d => False, e => True, f => True, r => True, w => False, x => False;
+say %p ~~ PresenceHash;
+%p<x>:delete;
+say %p ~~ PresenceHash;
+--- expect
+True
+False
+
+=== hash-subset-where-key-match
+from: PDF::Class 0.5.30 lib/PDF/Bead-Thread.rakumod:28
+license: Artistic-2.0
+feature: decl subset
+--- code
+my subset PageLike of Hash where { .<Type> ~~ 'Page' };
+sub check(PageLike $p) { "page {$p<N>}" }
+say check({ Type => 'Page', N => 3 });
+say { Type => 'Font' } ~~ PageLike;
+--- expect
+page 3
+False
+
+=== hash-is-default-nil
+from: Email::Simple 2.1.4 lib/Email/Simple/Header.rakumod:67
+license: CC0-1.0
+feature: trait is default
+--- code
+my %headers is default(Nil);
+%headers<to> = 'a@b';
+say %headers<to>;
+say %headers<cc>.raku;
+my %plain;
+say %plain<cc>.raku;
+--- expect
+a@b
+Nil
+Any
+
+=== hash-is-default-block
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:398
+license: Artistic-2.0
+feature: trait is default
+--- code
+sub caser($kind, $str) {
+    state %pc is default({ $^str.subst: /\S+/, { /<lower>/ ?? .tclc !! .uc }, :g });
+    %pc<upper> = *.uc;
+    %pc{$kind}($str)
+}
+say caser('upper', 'hello world');
+say caser('other', 'hello WORLD');
+--- expect
+HELLO WORLD
+Hello WORLD
+
+=== hash-bool-prefix-question
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/ClassHOW.rakumod:23
+license: Artistic-2.0
+feature: prefix ?
+--- code
+sub compose(*%twiddles) {
+    my $force = ?%twiddles;
+    $force
+}
+say compose();
+say compose(:lazy);
+--- expect
+False
+True
+
+=== hash-bool-if-empty
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router/LinkGenerator.rakumod:113
+license: Artistic-2.0
+feature: stmt if
+--- code
+sub link(Str $base, *%nameds) {
+    my $result = $base;
+    if %nameds {
+        $result ~= '?' ~ %nameds.sort(*.key).map({ .key ~ "=" ~ .value.Str }).join('&');
+    }
+    $result
+}
+say link('/a');
+say link('/a', b => 2, a => 'x');
+--- expect
+/a
+/a?a=x&b=2
+
+=== hash-bool-so-return
+from: Graph 0.1.3 lib/Graph/Bipartitish.rakumod:34
+license: Artistic-2.0
+feature: prefix so
+--- code
+sub colored(%color) { return so %color }
+say colored({});
+say colored({ a => 0 });
+--- expect
+False
+True
+
+=== hash-elems-unless
+from: App::RaCoCo 2.0.1 lib/App/Racoco/RunProc.rakumod:24
+license: Artistic-2.0
+feature: method elems
+--- code
+sub with-vars($command, %vars) {
+    return $command unless %vars.elems;
+    %vars.sort.map({ "{.key}={.value}" }).join(' ') ~ " $command"
+}
+say with-vars('make', {});
+say with-vars('make', { CC => 'clang', J => 4 });
+--- expect
+make
+CC=clang J=4 make
+
+=== hash-elems-compare
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Test.rakumod:11
+license: Artistic-2.0
+feature: method elems
+--- code
+sub same(%a, %b) {
+    if %a.elems != %b.elems { return False }
+    for %a.kv -> $k, $v {
+        return False unless %b{$k}:exists && %b{$k} eqv $v;
+    }
+    True
+}
+say same({ a => 1 }, { a => 1 });
+say same({ a => 1 }, { a => 1, b => 2 });
+say same({ a => 1 }, { b => 1 });
+--- expect
+True
+False
+False
+
+=== hash-numeric-prefix-plus
+from: Bailador 0.0.19 lib/Bailador/Test.pm:60
+license: MIT
+feature: prefix +
+--- code
+my %data = a => 1, b => 2, c => 3;
+my Int $elems = %data.elems;
+say $elems;
+say +%data;
+say %data + 1;
+--- expect
+3
+3
+4
+
+=== hash-smartmatch-associative
+from: DB::Xoos 0.1.1 lib/DB/Xoos/SQL.pm6:203
+license: Artistic-2.0
+feature: infix ~~
+--- code
+for { join => { table => 't' } }, { join => 'raw' } -> %options {
+    my $joins = '';
+    $joins ~= 'JOIN ' ~ %options<join><table> if %options<join> ~~ Associative;
+    say $joins || 'none';
+}
+--- expect
+JOIN t
+none
+
+=== hash-when-associative
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark/Format.rakumod:26
+license: Artistic-2.0
+feature: stmt when
+--- code
+sub fmt($_) {
+    when Associative { '{' ~ .keys.sort.join(',') ~ '}' }
+    when Positional  { '[' ~ .join(',') ~ ']' }
+    default          { ~$_ }
+}
+say fmt({ b => 1, a => 2 });
+say fmt([1, 2]);
+say fmt(Map.new((x => 1)));
+say fmt(set <q>);
+--- expect
+{a,b}
+[1,2]
+{x}
+{q}
+
+=== hash-given-subscript
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:301
+license: Artistic-2.0
+feature: stmt given
+--- code
+for { content-type => 'application/json' }, {} -> %headers {
+    given %headers<content-type> -> $type {
+        say $type.defined ?? "type $type" !! 'no type';
+    }
+}
+--- expect
+type application/json
+no type
+
+=== hash-for-assign-loop
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:142
+license: Artistic-2.0
+feature: stmt for
+--- code
+my @ow = <one two three two>;
+my %ow;
+%ow{$_} = 1 for @ow;
+say %ow.keys.sort;
+say %ow.elems;
+--- expect
+(one three two)
+3
+
+=== hash-for-assign-nested-key
+from: Identity::Utils 0.0.29 lib/Identity/Utils.rakumod:249
+license: Artistic-2.0
+feature: stmt for
+--- code
+my @identities = 'Foo:auth<zef:a>', 'Foo:auth<zef:b>', 'Bar:auth<zef:a>';
+sub short-name($id) { $id.split(':')[0] }
+sub auth($id) { $id ~~ / 'auth<' (<-[>]>+) / ?? ~$0 !! '' }
+my %by-short-name;
+%by-short-name{short-name $_}{auth $_} = $_ for @identities;
+say %by-short-name<Foo>.keys.sort;
+say %by-short-name<Bar><zef:a>;
+--- expect
+(zef:a zef:b)
+Bar:auth<zef:a>
+
+=== hash-for-assign-merge-pairs
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model/Discard.rakumod:16
+license: Artistic-2.0
+feature: stmt for
+--- code
+my %merged = scope => 'all', order => 'id';
+my %defs = scope => 'kept', limit => 10;
+%merged{.key} = .value for %defs;
+say %merged.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+limit=10 order=id scope=kept

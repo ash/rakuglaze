@@ -1,0 +1,512 @@
+# given/when/default with every kind of smartmatch target, proceed and
+# succeed, `when` inside `for`, statement-modifier `when`.
+
+=== ctl-when-ranges-open-end
+from: Color 1.004001 lib/Color/Conversion.rakumod:100
+license: Artistic-2.0
+feature: node When
+--- code
+sub rgb-from-c-x($h, $c, $x) {
+    my ($r, $g, $b);
+    given $h {
+        when   0..^60  { ($r, $g, $b) = ($c, $x, 0) }
+        when  60..^120 { ($r, $g, $b) = ($x, $c, 0) }
+        when 120..^180 { ($r, $g, $b) = (0, $c, $x) }
+        when 180..^360 { ($r, $g, $b) = (0, 0, $c) }
+    }
+    "$r $g $b"
+}
+say rgb-from-c-x(0, 1, 0.5);
+say rgb-from-c-x(60, 1, 0.5);
+say rgb-from-c-x(150.5, 1, 0.5);
+say rgb-from-c-x(359, 1, 0.5);
+--- expect
+1 0.5 0
+0.5 1 0
+0 1 0.5
+0 0 1
+
+=== ctl-given-list-when-list
+from: Dan 0.0.3 lib/Dan.rakumod:455
+license: Artistic-2.0
+feature: node Given
+--- code
+sub get-ap(:$axis = 0, :$pair = 0) {
+    given $axis, $pair {
+        when 0, 0 { 'array' }
+        when 0, 1 { 'pairs' }
+        when 1, 0 { 'columns' }
+        default   { 'column pairs' }
+    }
+}
+say get-ap;
+say get-ap(:pair(1));
+say get-ap(:axis(1));
+say get-ap(:axis(1), :pair(1));
+--- expect
+array
+pairs
+columns
+column pairs
+
+=== ctl-when-signature-literal
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/NonOption.rakumod:60
+license: Artistic-2.0
+feature: node When
+--- code
+sub arity-kind(&callback) {
+    given &callback.signature {
+        when :($, @) { 'two' }
+        when :(@)    { 'list' }
+        when :()     { 'none' }
+        default      { 'other' }
+    }
+}
+say arity-kind(-> $a, @b { });
+say arity-kind(-> @b { });
+say arity-kind(-> { });
+say arity-kind(-> $x, $y, $z { });
+--- expect
+two
+list
+none
+other
+
+=== ctl-when-whatever-hash-key
+from: Template::Mustache 1.2.7 lib/Template/Mustache.rakumod:496
+license: Artistic-2.0
+feature: node When
+--- code
+my %overrides;
+for { override => True, val => 'a', contents => 'A' },
+    { type => 'comment' },
+    { inherits => 'base' },
+    { type => 'text' } {
+    when *.<override> { %overrides{.<val>} = .<contents>; say 'override' }
+    when { .<type> eq 'comment' } { say 'comment' }
+    when *.<inherits> { say "inherits {.<inherits>}" }
+    default { say 'other' }
+}
+say %overrides<a>;
+--- expect
+override
+comment
+inherits base
+other
+A
+
+=== ctl-when-block-placeholder
+from: Web::App 0.9.2 lib/Web/Request.rakumod:217
+license: Artistic-2.0
+feature: node When
+--- code
+sub width($byte) {
+    my $bytes = 1;
+    my $mask = 0xFF;
+    given $byte {
+      when { $^c +& 0xF0 == 0xF0 } { $bytes = 4; $mask = 0x07; }
+      when { $^c +& 0xE0 == 0xE0 } { $bytes = 3; $mask = 0x0F; }
+      when { $^c +& 0xC0 == 0xC0 } { $bytes = 2; $mask = 0x1F; }
+    }
+    "$bytes {$mask.base(16)}"
+}
+say width(0x41);
+say width(0xC3);
+say width(0xE2);
+say width(0xF0);
+--- expect
+1 FF
+2 1F
+3 F
+4 7
+
+=== ctl-when-whatever-count
+from: Air 0.1.32 lib/Air/Functional.rakumod:225
+license: Artistic-2.0
+feature: node When
+--- code
+sub render-tag($x) { "<$x>" }
+sub inner(@inners --> Str()) {
+    given @inners {
+        when * == 0 {   ''   }
+        when * == 1 { .first.&render-tag }
+        when * >= 2 { .map(*.&render-tag).join }
+    }
+}
+say inner([]).raku;
+say inner(['p']);
+say inner(<a b c>);
+--- expect
+""
+<p>
+<a><b><c>
+
+=== ctl-when-type-junction-default
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:15
+license: Artistic-2.0
+feature: node When
+--- code
+sub diff-shape($value) {
+  return 'Undef' unless $value.defined;
+  given $value {
+    when Str                { 'Str' }
+    when Mix | MixHash      { 'Mix' }
+    when Bag | BagHash      { 'Bag' }
+    when Set | SetHash      { 'Set' }
+    when Associative        { 'Hash' }
+    when Positional         { 'Array' }
+    default                 { 'Scalar' }
+  }
+}
+say diff-shape($_) for Any, 'x', <a b>.Bag, <a>.SetHash, %(a => 1), [1], 3.5, (a => 1).Mix;
+--- expect
+Undef
+Str
+Bag
+Set
+Hash
+Array
+Scalar
+Mix
+
+=== ctl-when-definite-types
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem.rakumod:74
+license: Artistic-2.0
+feature: node When
+--- code
+sub depth-ok($depth, $arr-depth = 2) {
+    do given $depth {
+        when Whatever { True }
+        when Int:D { $arr-depth == $_ }
+        when Range:D { $arr-depth ∈ $_.List }
+        when $_ ~~ (Array:D | List:D | Seq:D) { $arr-depth ∈ $_ }
+        default { die 'bad depth' }
+    }
+}
+say depth-ok(*);
+say depth-ok(3);
+say depth-ok(1..4);
+say depth-ok((5, 2));
+say depth-ok('x');
+--- expect
+True
+False
+True
+True
+!! X::AdHoc
+
+=== ctl-when-in-for-regex
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:76
+license: Artistic-2.0
+feature: node When
+--- code
+my @args = <-l --exec=prove --reporter=html foo --html bar>;
+my (@new-args, @execs, @reporters);
+for @args -> $_ {
+    when '-l' { push @execs, $_ }
+    when /^'--exec'/ { push @execs, $_ }
+    when /^'--reporter='/ { push @reporters, $_ }
+    when '--html' { push @reporters, $_ }
+    default { push @new-args, $_ }
+}
+say @execs;
+say @reporters;
+say @new-args;
+--- expect
+[-l --exec=prove]
+[--reporter=html --html]
+[foo bar]
+
+=== ctl-when-method-then-regex
+from: Clipboard 0.1.2 lib/Clipboard.rakumod:23
+license: Artistic-2.0
+feature: node When
+--- code
+my class Distro { has $.name; method is-win { $!name eq 'mswin32' }; method Str { $!name } }
+sub backend($d) {
+    given $d {
+        when $_.is-win { 'Windows' }
+        when / macos / { 'macOS' }
+        default        { 'Linux' }
+    }
+}
+say backend(Distro.new(name => 'mswin32'));
+say backend(Distro.new(name => 'macos'));
+say backend(Distro.new(name => 'debian'));
+--- expect
+Windows
+macOS
+Linux
+
+=== ctl-when-negated-so-regex
+from: Dan 0.0.3 lib/Dan.rakumod:497
+license: Artistic-2.0
+feature: node When
+--- code
+sub clean-axis( :$axis ) {
+    given $axis {
+        when ! .so || /row/ { 0 }
+        when   .so || /col/ { 1 }
+    }
+}
+say clean-axis(:axis(0));
+say clean-axis(:axis('row'));
+say clean-axis(:axis('col'));
+say clean-axis(:axis(1));
+--- expect
+0
+0
+1
+1
+
+=== ctl-when-regex-captures
+from: CSS::Properties 0.10.9 lib/CSS/Box.rakumod:166
+license: Artistic-2.0
+feature: node When
+--- code
+sub prop(Str \name) {
+    given name {
+        when /^ (padding|border|margin)'-'(top|right|bottom|left) $/ {
+            my Str $box = ~$0;
+            my Str $edge = ~$1;
+            "$box/$edge"
+        }
+        default { 'unknown' }
+    }
+}
+say prop('margin-left');
+say prop('border-top');
+say prop('color');
+--- expect
+margin/left
+border/top
+unknown
+
+=== ctl-proceed-type-normalise
+from: HTTP::Headers 0.5.0 lib/HTTP/Headers.pm6:41
+license: Artistic-2.0
+feature: sub proceed
+--- code
+my @values = 3, 2.5, 'x';
+my @out = @values.map(-> $value is copy {
+    given $value {
+        when Int {
+            $value = $value.Rat;
+            proceed;
+        }
+        when Rat {
+            $value = sprintf '%.2f', $value;
+        }
+    }
+    $value
+});
+say @out;
+--- expect
+[3.00 2.50 x]
+
+=== ctl-proceed-state-machine
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/ResponseParser.rakumod:77
+license: Artistic-2.0
+feature: sub proceed
+--- code
+my enum State <StatusLine Header Body>;
+my $expecting = StatusLine;
+my @lines = 'HTTP/1.1 200', 'A: 1', 'B: 2', '';
+my @log;
+while @lines {
+    given $expecting {
+        when StatusLine {
+            @log.push: 'status ' ~ @lines.shift.words[1];
+            $expecting = Header;
+            proceed;
+        }
+        when Header {
+            my $h = @lines.shift;
+            if $h eq '' { $expecting = Body }
+            else { @log.push: "header $h" }
+        }
+    }
+}
+.say for @log;
+say $expecting;
+--- expect
+status 200
+header A: 1
+header B: 2
+Body
+
+=== ctl-proceed-modifier-and
+from: DBIish 0.6.9 lib/DBDish/Oracle/StatementHandle.rakumod:66
+license: BSD-2-Clause
+feature: sub proceed
+--- code
+my enum T <NUM INT FLT STR>;
+sub buffer($dtype is copy, $prec, $scale) {
+    do given $dtype {
+        when NUM {
+            $_ = INT and proceed if $prec > 0 && $scale == 0;
+            $_ = FLT and proceed if $scale == -127;
+            'num-buffer';
+        }
+        when INT { "int-buffer" }
+        when FLT { "flt-buffer" }
+        default  { 'str-buffer' }
+    }
+}
+say buffer(NUM, 5, 0);
+say buffer(NUM, 0, -127);
+say buffer(NUM, 5, 2);
+say buffer(STR, 0, 0);
+--- expect
+int-buffer
+flt-buffer
+num-buffer
+str-buffer
+
+=== ctl-proceed-in-catch
+from: Red 0.2.5 lib/MetamodelX/Red/Model.rakumod:408
+license: Artistic-2.0
+feature: sub proceed
+--- code
+my @events;
+sub create($data) {
+    die "bad $data" if $data < 0;
+    @events.push: "ok $data";
+    CATCH {
+        default {
+            @events.push: "error: {.message}";
+            proceed
+        }
+    }
+    True
+}
+say create(1);
+say (try create(-1)) // 'escaped';
+say $!.message;
+.say for @events;
+--- expect
+True
+escaped
+bad -1
+ok 1
+error: bad -1
+
+=== ctl-succeed-value-if
+from: Text::ShellWords 0.1.1 lib/Text/ShellWords.rakumod:147
+license: Artistic-2.0
+feature: sub succeed
+--- code
+my $keep = False;
+sub chunk($c) {
+    given $c.key {
+        when '~' {
+            succeed $c.value if $keep;
+            ''
+        }
+        default { $c.value }
+    }
+}
+say chunk('~' => 'tilde').raku;
+say chunk('x' => 'plain');
+$keep = True;
+say chunk('~' => 'tilde');
+--- expect
+""
+plain
+tilde
+
+=== ctl-when-modifier-in-for
+from: BitEnum 0.5 lib/BitEnum.rakumod:27
+license: Artistic-2.0
+feature: node When
+--- code
+my enum Bits (A => 1, B => 2, C => 4);
+sub lookup($s) { Bits::{$s} }
+my $value = 0;
+for 'A', C, 'B' -> $_ is copy {
+    $_ = lookup($_) when Str;
+    $value +|= .value
+}
+say $value;
+--- expect
+7
+
+=== ctl-die-when-modifier
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:453
+license: Artistic-2.0
+feature: node When
+--- code
+my @data = 1..5;
+sub take-n($n) {
+    given $n {
+        die "Invalid sequence specification $n for an expression of length {@data.elems}." when $n > @data.elems;
+        @data.head($n).sum
+    }
+}
+say take-n(3);
+say take-n(9);
+--- expect
+6
+!! X::AdHoc
+
+=== ctl-when-nil
+from: Log::Any 0.9.5 lib/Log/Any.pm6:51
+license: Artistic-2.0
+feature: node When
+--- code
+sub level($l) {
+    given $l {
+        when Nil { 'default' }
+        when Str { "named $l" }
+        default  { "numeric $l" }
+    }
+}
+say level(Nil);
+say level('debug');
+say level(3);
+--- expect
+default
+named debug
+numeric 3
+
+=== ctl-when-junction-literals
+from: CSS::Properties 0.10.9 lib/CSS/PageBox.rakumod:48
+license: Artistic-2.0
+feature: node When
+--- code
+sub orient($o) {
+    given $o {
+        when 'portrait' | 'landscape' { "orientation $o" }
+        when 'auto' { 'auto' }
+        default { 'size' }
+    }
+}
+say orient('portrait');
+say orient('landscape');
+say orient('auto');
+say orient('A4');
+--- expect
+orientation portrait
+orientation landscape
+auto
+size
+
+=== ctl-when-file-tests-adverb
+from: FileSystem::Helpers 0.1.2 lib/FileSystem/Helpers.rakumod:26
+license: Artistic-2.0
+feature: node When
+--- code
+my class Entry {
+    has $.name;
+    has Bool $.is-dir;
+    method d { $!is-dir }
+}
+for Entry.new(name => 'src', :is-dir), Entry.new(name => 'a.txt', :!is-dir) {
+    given $_ {
+        when :d { say "dir {.name}" }
+        default { say "file {.name}" }
+    }
+}
+--- expect
+dir src
+file a.txt

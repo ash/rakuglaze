@@ -1,0 +1,506 @@
+# Slurpy parameters, captures and flattening into calls, as modules write them:
+# `*@`/`*%`, `+@`, `**@`, `is raw` slurpies, `|c` captures, `\(...)` literals,
+# `|@args`/`|%opts` at the call site and the implicit `%_` of methods.
+
+=== sig-slurpy-pos-and-named-forward
+from: Air::Plugin::Hilite 0.0.10 lib/Air/Plugin/Hilite.rakumod:80
+license: Artistic-2.0
+feature: param *@ slurpy
+--- code
+my class Hilite {
+    has @.lines;
+    has $.lang;
+    method new(*@lines, *%h) { self.bless(:@lines, |%h) }
+}
+sub hilite(*@a, *%h) { Hilite.new( |@a, |%h ) };
+my $h = hilite('a = 1', 'b = 2', :lang<raku>);
+say $h.lines.elems;
+say $h.lang;
+--- expect
+2
+raku
+
+=== sig-slurpy-say-forward
+from: App::GPTrixie 0.29 lib/GPT/DumbGenerator.pm6:8
+license: Artistic-2.0
+feature: param *@ slurpy
+--- code
+my $debug = True;
+sub	debug(*@stuff) {
+    say(|@stuff) if $debug;
+}
+debug('found ', 3, ' types');
+debug();
+$debug = False;
+debug('hidden');
+say 'done';
+--- expect
+found 3 types
+
+done
+
+=== sig-slurpy-named-only
+from: BDD::Behave 0.9.5 lib/BDD/Behave.rakumod:301
+license: Artistic-2.0
+feature: param *% slurpy
+--- code
+sub hash-including(*%pairs) {
+    -> %h { so all(%pairs.map({ %h{.key}:exists && %h{.key} eqv .value })) }
+}
+my &m = hash-including(a => 1, b => 'x');
+say m({ a => 1, b => 'x', c => 3 });
+say m({ a => 1 });
+say hash-including()({});
+--- expect
+True
+False
+True
+
+=== sig-slurpy-after-positionals
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:129
+license: Artistic-2.0
+feature: param *@ slurpy
+--- code
+sub validate-option-type($name, $value, *@expected) {
+    return "ok $name" if $value ~~ any(@expected);
+    "$name expects " ~ @expected.map(*.^name).join(' or ')
+}
+say validate-option-type('lazy', True, Bool, Str);
+say validate-option-type('lazy', 42, Bool, Str);
+say validate-option-type('lazy', 42);
+--- expect
+ok lazy
+lazy expects Bool or Str
+lazy expects 
+
+=== sig-slurpy-flattens-arrays
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:524
+license: Artistic-2.0
+feature: param *@ slurpy
+--- code
+sub ddd(*@args) {
+    @args.elems ~ ': ' ~ @args.join(',')
+}
+say ddd(1, 2, 3);
+say ddd([1, 2], [3, [4, 5]]);
+say ddd((1, 2), 3);
+my @a = 7, 8;
+say ddd(@a, 9);
+--- expect
+3: 1,2,3
+4: 1,2,3,4 5
+3: 1,2,3
+3: 7,8,9
+
+=== sig-plus-slurpy-single-arg-rule
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:258
+license: Artistic-2.0
+feature: param +@ slurpy
+--- code
+my class Cache {
+    method get($key, +@args) { "$key: {@args.elems} [{@args.join('|')}]" }
+}
+my $c = Cache.new;
+say $c.get('k');
+say $c.get('k', 1, 2);
+say $c.get('k', [1, 2, 3]);
+say $c.get('k', [1, 2], [3]);
+--- expect
+k: 0 []
+k: 2 [1|2]
+k: 3 [1|2|3]
+k: 2 [1 2|3]
+
+=== sig-plus-slurpy-is-raw-method
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:123
+license: Artistic-2.0
+feature: param +@ slurpy
+--- code
+my role Appendable {
+    has @!store;
+    method append(::?ROLE:D: +@values is raw) { @!store.append(@values); self }
+    method all() { @!store.join(',') }
+}
+my class Bag2 does Appendable { }
+my $b = Bag2.new;
+$b.append(1, 2).append([3, 4]).append(5);
+say $b.all;
+--- expect
+1,2,3,4,5
+
+=== sig-double-star-keeps-structure
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Expectation.rakumod:474
+license: Artistic-2.0
+feature: param **@ slurpy
+--- code
+my class Expect {
+    has @.got;
+    method include(**@items, *%pairs) {
+        my $ok = so all(@items.map({ $_ (elem) @!got }));
+        $ok && so all(%pairs.map({ .key (elem) @!got }))
+    }
+}
+my $e = Expect.new(got => ['a', 'b', 'c']);
+say $e.include('a', 'c');
+say $e.include('a', 'z');
+say $e.include('a', :b);
+say $e.include(['a', 'b']);
+--- expect
+True
+False
+True
+False
+
+=== sig-double-star-is-raw-join
+from: Bailador 0.0.19 lib/Bailador/Test.pm:24
+license: MIT
+feature: param **@ slurpy
+--- code
+my class Out {
+    has $.buf = '';
+    method !add-string($s) { $!buf ~= $s }
+    multi method print(**@args is raw) { self!add-string( join '', @args.map: *.Str ) }
+}
+my $o = Out.new;
+$o.print('a', 1, 'b');
+$o.print([1, 2], 3);
+say $o.buf;
+--- expect
+a1b1 23
+
+=== sig-double-star-arity
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/Diff.rakumod:289
+license: Artistic-2.0
+feature: param **@ slurpy
+--- code
+sub zipi(**@as)
+{
+    @as.elems ~ ' lists: ' ~ ([Z~] @as).join(' ')
+}
+say zipi(<a b c>, <1 2 3>);
+say zipi(<x y>, <p q>, <m n>);
+--- expect
+2 lists: a1 b2 c3
+3 lists: xpm yqn
+
+=== sig-star-slurpy-is-raw-writes-back
+from: DBIish 0.6.9 lib/DBDish/SQLCipher/StatementHandle.rakumod:33
+license: BSD-2-Clause
+feature: trait is raw
+--- code
+my class Sth {
+    method execute(*@params is raw) {
+        $_ = "<$_>" for @params;
+        @params.elems
+    }
+}
+my ($a, $b) = 'x', 'y';
+say Sth.new.execute($a, $b);
+say "$a $b";
+--- expect
+2
+<x> <y>
+
+=== sig-slurpy-is-copy-method
+from: BitEnum 0.5 lib/BitEnum.rakumod:23
+license: Artistic-2.0
+feature: trait is copy
+--- code
+my class Bits {
+    has Int $.value is rw = 0;
+    method set(*@bits is copy --> Nil)
+    {
+        @bits .= map({ 1 +< $_ });
+        $!value +|= $_ for @bits;
+    }
+}
+my $b = Bits.new;
+say $b.set(0, 3);
+say $b.value;
+--- expect
+Nil
+9
+
+=== sig-capture-forward-to-impl
+from: BDD::Behave 0.9.5 lib/BDD/Behave.rakumod:13
+license: Artistic-2.0
+feature: param |capture
+--- code
+my &impl = -> $name, &block, :$focus = False { "$name {block()} {$focus}" };
+sub describe(|args) {
+    impl(|args);
+}
+say describe('stack', { 'runs' });
+say describe('queue', { 'runs' }, :focus);
+--- expect
+stack runs False
+queue runs True
+
+=== sig-capture-after-positional
+from: BDD::Behave 0.9.5 lib/BDD/Behave.rakumod:333
+license: Artistic-2.0
+feature: param |capture
+--- code
+my %matchers;
+sub matcher(Str:D $name, |c) {
+    %matchers{$name} = c;
+    "$name: {c.list.elems} positional, {c.hash.keys.sort.join(',')}"
+}
+say matcher('be-even', 1, 2, :strict, :msg<x>);
+say matcher('be-odd');
+say %matchers<be-even>[1];
+--- expect
+be-even: 2 positional, msg,strict
+be-odd: 0 positional, 
+2
+
+=== sig-capture-after-named-default
+from: Base64::Native 0.0.10 lib/Base64/Native.rakumod:25
+license: Artistic-2.0
+feature: param |capture
+--- code
+sub encode-raw(Blob $b, :$uri = False) { $uri ?? "uri:{$b.elems}" !! "std:{$b.elems}" }
+multi sub base64-encode(Str $in, :$enc = 'utf8', |c) {
+    encode-raw($in.encode($enc), |c)
+}
+say base64-encode('héllo');
+say base64-encode('héllo', :enc<latin1>);
+say base64-encode('héllo', :uri);
+--- expect
+std:6
+std:5
+uri:6
+
+=== sig-anon-capture-noop-callable
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:387
+license: Artistic-2.0
+feature: param |capture
+--- code
+my &debug = -> *@a { say 'debug: ', @a.join(' ') };
+debug('on');
+&debug = -> | --> Nil { }
+say debug('anything', 1, :named);
+say &debug.signature.raku;
+--- expect
+debug: on
+Nil
+:(| --> Nil)
+
+=== sig-pointy-capture-method-call
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model.rakumod:2191
+license: Artistic-2.0
+feature: param |capture
+--- code
+my class Scope { has $.klass; has $.name; has &.block }
+my class User {
+    method recent($n, :$order = 'desc') { "recent $n $order" }
+}
+my ($klass, $name) = User, 'recent';
+my $s = Scope.new(:$klass, :$name, :block(-> |args { $klass."$name"(|args) }));
+say $s.block.(5);
+say $s.block.(3, :order<asc>);
+--- expect
+recent 5 desc
+recent 3 asc
+
+=== sig-flatten-array-into-call
+from: BDD::Behave 0.9.5 lib/BDD/Behave.rakumod:314
+license: Artistic-2.0
+feature: prefix |
+--- code
+my &impl = -> *@items { 'including ' ~ @items.join('+') };
+sub array-including(*@items) {
+    impl(|@items);
+}
+say array-including(1, 2, 3);
+my @xs = <a b>;
+say array-including(|@xs, 'c');
+--- expect
+including 1+2+3
+including a+b+c
+
+=== sig-flatten-hash-into-new
+from: Actionable 0.0.7 lib/Actionable.rakumod:224
+license: Artistic-2.0
+feature: prefix |
+--- code
+my class Action {
+    has $.verb;
+    has $.target = 'none';
+    method from-hash(%init) { self.new(|%init); }
+}
+my $a = Action.from-hash({ verb => 'open', target => 'door' });
+say "{$a.verb} {$a.target}";
+say Action.from-hash({ verb => 'wait' }).target;
+--- expect
+open door
+none
+
+=== sig-flatten-hash-and-array
+from: Bailador 0.0.19 lib/Bailador.pm:163
+license: MIT
+feature: prefix |
+--- code
+my class App {
+    method baile(*@pos, *%named) { "{@pos.join(',')} | {%named.sort.map({ "{.key}={.value}" }).join(',')}" }
+}
+sub app() { App.new }
+my %param = port => 3000, host => 'localhost';
+my @param = 'dev', 'debug';
+say app.baile(|%param, |@param);
+--- expect
+dev,debug | host=localhost,port=3000
+
+=== sig-explicit-percent-underscore-forward
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:20
+license: Artistic-2.0
+feature: param *% slurpy
+--- code
+my proto sub add-source-lines(|) {*}
+my multi sub add-source-lines($file, @lines, *%_) {
+    add-source-lines Pair.new($file, @lines), |%_
+}
+my multi sub add-source-lines(Pair:D $file-lines, :$context = 0) {
+    "{$file-lines.key}: {$file-lines.value.join(',')} ctx=$context"
+}
+say add-source-lines('a.raku', [3, 7]);
+say add-source-lines('b.raku', [1], :context(2));
+--- expect
+a.raku: 3,7 ctx=0
+b.raku: 1 ctx=2
+
+=== sig-method-implicit-percent-underscore
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:381
+license: Artistic-2.0
+feature: param *% slurpy
+--- code
+my class Eco {
+    method find-identities($needle, :$all, :$ver = '*') { "$needle all=$all ver=$ver" }
+    method find-names($needle) {
+        self.find-identities($needle, |%_, :all)
+    }
+}
+say Eco.new.find-names('JSON');
+say Eco.new.find-names('JSON', :ver<1.0>);
+--- expect
+JSON all=True ver=*
+JSON all=True ver=1.0
+
+=== sig-capture-literal-named
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Simple/TopLevel.rakumod:134
+license: Artistic-2.0
+feature: term \( )
+--- code
+my class Geometry { has $.parent; has $.layout; has $.x; has $.y; has $.w; has $.h }
+my $parent = 'root';
+my ($w, $h) = 80, 24;
+my $geometry = \(:$parent, :layout('grid'), :x(0), :y(1), :$w, :$h);
+say $geometry.hash.keys.sort.join(',');
+my $g = Geometry.new(|$geometry);
+say "{$g.parent} {$g.layout} {$g.w}x{$g.h}";
+--- expect
+h,layout,parent,w,x,y
+root grid 80x24
+
+=== sig-capture-literal-positional-args
+from: Test::Async 0.1.17 lib/Test/Async/Base.rakumod:805
+license: Artistic-2.0
+feature: term \( )
+--- code
+sub invoke-suite(&code, :$async = False, Capture :$args = \()) {
+    ($async ?? 'async ' !! 'sync ') ~ code(|$args)
+}
+my $child = 'child-suite';
+say invoke-suite(-> $s { "ran $s" }, args => \($child));
+say invoke-suite({ 'no args' }, :async);
+--- expect
+sync ran child-suite
+async no args
+
+=== sig-capture-new-hash
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Body.rakumod:75
+license: Artistic-2.0
+feature: method new
+--- code
+my class Form {
+    has @.pairs;
+    method !hashed() { %(@!pairs) }
+    method Capture() { Capture.new(hash => self!hashed) }
+}
+sub handle(:$name, :$age) { "$name is $age" }
+my $f = Form.new(pairs => (name => 'Ann', age => 30));
+say handle(|$f.Capture);
+say $f.Capture.list.elems;
+--- expect
+Ann is 30
+0
+
+=== sig-pointy-slurpy-forward
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/View.rakumod:329
+license: Artistic-2.0
+feature: param *@ slurpy
+--- code
+sub cycle(*@values, :$name = 'default') { "$name:" ~ @values.join('/') }
+my %helpers =
+    cycle        => -> *@values, *%opts        { cycle(|@values, |%opts) },
+;
+say %helpers<cycle>('odd', 'even');
+say %helpers<cycle>('a', 'b', 'c', :name<rows>);
+--- expect
+default:odd/even
+rows:a/b/c
+
+=== sig-new-optional-and-slurpy-named
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Message.rakumod:17
+license: MIT
+feature: param *% slurpy
+--- code
+my class Message {
+    has $.content;
+    has %.fields;
+    method new($content?, *%fields) {
+        self.bless(:$content, :%fields)
+    }
+}
+my $m = Message.new('body', Content-Type => 'text/plain', Host => 'x');
+say $m.content;
+say $m.fields.keys.sort.join(',');
+say Message.new.content.raku;
+--- expect
+body
+Content-Type,Host
+Any
+
+=== sig-call-dot-paren-flatten
+from: CompUnit::Util 0.7.0 lib/CompUnit/Util.rakumod:219
+license: MIT
+feature: prefix |
+--- code
+my %sym;
+my @pos = 'x', 2;
+my @makers = -> $k, $v { $k => $v }, -> $k, $v { "$k$v" => $v * 10 };
+for @makers {
+    %sym.append: .(|@pos);
+}
+say %sym.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+x=2 x2=20
+
+=== sig-attr-callable-call-flatten
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:280
+license: Artistic-2.0
+feature: prefix |
+--- code
+my class Cache {
+    has &.producer;
+    method get($key, +@args) {
+        my $prod-result = &.producer.($key, |@args);
+        $prod-result
+    }
+}
+my $c = Cache.new(producer => -> $k, *@rest { "$k:" ~ @rest.sum });
+say $c.get('a', 1, 2, 3);
+say $c.get('b');
+--- expect
+a:6
+b:0

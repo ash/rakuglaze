@@ -1,0 +1,658 @@
+# Multi candidates and re-dispatch as modules write them: literal and `where`
+# candidates, protos with signatures, `samewith`, `nextsame`, `callsame`,
+# `nextwith`, `callwith`, and asking a routine for its candidates.
+
+=== sig-multi-literal-zero-method
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt.rakumod:84
+license: Artistic-2.0
+feature: decl multi
+--- code
+my class Gcrypt {
+    multi method check(0) { 0 }
+    multi method check(Int $err) { "error $err" }
+}
+say Gcrypt.new.check(0);
+say Gcrypt.new.check(5);
+--- expect
+0
+error 5
+
+=== sig-multi-literal-first-arg-rw
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/FrameParser.rakumod:118
+license: Artistic-2.0
+feature: decl multi
+--- code
+my multi sub payload(0, Buf $data is rw, $length, *%header) {
+    my $p = $data.subbuf(0, $length);
+    $data .= subbuf($length);
+    "DATA {$p.elems} flags={%header<flags> // 0}"
+}
+my multi sub payload(Int $type, Buf $data is rw, $length, *%header) {
+    "type $type"
+}
+my $buf = Buf.new(1..6);
+say payload(0, $buf, 4, :flags(1));
+say $buf.elems;
+say payload(8, $buf, 1);
+--- expect
+DATA 4 flags=1
+2
+type 8
+
+=== sig-multi-string-literal-first
+from: TAP 0.3.15 lib/TAP.rakumod:604
+license: Artistic-2.0
+feature: decl multi
+--- code
+my @out;
+multi receive('update', Str $name, Str $header, Int $number, Int $plan) {
+    @out.push: "$name $header $number/$plan";
+}
+multi receive('done', Str $name) {
+    @out.push: "$name done";
+}
+receive('update', 't/a.t', 'ok', 3, 10);
+receive('done', 't/a.t');
+say @out.join("\n");
+receive('other', 'x');
+--- expect
+t/a.t ok 3/10
+t/a.t done
+!! X::Multi::NoMatch
+
+=== sig-multi-where-recursion
+from: Math::SpecialFunctions 0.1.1 lib/Math/SpecialFunctions.rakumod:8
+license: Artistic-2.0
+feature: decl multi
+--- code
+multi sub factorial(Int $n where $n ≤ 1) {
+    1
+}
+multi sub factorial(Int $n) {
+    $n * factorial($n - 1)
+}
+say factorial(0);
+say factorial(5);
+say factorial(25);
+--- expect
+1
+120
+15511210043330985984000000
+
+=== sig-samewith-encode-str
+from: Base58 0.0.5 lib/Base58.rakumod:13
+license: MIT
+feature: call samewith
+--- code
+multi encode(Str $s) { samewith($s.encode) }
+multi encode(Blob $b) { $b.list.map(*.fmt('%02x')).join }
+say encode('AB');
+say encode(Blob.new(255, 0));
+--- expect
+4142
+ff00
+
+=== sig-samewith-named-flag-rewrite
+from: Base64 0.1.0 lib/Base64.rakumod:9
+license: Artistic-2.0
+feature: call samewith
+--- code
+my proto sub encode-base64(|) {*}
+multi sub encode-base64(Bool:D :$pad!, |c)                    { samewith(:pad(?$pad ?? '=' !! ''), |c) }
+multi sub encode-base64(Str $s, Str:D :$pad = '=')             { $s.chars ~ ($pad x (3 - $s.chars % 3) % 3) }
+say encode-base64('ab');
+say encode-base64('ab', :pad);
+say encode-base64('ab', :!pad);
+say encode-base64('ab', :pad<*>);
+--- expect
+2=
+2=
+2
+2*
+
+=== sig-samewith-capture-then-join
+from: Base64 0.1.0 lib/Base64.rakumod:11
+license: Artistic-2.0
+feature: call samewith
+--- code
+my proto sub encode-base64(|) {*}
+multi sub encode-base64(Bool:D :$str! where *.so, |c --> Str) { samewith(|c).join                      }
+multi sub encode-base64(Str $s) { $s.comb.map(*.ord.base(16)) }
+say encode-base64('hi');
+say encode-base64('hi', :str);
+say encode-base64('hi', :!str);
+--- expect
+(68 69)
+6869
+!! X::Multi::NoMatch
+
+=== sig-samewith-pair-unpack
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:145
+license: Artistic-2.0
+feature: call samewith
+--- code
+my %options;
+multi sub set-option(Pair:D $opt) {
+    samewith($opt.key, $opt.value)
+}
+multi sub set-option(Str:D $name, $value) {
+    %options{$name} = $value;
+    "$name set"
+}
+say set-option((lazy => True));
+say set-option('builder', 'build-it');
+say %options.sort.map(*.gist).join(' ');
+--- expect
+lazy set
+builder set
+builder => build-it lazy => True
+
+=== sig-samewith-hash-forward
+from: Dan 0.0.3 lib/Dan.rakumod:28
+license: Artistic-2.0
+feature: call samewith
+--- code
+my class Series {
+    has %.index;
+    multi method new(List:D :$index, *%h) {
+        samewith( index => $index.map({ $_ => $++ }).Hash, |%h )
+    }
+    multi method new(Hash:D :$index, *%h) { self.bless(:$index, |%h) }
+}
+my $s = Series.new(index => <a b c>);
+say $s.index.sort.map(*.gist).join(' ');
+--- expect
+a => 0 b => 1 c => 2
+
+=== sig-samewith-method-recursion
+from: Air 0.1.32 lib/Air/Functional.rakumod:147
+license: Artistic-2.0
+feature: call samewith
+--- code
+my enum TagType <Singular Regular>;
+my class Tag {
+    multi method render(TagType $tag-type, $name) { $tag-type == Singular ?? "<$name />" !! "<$name></$name>" }
+    multi method render($name) {
+        my $tag-type = $name eq 'br' ?? Singular !! Regular;
+        samewith $tag-type, $name
+    }
+}
+say Tag.new.render('br');
+say Tag.new.render('div');
+--- expect
+<br />
+<div></div>
+
+=== sig-nextsame-invocant-D
+from: LibXML 0.11.3 lib/LibXML.rakumod:17
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Parser {
+    has $.config = 'parser config';
+}
+my class LibXML is Parser {
+    proto method config() {*}
+    multi method config(::?CLASS:U:) { 'global config' }
+    multi method config(::?CLASS:D:) { nextsame }
+}
+say LibXML.config;
+say LibXML.new.config;
+say LibXML.new(config => 'mine').config;
+--- expect
+global config
+parser config
+mine
+
+=== sig-nextsame-unless-numeric
+from: FatRatStr 0.0.14 lib/FatRatStr.rakumod:161
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Parser {
+    multi method parse(Str $s) {
+        nextsame unless +"$s" ~~ Num;
+        "num $s"
+    }
+    multi method parse(Cool $s) { "cool $s" }
+}
+say Parser.new.parse('1e3');
+say Parser.new.parse('42');
+--- expect
+num 1e3
+cool 42
+
+=== sig-nextsame-after-check-subclass
+from: LibXML 0.11.3 lib/LibXML/Document.rakumod:743
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Node {
+    has @.kids;
+    method appendChild($node) { @!kids.push: $node; $node }
+}
+my class Document is Node {
+    has @.log;
+    method !check-new-node($n) { @!log.push: "checked $n" }
+    method appendChild(Str:D $node)    { self!check-new-node($node); nextsame; }
+}
+my $d = Document.new;
+say $d.appendChild('root');
+say $d.kids;
+say $d.log;
+--- expect
+root
+[root]
+[checked root]
+
+=== sig-callsame-filter-result
+from: Collection 0.18.0 lib/Collection.rakumod:41
+license: Artistic-2.0
+feature: call callsame
+--- code
+my class Base {
+    method keys() { <a b c d> }
+}
+my class Collection is Base {
+    has %!extra = b => 1, d => 1;
+    method keys() {
+        (callsame.grep({ $_ !~~ any(%!extra.keys) })).flat
+    }
+}
+say Collection.new.keys;
+--- expect
+(a c)
+
+=== sig-callsame-plain-statement
+from: Cro::CBOR 0.0.7 lib/Cro/CBOR.rakumod:100
+license: Artistic-2.0
+feature: call callsame
+--- code
+my @log;
+my class Parser {
+    method parse($x) { @log.push: "base $x"; 'parsed' }
+}
+my class CBOR is Parser {
+    method parse($x) {
+        @log.push: "cbor $x";
+        callsame;
+    }
+}
+say CBOR.new.parse(7);
+say @log.join(', ');
+--- expect
+parsed
+cbor 7, base 7
+
+=== sig-nextwith-if-defined-str
+from: Collection 0.18.0 lib/Collection.rakumod:55
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class Base {
+    method render($rv) { "render <$rv>" }
+}
+my class Plugin is Base {
+    method render($rv is copy) {
+        $rv = $rv.uc;
+        nextwith($rv) if $rv ~~ Str:D;
+        'not a string'
+    }
+}
+say Plugin.new.render('page');
+say Plugin.new.render(Str);
+--- expect
+render <PAGE>
+render <>
+
+=== sig-nextwith-capture-prepend
+from: Distribution::Common 0.1.0 lib/Distribution/Common.rakumod:34
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class Handle {
+    method slurp-rest($name, :$bin) { "read $name" ~ ($bin ?? ' as bin' !! '') }
+}
+my $name-path = 'META6.json';
+my class NamedHandle is Handle {
+    method slurp-rest(|c) { nextwith($name-path, |c) }
+}
+say NamedHandle.new.slurp-rest;
+say NamedHandle.new.slurp-rest(:bin);
+--- expect
+read META6.json
+read META6.json as bin
+
+=== sig-nextwith-named-percent-underscore
+from: Date::Names 2.3.2 lib/Date/Names.rakumod:232
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class Names {
+    has $.lang; has $.m; has $.d;
+    method new(:$lang, :$m, :$d, *%_) { self.bless(:$lang, :$m, :$d) }
+}
+my class EnNames is Names {
+    method new(*%_) {
+        my ($L, $m, $d) = 'en', 'January', 'Monday';
+        nextwith :lang($L), :m($m), :d($d), |%_;
+    }
+}
+my $n = EnNames.new;
+say "{$n.lang} {$n.m} {$n.d} {$n.^name}";
+--- expect
+en January Monday EnNames
+
+=== sig-callwith-named-args
+from: HTTP::Request::FormData 0.2 lib/HTTP/Request/FormData.pm6:183
+license: Artistic-2.0
+feature: call callwith
+--- code
+my class FormData {
+    multi method add-part($name, $file, :$content-type = 'text/plain', :$filename) {
+        "$name: $file ($content-type, {$filename // '-'})"
+    }
+}
+my class FileForm is FormData {
+    multi method add-part($name, $file where *.ends-with('.png')) {
+        my ($content-type, $filename) = 'image/png', $file;
+        callwith($name, $file, :$content-type, :$filename);
+    }
+}
+say FileForm.new.add-part('pic', 'cat.png');
+say FileForm.new.add-part('doc', 'a.txt');
+--- expect
+pic: cat.png (image/png, cat.png)
+doc: a.txt (text/plain, -)
+
+=== sig-callwith-hash-flatten-new
+from: Notcurses::Native 0.6.6 lib/Notcurses/Native/Types.rakumod:141
+license: Artistic-2.0
+feature: call callwith
+--- code
+my class Options {
+    has $.rows; has $.cols; has $.flags = 0;
+}
+my class PlaneOptions is Options {
+    method new(*%rest) {
+        %rest<flags> //= 4;
+        my $self = callwith(|%rest);
+        $self
+    }
+}
+my $o = PlaneOptions.new(rows => 2, cols => 3);
+say "{$o.rows}x{$o.cols} flags={$o.flags} {$o.^name}";
+--- expect
+2x3 flags=4 PlaneOptions
+
+=== sig-proto-two-anon-positionals
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Test.rakumod:8
+license: Artistic-2.0
+feature: decl proto
+--- code
+proto sub json-eqv($,$) {*}
+multi sub json-eqv (Numeric:D $a, Numeric:D $b) { $a == $b }
+multi sub json-eqv (Str:D $a, Str:D $b) { $a eq $b }
+multi sub json-eqv ($a, $b) { False }
+say json-eqv(1, 1.0);
+say json-eqv('a', 'a');
+say json-eqv(1, 'a');
+--- expect
+True
+True
+False
+
+=== sig-proto-optional-and-nameds
+from: Base64::Native 0.0.10 lib/Base64/Native.rakumod:23
+license: Artistic-2.0
+feature: decl proto
+--- code
+our proto sub base64-encode($, $?, :$enc, :$str, :$uri)  { * }
+multi sub base64-encode(Str $in, :$enc = 'utf8', *%) { "str " ~ $in.encode($enc).elems }
+multi sub base64-encode(Blob $in, $out?, *%) { "blob " ~ $in.elems ~ ($out ?? ' into buffer' !! '') }
+say base64-encode('héllo');
+say base64-encode('héllo', :enc<latin1>);
+say base64-encode(Blob.new(1, 2), 'buf');
+base64-encode('x', :bogus);
+--- expect
+str 6
+str 5
+blob 2 into buffer
+!! X::AdHoc
+
+=== sig-proto-method-returns
+from: CSS::Stylesheet 0.1.5 lib/CSS/Media.rakumod:46
+license: Artistic-2.0
+feature: decl proto
+--- code
+my class Media {
+    has %.props = color => 8, width => 600;
+    proto method have(Str $prop, $val?) returns Bool {*}
+    multi method have($prop) { %!props{$prop}:exists }
+    multi method have($prop, $val) { (%!props{$prop} // -1) >= $val }
+}
+my $m = Media.new;
+say $m.have('color');
+say $m.have('width', 800);
+say $m.have('grid');
+--- expect
+True
+False
+False
+
+=== sig-proto-capture-return-type
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:81
+license: Artistic-2.0
+feature: decl proto
+--- code
+my class Writer {
+    proto method write(|c --> Str) {*}
+    multi method write(Pair $_) { "{.key}: {.value};" }
+    multi method write(List $ast, Str :$sep=' ') { $ast.map({ self.write($_) }).join($sep) }
+}
+my $w = Writer.new;
+say $w.write((color => 'red'));
+say $w.write((margin => 0, padding => '1em'));
+say $w.write((a => 1, b => 2), :sep("\n"));
+--- expect
+color: red;
+margin: 0; padding: 1em;
+a: 1;
+b: 2;
+
+=== sig-multi-literal-and-where-pair
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:101
+license: Artistic-2.0
+feature: decl multi
+--- code
+my class XPath {
+    multi method _pseudo-func('lang', Pair $_ where .key ~~ 'ident') {
+        "lang('{.value}')"
+    }
+    multi method _pseudo-func($name, $) { "unknown $name" }
+}
+my $x = XPath.new;
+say $x._pseudo-func('lang', (ident => 'en'));
+say $x._pseudo-func('lang', (string => 'en'));
+say $x._pseudo-func('nth', 1);
+--- expect
+lang('en')
+unknown lang
+unknown nth
+
+=== sig-multi-pair-D-topic
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:38
+license: Artistic-2.0
+feature: decl multi
+--- code
+my class XPath {
+    multi method xpath(Pair:D $_) {
+        "{.key}[{self.xpath(.value)}]"
+    }
+    multi method xpath(Str:D $_) { $_ }
+}
+say XPath.new.xpath((div => 'p'));
+say XPath.new.xpath((ul => li => 'a'));
+--- expect
+div[p]
+ul[li[a]]
+
+=== sig-multi-lexical-numeric
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/Packer.rakumod:100
+license: Artistic-2.0
+feature: decl multi
+--- code
+my multi _pack( Numeric:D $f ) {
+    $f ~~ Int ?? "int $f" !! "float {$f.Num}"
+}
+my multi _pack( Str:D $s ) { "str {$s.chars}" }
+my multi _pack( Any:U ) { 'nil' }
+say _pack(5);
+say _pack(1/2);
+say _pack('abc');
+say _pack(Any);
+--- expect
+int 5
+float 0.5
+str 3
+nil
+
+=== sig-multi-cool-fallback
+from: JSON::Marshal 0.0.25 lib/JSON/Marshal.rakumod:166
+license: Artistic-2.0
+feature: decl multi
+--- code
+multi sub _marshal(Cool $value) {
+    $value
+}
+multi sub _marshal(Bool $value) { $value ?? 'true' !! 'false' }
+multi sub _marshal(@value) { '[' ~ @value.map({ _marshal($_) }).join(',') ~ ']' }
+say _marshal(42);
+say _marshal(True);
+say _marshal([1, False, 'x']);
+--- expect
+42
+true
+[1,false,x]
+
+=== sig-multi-required-anon-named
+from: Collection 0.18.0 lib/Collection.rakumod:231
+license: Artistic-2.0
+feature: decl multi
+--- code
+multi sub collect( :help($)! ) {
+    'usage: collect [options]'
+}
+multi sub collect( :$mode = 'full' ) { "collecting $mode" }
+say collect;
+say collect(:help);
+say collect(:mode<quick>);
+--- expect
+collecting full
+usage: collect [options]
+collecting quick
+
+=== sig-multi-str-is-copy
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:447
+license: Artistic-2.0
+feature: decl multi
+--- code
+my multi _unescape(Str:D $value is copy) {
+    $value ~~ s:g/\\ (<[0..9a..fA..F]> ** 1..6) \s?/{ chr(:16(~$0)) }/;
+    $value
+}
+my multi _unescape(Any:U) { '' }
+say _unescape('\41 bc');
+say _unescape('x\2603 y');
+say _unescape(Str).chars;
+--- expect
+Abc
+x☃y
+0
+
+=== sig-multi-array-where-all
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToWideFormat.rakumod:15
+license: Artistic-2.0
+feature: decl multi
+--- code
+multi auto-aggregator(@vec where @vec.all ~~ Numeric:D) { @vec.sum }
+multi auto-aggregator(@vec) { @vec.unique.join(';') }
+say auto-aggregator([1, 2, 3.5]);
+say auto-aggregator(<a b a>);
+say auto-aggregator([1, 'b']);
+--- expect
+6.5
+a;b
+1;b
+
+=== sig-candidates-first-arity
+from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:981
+license: MIT
+feature: method candidates
+--- code
+my class Table {
+    has $.align = 'l';
+    multi method align() { $!align }
+    multi method align($v) { $!align = $v }
+    method getter($method-name) {
+        my $getter = self.^find_method($method-name).candidates.first(*.arity == 1);
+        $getter(self)
+    }
+}
+say Table.new.getter('align');
+say Table.^find_method('align').candidates.elems;
+--- expect
+l
+2
+
+=== sig-candidates-signatures
+from: Math::Nearest 0.0.7 lib/Math/Nearest/Finder.rakumod:126
+license: Artistic-2.0
+feature: method candidates
+--- code
+my class Finder {
+    multi method nearest($point, :$count) { }
+    multi method nearest($point, :$radius, :$prop) { }
+}
+my $method = Finder.^find_method('nearest');
+my @knownParamNames = $method.candidates.map({ $_.signature.params.map({ $_.usage-name }) }).flat.unique;
+say @knownParamNames.sort;
+--- expect
+( _ count point prop radius)
+
+=== sig-cando-capture-literal
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:688
+license: Artistic-2.0
+feature: method cando
+--- code
+my class Greeter { method irc-privmsg($e) { "hi $e" } }
+my class Silent { method irc-privmsg($e, :$force!) { } }
+my @can;
+for Greeter.new, Silent.new -> $plugin {
+    with $plugin.^find_method('irc-privmsg') {
+        @can.push: $plugin.^name if .cando: \($plugin, 'event')
+    }
+}
+say @can;
+--- expect
+[Greeter]
+
+=== sig-cando-multi-candidates
+from: JSON::RPC 1.0.6 lib/JSON/RPC/Server.rakumod:229
+license: Artistic-2.0
+feature: method cando
+--- code
+my class API {
+    multi method add(Int $a, Int $b) { $a + $b }
+    multi method add(Str $a, Str $b) { $a ~ $b }
+}
+my $method = API.^find_method('add');
+my $params = \(API, 1, 2);
+my @candidates = $method.cando( $params );
+say @candidates.elems;
+say @candidates[0].signature.params[1].type.^name;
+say $method.cando(\(API, 1, 'x')).elems;
+--- expect
+1
+Int
+0

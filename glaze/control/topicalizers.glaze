@@ -1,0 +1,170 @@
+# given/when, with, gather/take, CATCH, classify — control as modules use it.
+
+=== with-optional-param
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:68
+license: Artistic-2.0
+feature: node With
+--- code
+sub show(:$out-type) {
+    with $out-type { say "type: $_" }
+    else { say 'no type' }
+}
+show(out-type => 'list');
+show();
+show(out-type => 0);
+--- expect
+type: list
+no type
+type: 0
+
+=== with-method-topic
+from: Air 0.1.32 lib/Air/Base.rakumod:667
+license: Artistic-2.0
+feature: node With
+--- code
+my class Page {
+    has $.nav;
+    has $.header is rw = 'empty';
+    method render { with $.nav { $!header = "nav: $_" }; $!header }
+}
+say Page.new(nav => 'top').render;
+say Page.new.render;
+--- expect
+nav: top
+empty
+
+=== given-when-types
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:20
+license: Artistic-2.0
+feature: node Given
+--- code
+sub pick-distance($distance-function) {
+    given $distance-function {
+        when Callable          { 'callable' }
+        when $_ ~~ Str && .lc eq 'euclidean' { 'euclid' }
+        when Str               { "named $_" }
+        default                { 'default' }
+    }
+}
+say pick-distance(-> $a, $b { 0 });
+say pick-distance('Euclidean');
+say pick-distance('cosine');
+say pick-distance(42);
+--- expect
+callable
+euclid
+named cosine
+default
+
+=== given-io-topic
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:37
+license: Artistic-2.0
+feature: node Given
+--- code
+my $value = '/tmp/some/file.txt';
+given $value.IO {
+    say .basename;
+    say .extension;
+    say .parent.basename;
+}
+--- expect
+file.txt
+txt
+some
+
+=== gather-for-take
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Files.rakumod:9
+license: Artistic-2.0
+feature: prefix gather
+--- code
+my @args = <a.raku b.txt c.rakutest>;
+my @files = gather for @args -> $arg {
+    take $arg if $arg.ends-with('.raku' | '.rakutest');
+};
+say @files;
+--- expect
+[a.raku c.rakutest]
+
+=== gather-block-lazy
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:1060
+license: Artistic-2.0
+feature: prefix gather
+--- code
+my $n = 0;
+my $seq = gather {
+    loop { take $n++ }
+};
+say $seq.head(4);
+say $n;
+--- expect
+(0 1 2 3)
+4
+
+=== classify-method-closure
+from: CSS::Properties 0.10.9 lib/CSS/Font/Pattern.rakumod:44
+license: Artistic-2.0
+feature: method classify
+--- code
+my @fonts = (style => 'italic', name => 'a'), (style => 'normal', name => 'b'), (style => 'italic', name => 'c');
+my %s = @fonts.map(*.Hash).classify: { .<style> };
+say %s.keys.sort;
+say %s<italic>.map(*<name>).join(',');
+--- expect
+(italic normal)
+a,c
+
+=== classify-into-named-captures
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:526
+license: Artistic-2.0
+feature: method classify
+--- code
+sub f($a, $b, :$c, :$d) {}
+my (:@positional, :@named) := &f.signature.params.classify:
+    { .named ?? 'named' !! 'positional' };
+say @positional.map(*.name).join(',');
+say @named.map(*.name).join(',');
+--- expect
+$a,$b
+$c,$d
+
+=== catch-default-message
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:36
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+sub run-it {
+    die "boom";
+    CATCH {
+        default { say "caught: {.message}"; }
+    }
+}
+run-it;
+say 'after';
+--- expect
+caught: boom
+after
+
+=== catch-when-type-resume
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:56
+license: Artistic-2.0
+feature: phaser CATCH
+--- code
+my class X::Mine is Exception { method message { 'mine' } }
+sub g {
+    X::Mine.new.throw;
+    'not reached';
+    CATCH {
+        when X::Mine { say "typed: {.message}" }
+    }
+}
+g;
+sub h {
+    my $r = do { warn 'w'; 'went on' };
+    CONTROL { when CX::Warn { say 'warned'; .resume } }
+    $r
+}
+say h;
+--- expect
+typed: mine
+warned
+went on

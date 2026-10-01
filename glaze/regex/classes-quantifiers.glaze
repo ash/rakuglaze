@@ -1,0 +1,506 @@
+# Character classes, unicode properties, quantifiers and separators.
+
+=== rx-class-combined-named-plus-literal
+from: Net::HTTP 0.1.0 lib/Net/HTTP/URL.rakumod:15
+license: Artistic-2.0
+feature: regex +[
+--- code
+my grammar Parser {
+    token TOP { ^^ <scheme> ':' ['//' <host> [':' <port>]?]? [<path> || '/'] $$ }
+    token scheme    { <.token>+ }
+    token host      { [ '[' <+alnum +[:]>+ ']' ] || <+token -[+]>+ }
+    token port      { \d ** 1..5     }
+    token path      { <+[\S] -[?#]>* }
+    token token     { <.alnum> || < +  - . > }
+}
+for 'http://example.com:8080/a/b', 'http://[fe80::1]/', 'git+ssh://x.y/' -> $u {
+    with Parser.parse($u) { say "{.<scheme>} | {.<host>} | {.<port> // '-'} | {.<path> // '-'}" }
+    else { say "no parse: $u" }
+}
+--- expect
+http | example.com | 8080 | /a/b
+http | [fe80::1] | - | /
+git+ssh | x.y | - | /
+
+=== rx-class-named-union-difference
+from: Collection 0.18.0 lib/Collection/Entities.rakumod:12
+license: Artistic-2.0
+feature: regex alpha
+--- code
+my token plugin-name {
+    <.alpha> <[\w] + [\-] - [\_]>+
+};
+for <cro-render a1 under_score 9lives x> -> $n {
+    say $n, ': ', ($n ~~ /^ <plugin-name> $/ ?? 'ok' !! 'bad');
+}
+--- expect
+cro-render: ok
+a1: ok
+under_score: bad
+9lives: bad
+x: bad
+
+=== rx-unicode-prop-camel-split
+from: GTK::Simple 0.3.0 lib/GTK/Simple.rakumod:51
+license: Artistic-2.0
+feature: regex <:Lu>
+--- code
+for <ToggleButton MenuItem Label> -> $name {
+    my $sub-name = '&' ~ ($name ~~ / (<:Lu><:Ll>*)* /).values.map({ .Str.lc }).join("-");
+    say $sub-name;
+}
+--- expect
+&toggle-button
+&menu-item
+&label
+
+=== rx-unicode-letter-single-char
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Methods.rakumod:262
+license: Artistic-2.0
+feature: regex <:L>
+--- code
+for 'a', 'Ж', 'é', '7', '_', 'ab' -> $ch {
+    say "$ch: ", ($ch ~~ /^<:L>$/ ?? 'letter' !! 'other');
+}
+--- expect
+a: letter
+Ж: letter
+é: letter
+7: other
+_: other
+ab: other
+
+=== rx-unicode-letter-then-class-minus
+from: XML::XPath 0.9.3 lib/XML/XPath/Grammar.pm6:205
+license: Artistic-2.0
+feature: regex <:L>
+--- code
+my token ncname {
+    <:L> <[\w\-\.] - [:]>*
+}
+for <para xml-stylesheet ns:tag _x ünï.code> -> $s {
+    say $s, ' -> ', ($s ~~ / ^ <ncname> /)<ncname> // '(none)';
+}
+--- expect
+para -> ｢para｣
+xml-stylesheet -> ｢xml-stylesheet｣
+ns:tag -> ｢ns｣
+_x -> (none)
+ünï.code -> ｢ünï.code｣
+
+=== rx-negated-unicode-prop-minus-list
+from: Rainbow 0.4.4 lib/Rainbow/RakuGrammar.rakumod:453
+license: Artistic-2.0
+feature: regex <:L>
+--- code
+my token regex-opener-immediate {
+    <:!L - [ \# \: \s \d \( \) ]>
+}
+say <{ [ / ! a # : 1 ( | « Я>.map({ $_ ~~ /^ <regex-opener-immediate> $/ ?? $_ !! '.' }).join(' ');
+--- expect
+{ [ / ! . . . . . | « .
+
+=== rx-negated-named-minus-chars
+from: YAMLish 0.1.3 lib/YAMLish.rakumod:386
+license: Artistic-2.0
+feature: regex -[
+--- code
+my token plain { <-space-[\"\\\n]>+ }
+for 'hello', 'two words', 'say"hi', "tab\there" -> $s {
+    say ($s ~~ / ^ <plain> /)<plain>.Str;
+}
+--- expect
+hello
+two
+say
+tab
+
+=== rx-class-hex-range-minus-specials
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Cookie.rakumod:10
+license: Artistic-2.0
+feature: decl regex
+--- code
+my regex cookie-name { <[\x1F..\xFF] - [() \< \> @,;: \\ \x22 /\[\] ?={} \x20 \x1F \x7F]>+ };
+for 'session_id', 'bad name', 'a=b', 'ok-ÿ', 'semi;colon' -> $n {
+    say $n, ': ', so $n ~~ /^ <cookie-name> $/;
+}
+--- expect
+session_id: True
+bad name: False
+a=b: False
+ok-ÿ: True
+semi;colon: False
+
+=== rx-unicode-control-subst-escape
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/JsonEvents.rakumod:45
+license: Artistic-2.0
+feature: regex <:Cc>
+--- code
+my $out = "line1\nline2\ttab\x[7]";
+$out = $out.subst(/<:Cc>/, { sprintf('\\u%04x', $/.Str.ord) }, :g) if $out ~~ /<:Cc>/;
+say $out;
+my $plain = 'no controls';
+$plain = $plain.subst(/<:Cc>/, { sprintf('\\u%04x', $/.Str.ord) }, :g) if $plain ~~ /<:Cc>/;
+say $plain;
+--- expect
+line1\u000aline2\u0009tab\u0007
+no controls
+
+=== rx-unicode-other-capture-hex
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:157
+license: Artistic-2.0
+feature: regex <:C>
+--- code
+use experimental :pack;
+my $x = "GET /\x[1b]path\x[0]";
+$x ~~ s:g/(<:C>)/{ "\\x" ~ Blob.new(ord($0)).unpack("H*") }/;
+say $x;
+--- expect
+GET /\x1bpath\x00
+
+=== rx-punct-at-end
+from: LLM::Functions 0.5.10 lib/LLM/Functions.rakumod:521
+license: Artistic-2.0
+feature: regex punct
+--- code
+for 'Answer briefly', 'Be concise.', 'Why?' -> $hint is copy {
+    $hint = $hint ~~ /<punct> $/ ?? $hint !! $hint ~ '.';
+    say $hint;
+}
+--- expect
+Answer briefly.
+Be concise.
+Why?
+
+=== rx-upper-plus-in-where
+from: Raku::Pod::Render 4.10.6 lib/ProcessedPod.rakumod:760
+license: Artistic-2.0
+feature: regex upper
+--- code
+my class Named { has $.name }
+multi sub handle(Named $node where .name ~~ / ^ <upper>+ $ /) { "SEMANTIC {$node.name}" }
+multi sub handle(Named $node) { "custom {$node.name}" }
+say handle(Named.new(:name<AUTHOR>));
+say handle(Named.new(:name<Author>));
+--- expect
+SEMANTIC AUTHOR
+custom Author
+
+=== rx-lower-inner-match-in-subst
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:398
+license: Artistic-2.0
+feature: regex lower
+--- code
+my &pc = { $^str.subst: /\S+/, { /<lower>/ ?? .tclc !! .uc }, :g };
+say pc('hello WORLD and mIxEd 42');
+--- expect
+Hello WORLD And Mixed 42
+
+=== rx-lower-upper-empty-named-subst
+from: WWW::GCloud 0.0.8 lib/WWW/GCloud/Utils.rakumod:12
+license: Artistic-2.0
+feature: regex lower
+--- code
+for <someName snake_case already-kebab> -> $name is copy {
+    $name ~~ s:g/<lower> <upper> | $<lower>="" _ $<upper>=""/$<lower>-$<upper>/;
+    say $name.lc;
+}
+--- expect
+some-name
+snake-case
+already-kebab
+
+=== rx-horizontal-ws-strip-trailing
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/ASTBuilder.rakumod:387
+license: Artistic-2.0
+feature: method subst
+--- code
+my $last-lit = "text  \t";
+say $last-lit.subst(/\h+$/, '').raku;
+say "a \n".subst(/\h+$/, '').raku;
+--- expect
+"text"
+"a \n"
+
+=== rx-not-newline-optional-named
+from: Net::Google::Sheets 0.0.4 lib/Net/Google/Sheets.rakumod:44
+license: Artistic-2.0
+feature: regex [
+--- code
+for 'http://localhost:8080/cb', 'http://localhost:', 'http://localhost:9/x' -> $uri {
+    $uri ~~ / 'http://localhost:' $<port>=[(<[0..9]>+)]? $<path>=('/' \N+)? $ / or die "couldn't parse $uri";
+    say ($<port> // '-').Str, ' ', ($<path> // '-').Str;
+}
+--- expect
+8080 /cb
+ -
+9 /x
+
+=== rx-quantifier-range-tld
+from: Air 0.1.32 lib/Air/Form.rakumod:271
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my %validators = email => ( /^ <[a..zA..Z0..9._%+-]>+ '@' <[a..zA..Z0..9.-]>+ '.' <[a..zA..Z]> ** 2..6 $/, 'bad email' );
+for 'a.b@example.com', 'x@y.c', 'x@y.museumsx', 'no-at' -> $v {
+    my ($rx, $msg) = %validators<email>;
+    say $v, ': ', $v ~~ $rx ?? 'ok' !! $msg;
+}
+--- expect
+a.b@example.com: ok
+x@y.c: bad email
+x@y.museumsx: bad email
+no-at: bad email
+
+=== rx-quantifier-range-capture
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar.rakumod:25
+license: Artistic-2.0
+feature: regex [
+--- code
+my token unicode { (<xdigit>**1..6) ' '? }
+for '41 rest', '1F600', '00e9xyz' -> $s {
+    my $m = $s ~~ /^ <unicode> /;
+    say $m<unicode>[0].Str, ' -> ', :16(~$m<unicode>[0]).chr;
+}
+--- expect
+41 -> A
+1F600 -> 😀
+00e9 -> é
+
+=== rx-regex-attribute-ip
+from: Crust 0.0.1 lib/Crust/Middleware/ReverseProxy.pm6:6
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my class Proxy {
+    has Regex $.ip-pattern = rx{\d ** 1..3 '.' \d ** 1..3 '.' \d ** 1..3 '.' \d ** 1..3};
+}
+my $p = Proxy.new;
+say ('for 10.0.0.12, 192.168.1.1' ~~ m:g/<$($p.ip-pattern)>/).map(~*).join(' ');
+say so 'v1.2.3' ~~ $p.ip-pattern;
+--- expect
+10.0.0.12 192.168.1.1
+False
+
+=== rx-quantifier-exact-xdigit
+from: Bitcoin::Core::Secp256k1 0.0.28 lib/Bitcoin/Core/Secp256k1.rakumod:68
+license: Artistic-2.0
+feature: regex [
+--- code
+my class X::PrivateKey is Exception { has $.payload; method message { "bad key: $!payload" } }
+sub check($privkey) {
+    die X::PrivateKey.new(:payload('invalid hex')) unless $privkey && $privkey ~~ m/^^ <xdigit> ** 64 $$/;
+    'ok';
+}
+say check('ab' x 32);
+say (try check('zz' x 32)) // $!.message;
+say (try check('ab')) // $!.message;
+--- expect
+ok
+bad key: invalid hex
+bad key: invalid hex
+
+=== rx-quantifier-count-with-separator
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:135
+license: Artistic-2.0
+feature: regex % separator
+--- code
+my constant DoW = [< Mon Tue Wed Thu Fri Sat Sun >];
+my constant MoY = [< Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec >];
+given 'Sun, 06 Nov 1994 08:49:37 GMT' {
+    when /
+        ^
+        <{ DoW }>                     ',' ' '+
+        $<day>   =   \d ** 1..2           ' '+
+        $<month> = <{ MoY }>              ' '+
+        $<year>  =   \d ** 4              ' '+
+        $<hms>   = [ \d ** 2 ] ** 3 % ':' ' '+
+        GMT
+        $
+    / {
+        my %args = $/.hash;
+        say %args.sort.map({ "{.key}={.value}" }).join(' ');
+    }
+}
+--- expect
+day=06 hms=08:49:37 month=Nov year=1994
+
+=== rx-dotted-quad-count-separator
+from: WebService::HazIP 1.0.0 lib/WebService/HazIP.pm6:19
+license: Artistic-2.0
+feature: regex % separator
+--- code
+sub ip($data) {
+    if $data ~~ / ^^([\d ** 1..3] ** 4 % '.')$$ / { return $data; }
+    'not an ip';
+}
+say ip('127.0.0.1');
+say ip('1.2.3');
+say ip('1.2.3.4.5');
+--- expect
+127.0.0.1
+not an ip
+not an ip
+
+=== rx-separator-plus-percent
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:214
+license: Artistic-2.0
+feature: regex % separator
+--- code
+my grammar Sel {
+    rule TOP { <joiner> +% ',' }
+    token joiner { <[\w.#]>+ }
+}
+my $m = Sel.parse('div.a , p#x,span');
+say $m<joiner>.map(~*).join('|');
+say so Sel.parse('a,,b');
+--- expect
+div.a|p#x|span
+False
+
+=== rx-separator-star-percent-group
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:367
+license: Artistic-2.0
+feature: regex % separator
+--- code
+my token parameter { '$' \w+ }
+my token signature { '(' \s* <parameter>* % [\s* ',' \s*] \s* ')' }
+for '($a, $b ,$c)', '()', '( $x )', '($a,)' -> $s {
+    with $s ~~ /^ <signature> $/ { say +.<signature><parameter>, ': ', .<signature><parameter>.join(' ') }
+    else { say "no: $s" }
+}
+--- expect
+3: $a $b $c
+0: 
+1: $x
+no: ($a,)
+
+=== rx-separator-trailing-allowed-plus
+from: CSS::Nested 0.0.1 lib/CSS/Nested.rakumod:14
+license: Artistic-2.0
+feature: regex %% separator
+--- code
+my grammar S {
+    rule TOP { <selector> }
+    rule selector { <op=.combinator>? <simple-selector> +%% <op=.combinator>? }
+    token combinator { '>' | '+' | '~' }
+    token simple-selector { \w+ }
+}
+for 'a > b', '> a + b ~', 'a b' -> $s {
+    my $m = S.parse($s);
+    say $s, ': ', $m ?? $m<selector><simple-selector>.elems ~ ' / ' ~ $m<selector><op>.elems !! 'fail';
+}
+--- expect
+a > b: 2 / 1
+> a + b ~: 2 / 3
+a b: 2 / 0
+
+=== rx-separator-double-percent-star-lines
+from: Docker::File 1.1 lib/Docker/File.rakumod:262
+license: Artistic-2.0
+feature: regex %% separator
+--- code
+my grammar DF {
+    token TOP { <instruction>* %% <insignificant-lines> }
+    token instruction { <[A..Z]>+ \h+ \N+ }
+    token insignificant-lines { [\h* ['#' \N*]? \n]+ }
+}
+my $m = DF.parse("FROM alpine\n# comment\n\nRUN make\n");
+say $m<instruction>.map(*.Str.words[0]).join(',');
+--- expect
+FROM,RUN
+
+=== rx-frugal-negated-class-star
+from: Air 0.1.32 lib/Air/Form.rakumod:365
+license: Artistic-2.0
+feature: regex -[
+--- code
+my $name = 'login';
+my $html = '<form><input type="hidden" name="login-token" value="abc"><input name="x"></form>';
+say so $html ~~ / '<input' <-[>]>*? 'name="' $name '-token"' <-[>]>*? '>' /;
+say ~$/;
+--- expect
+True
+<input type="hidden" name="login-token" value="abc">
+
+=== rx-frugal-then-rest-capture
+from: Crust 0.0.1 lib/Crust/App/URLMap.pm6:11
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+for 'https://example.com/app/x', 'http://host/' -> $loc {
+    if $loc ~~ /^ 'http' 's'? '://' (.*?) ('/' .*)/ {
+        say "host=$0 path=$1";
+    }
+}
+--- expect
+host=example.com path=/app/x
+host=host path=/
+
+=== rx-frugal-prefix-capture-index
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny.pm6:1021
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+for 'svg:rect:x', 'div' -> $tag {
+    my $ns = $tag ~~ /^ (.*?) ':' / ?? "xmlns:$/[0]" !! Str;
+    say $ns // '(no ns)';
+}
+--- expect
+xmlns:svg
+(no ns)
+
+=== rx-frugal-plus-negated-extension
+from: CSS::Font::Resources 0.0.11 lib/CSS/Font/Resources/Source.rakumod:15
+license: Artistic-2.0
+feature: regex -[
+--- code
+for <fonts/a.woff2 noext b.tar.gz> {
+    do if $_ ~~ /'.'(<- [.]>+?) $/ {
+        say "$_ => $0";
+    }
+    else {
+        say "$_ => (none)";
+    }
+}
+--- expect
+fonts/a.woff2 => woff2
+noext => (none)
+b.tar.gz => gz
+
+=== rx-frugal-to-end-anchor
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:133
+license: Artistic-2.0
+feature: method subst
+--- code
+my %h = :a(1);
+say %h.raku.subst(/'{' .+? $/, '');
+say 'Foo{x}{y}'.subst(/'{' .+? $/, '');
+--- expect
+
+Foo
+
+=== rx-lookahead-in-my-regex
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:602
+license: Artistic-2.0
+feature: decl regex
+--- code
+my regex ansi_color { \e \[ \d+ [\;\d+]* <?before [\;\d+]* > m }
+my $s = "\e[1;31mred\e[0m plain \e[32mgreen\e[0m";
+say $s.subst(/<ansi_color>/, '', :g);
+say ($s ~~ m:g/<ansi_color>/).elems;
+--- expect
+red plain green
+4
+
+=== rx-my-regex-negated-single
+from: Dan 0.0.3 lib/Dan.rakumod:9
+license: Artistic-2.0
+feature: decl regex
+--- code
+my regex notmark { <-[⋅]> }
+say 'a⋅b⋅⋅c'.comb(/<notmark>+/).join(',');
+say so '⋅' ~~ /^ <notmark> $/;
+--- expect
+a,b,c
+False

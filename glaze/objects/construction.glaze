@@ -1,0 +1,156 @@
+# Object construction as modules write it: custom `new` over `bless`,
+# TWEAK, required attributes, delegation.
+
+=== new-positional-bless
+from: BitEnum 0.5 lib/BitEnum.rakumod:15
+license: Artistic-2.0
+feature: method bless
+--- code
+my class Flags {
+    has Int $.value is rw = 0;
+    multi method new(Int:D $value) { self.bless(:$value) }
+}
+my $f = Flags.new(5);
+say $f.value;
+$f.value = 7;
+say $f.value;
+--- expect
+5
+7
+
+=== new-capture-passthrough
+from: Distribution::Common::Remote 0.1.0 lib/Distribution/Common/Remote/Github.rakumod:13
+license: Artistic-2.0
+feature: method bless
+--- code
+my class Remote {
+    has $.user;
+    has $.repo;
+    method new(|c) { self.bless(|c) }
+}
+my $r = Remote.new(user => 'ash', repo => 'rakupp');
+say "{$r.user}/{$r.repo}";
+--- expect
+ash/rakupp
+
+=== new-colon-bless
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/DescribeBaseObjects.rakumod:241
+license: Artistic-2.0
+feature: method bless
+--- code
+my class Boxed {
+    has $.v;
+    method new ($v) { self.bless: :v($v) }
+}
+say Boxed.new(42).v;
+say Boxed.new('x').v.^name;
+--- expect
+42
+Str
+
+=== tweak-derives-attribute
+from: AlgorithmsIT 0.0.4 lib/AlgorithmsIT/Classes.rakumod:33
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Range2 {
+    has $.lo is required;
+    has $.hi is required;
+    has $!width;
+    submethod TWEAK { $!width = $!hi - $!lo }
+    method width { $!width }
+}
+say Range2.new(lo => 3, hi => 10).width;
+--- expect
+7
+
+=== tweak-takes-named
+from: Anolis 1.0.0 lib/Anolis.rakumod:43
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Runner {
+    has $.cmd;
+    has @.log;
+    submethod TWEAK(:$verbose) { @!log.push("verbose") if $verbose }
+}
+say Runner.new(cmd => 'ls', :verbose).log;
+say Runner.new(cmd => 'ls').log.elems;
+--- expect
+[verbose]
+0
+
+=== required-attribute-missing
+from: App::RaCoCo 2.0.1 lib/App/Racoco.rakumod:18
+license: Artistic-2.0
+feature: trait is required
+--- code
+my class Conf {
+    has IO::Path $.root is required;
+}
+say Conf.new(root => '/tmp'.IO).root.basename;
+Conf.new;
+--- expect
+tmp
+!! X::Attribute::Required
+
+=== required-array-attribute
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/X.rakumod:7
+license: Artistic-2.0
+feature: trait is required
+--- code
+my class Expectation {
+    has @.expected is required;
+}
+say Expectation.new(expected => <a b c>).expected.elems;
+--- expect
+3
+
+=== handles-word-list
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:485
+license: Artistic-2.0
+feature: trait handles
+--- code
+my class File {
+    method close { 'closed' }
+    method error { 'none' }
+}
+my class Sound {
+    has File $!file handles <close error> = File.new;
+}
+my $s = Sound.new;
+say $s.close;
+say $s.error;
+--- expect
+closed
+none
+
+=== handles-is-rw-default
+from: BitEnum 0.5 lib/BitEnum.rakumod:3
+license: Artistic-2.0
+feature: trait handles
+--- code
+my class Bits {
+    has Int $.value is rw handles <Numeric Int> = 0;
+}
+my $b = Bits.new;
+$b.value = 6;
+say $b.Int;
+say $b + 1;
+--- expect
+6
+7
+
+=== rw-array-attribute
+from: Anolis 1.0.0 lib/Anolis.rakumod:11
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my class Board {
+    has @.grid is rw;
+}
+my $b = Board.new(grid => [[0, 0], [0, 0]]);
+$b.grid[1][0] = 5;
+say $b.grid.raku;
+--- expect
+[[0, 0], [5, 0]]

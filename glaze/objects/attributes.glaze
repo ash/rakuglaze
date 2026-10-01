@@ -1,0 +1,458 @@
+# Attributes and their traits as modules declare them: is rw, is built,
+# is default, typed and defined-only attributes, defaults computed from
+# other attributes, Callable attributes, private delegation.
+
+=== obj-rw-typed-no-default
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:62
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my class Configuration {
+    has Str      $.format               is rw;
+}
+my $c = Configuration.new;
+say $c.format.raku;
+$c.format = 'documentation';
+say $c.format;
+$c.format = 42;
+--- expect
+Str
+documentation
+!! X::TypeCheck::Assignment
+
+=== obj-rw-append-in-place
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:7
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my class Writer {
+    has Str $.indent is rw = '';
+    method line($s) { $.indent ~ $s }
+}
+my $w = Writer.new;
+say $w.line('a {').raku;
+$w.indent ~= '  ';
+say $w.line('color: red').raku;
+--- expect
+"a \{"
+"  color: red"
+
+=== obj-readonly-accessor-assign
+from: Air 0.1.32 lib/Air/Base/Elements.rakumod:1060
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Spinner {
+    has Int  $.width = 150;
+}
+my $s = Spinner.new(width => 80);
+say $s.width;
+say Spinner.new.width;
+$s.width = 10;
+--- expect
+80
+150
+!! X::Assignment::RO
+
+=== obj-built-private
+from: Air 0.1.32 lib/Air/Base.rakumod:596
+license: Artistic-2.0
+feature: trait is built
+--- code
+my class Page {
+    has Str  $!stub is built;
+    method url { "/" ~ ($!stub // "index") }
+}
+say Page.new(stub => "about").url;
+say Page.new.url;
+say Page.can("stub").elems;
+--- expect
+/about
+/index
+0
+
+=== obj-built-bind-shares
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:11
+license: Artistic-2.0
+feature: trait is built
+--- code
+my class Wrapper {
+    has $!attribute is built(:bind);
+    method grow { $!attribute.push: 'x' }
+}
+my @list = <a b>;
+my $w = Wrapper.new(attribute => @list);
+$w.grow;
+say @list;
+--- expect
+[a b x]
+
+=== obj-built-bind-default
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:10
+license: Artistic-2.0
+feature: trait is built
+--- code
+my class CodeUnit {
+    has Mu $.compiler is built(:bind) = "Raku";
+}
+say CodeUnit.new.compiler;
+say CodeUnit.new(compiler => Mu).compiler.^name;
+--- expect
+Raku
+Mu
+
+=== obj-built-false-ignored
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:344
+license: Artistic-2.0
+feature: trait is built
+--- code
+my class Server { has $.host }
+my class Client {
+    has Server   %.servers     is built(False);
+    method add($name, $host) { %!servers{$name} = Server.new(:$host) }
+}
+my $c = Client.new(servers => { x => Server.new(host => 'nope') });
+say $c.servers.elems;
+$c.add('libera', 'irc.libera.chat');
+say $c.servers<libera>.host;
+--- expect
+0
+irc.libera.chat
+
+=== obj-built-false-rw-enum
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:22
+license: Artistic-2.0
+feature: trait is built
+--- code
+my enum Status <OK MORE-INPUT CONTROL>;
+my class CodeUnit {
+    has Status $.state is rw is built(False) = OK;
+}
+my $cu = CodeUnit.new(state => CONTROL);
+say $cu.state;
+$cu.state = MORE-INPUT;
+say $cu.state, ' ', $cu.state.value;
+--- expect
+OK
+MORE-INPUT 1
+
+=== obj-built-false-handles-tweak
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:13
+license: Artistic-2.0
+feature: trait is built
+--- code
+my class Coverage {
+    has @.targets;
+    has %.coverables          is built(False) handles <keys>;
+    method TWEAK() {
+        %!coverables = @!targets.map: { .uc => .chars }
+    }
+}
+my $c = Coverage.new(targets => <foo ba>);
+say $c.keys.sort;
+say $c.coverables<FOO>;
+--- expect
+(BA FOO)
+3
+
+=== obj-built-required-private
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:102
+license: Artistic-2.0
+feature: trait is required
+--- code
+my class Key {
+    has $!get is built is required;
+    method value(%h) { $!get(%h) }
+}
+my $k = Key.new(get => -> %h { %h<lib> // 'lib' });
+say $k.value({ lib => 'src' });
+say $k.value({});
+Key.new;
+--- expect
+src
+lib
+!! X::Attribute::Required
+
+=== obj-callable-private-attr
+from: Apache::LogFormat * lib/Apache/LogFormat/Formatter.pm6:5
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Formatter {
+    has &!callback;
+    method new(&callback) { self.bless(:&callback) }
+    submethod BUILD(:&!callback) { }
+    method format(*@args) { &!callback(|@args) }
+}
+my $f = Formatter.new(-> $a, $b { "$a - $b" });
+say $f.format('GET', 200);
+--- expect
+GET - 200
+
+=== obj-callable-public-attr
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:145
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Cache {
+    has &.producer;
+    has Int $.max-size = 1024;
+    method get($k) { &!producer($k) }
+}
+my $c = Cache.new(max-size => 10, producer => sub ($k) { $k x 2 });
+say $c.get('ab');
+say $c.producer.('z');
+say $c.producer.arity;
+--- expect
+abab
+zz
+1
+
+=== obj-callable-required
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Location.rakumod:24
+license: Artistic-2.0
+feature: trait is required
+--- code
+my class Location {
+    has &.resource-resolver is required;
+}
+my $l = Location.new(resource-resolver => { "res/$_" });
+say $l.resource-resolver.('a.crotmp');
+Location.new;
+--- expect
+res/a.crotmp
+!! X::Attribute::Required
+
+=== obj-callable-default-from-attr
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:39
+license: Artistic-2.0
+feature: node Class
+--- code
+my %info-for = sha1 => { digest => *.flip, hash-size => 20 },
+               md5  => { digest => *.uc,   hash-size => 16 };
+my class Client {
+    has Str:D $.digest is required;
+    has &!digest = %info-for{$!digest}<digest>;
+    has Int:D $.hash-size   = %info-for{$!digest}<hash-size>;
+    method run($s) { &!digest($s) }
+}
+my $c = Client.new(digest => 'sha1');
+say $c.run('abc'), ' ', $c.hash-size;
+say Client.new(digest => 'md5').run('abc');
+--- expect
+cba 20
+ABC
+
+=== obj-is-default-scalar-nil
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/Cipher.rakumod:13
+license: Artistic-2.0
+feature: trait is default
+--- code
+my class Cipher {
+    has Bool $.debug is default(False);
+}
+say Cipher.new.debug;
+say Cipher.new(debug => True).debug;
+say Cipher.new(debug => Nil).debug;
+--- expect
+False
+True
+False
+
+=== obj-is-default-array-attr
+from: Intl::LanguageTag 0.12.7 lib/Intl/LanguageTag/BCP47.rakumod:430
+license: Artistic-2.0
+feature: trait is default
+--- code
+my class Type {
+    has Str $.id;
+    has Str @.subtags is default('');
+    multi method new(*$id, *@subtags) { self.bless: :$id, :@subtags }
+}
+my $t = Type.new('ca', 'gregory');
+say $t.id;
+say $t.subtags.raku;
+say $t.subtags[3].raku;
+--- expect
+ca
+Array[Str].new("gregory")
+""
+
+=== obj-default-from-other-attr
+from: Air 0.1.32 lib/Air/Base/Elements.rakumod:120
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Grid {
+    has $.gap = 0;
+    has $.mobile-gap = $!gap;
+}
+say Grid.new.mobile-gap;
+say Grid.new(gap => 4).mobile-gap;
+say Grid.new(gap => 4, mobile-gap => 1).mobile-gap;
+--- expect
+0
+4
+1
+
+=== obj-default-chain-in-role
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/EditableBuffer.rakumod:372
+license: Artistic-2.0
+feature: node Role
+--- code
+my class Buffer { has $.cursors = 0; method add-cursor { "cursor-{++$!cursors}" } }
+my role SingleLineTextInput {
+    has $.buffer-class  = Buffer;
+    has $.buffer        = $!buffer-class.new;
+    has $.insert-cursor = $!buffer.add-cursor;
+}
+my class Input does SingleLineTextInput { }
+my $in = Input.new;
+say $in.insert-cursor;
+say $in.buffer.cursors;
+--- expect
+cursor-1
+1
+
+=== obj-default-shares-object
+from: Anolis 1.0.0 lib/Anolis.rakumod:28
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Screen { has Int $.cursor-x is rw = 0 }
+my class Term {
+    has Screen $.norm-screen .= new;
+    has Screen $.alt-screen .= new;
+    has Screen $.screen = $!norm-screen;
+}
+my $t = Term.new;
+$t.screen.cursor-x = 5;
+say $t.norm-screen.cursor-x;
+say $t.screen === $t.norm-screen;
+say $t.alt-screen.cursor-x;
+--- expect
+5
+True
+0
+
+=== obj-dot-equals-new-per-instance
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Runner.rakumod:86
+license: Artistic-2.0
+feature: method new
+--- code
+my class RunResult { has @.failures }
+my class Runner {
+    has RunResult $.result .= new;
+}
+my ($a, $b) = Runner.new, Runner.new;
+$a.result.failures.push: 'boom';
+say $a.result.failures.elems, ' ', $b.result.failures.elems;
+say $a.result === $b.result;
+--- expect
+1 0
+False
+
+=== obj-lock-handles-protect
+from: PDF::API6 0.2.10 lib/PDF/API6.rakumod:29
+license: Artistic-2.0
+feature: trait handles
+--- code
+my class Doc {
+    has Lock $!lock handles<protect> .= new() ;
+    has $.count = 0;
+    method bump { self.protect: { $!count++ } }
+}
+my $d = Doc.new;
+$d.bump for ^3;
+say $d.count;
+say $d.protect({ 'inside' });
+--- expect
+3
+inside
+
+=== obj-handles-private-list
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:485
+license: Artistic-2.0
+feature: trait handles
+--- code
+my class File {
+    method close { 'closed' }
+    method error-number { 0 }
+    method sync { 'synced' }
+}
+my class Sndfile {
+    has File $!file handles <close error-number sync>;
+    submethod BUILD { $!file = File.new }
+}
+my $s = Sndfile.new;
+say $s.close, ' ', $s.error-number, ' ', $s.sync;
+say Sndfile.can('file').elems;
+--- expect
+closed 0 synced
+0
+
+=== obj-defined-required-str
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:35
+license: Artistic-2.0
+feature: trait is required
+--- code
+my class Client {
+    has Str:D $.username is required;
+    submethod TWEAK() { $!username = $!username.NFKC.Str }
+}
+say Client.new(username => 'user').username;
+Client.new(username => Str);
+--- expect
+user
+!! X::TypeCheck::Assignment
+
+=== obj-defined-default-str
+from: Data::Translators 0.1.18 lib/Data/Translators/HTML.rakumod:8
+license: Artistic-2.0
+feature: node Class
+--- code
+my class HTML {
+    has Str:D $.table-attributes = 'border="1"';
+}
+say HTML.new.table-attributes;
+say HTML.new(table-attributes => 'class="t"').table-attributes;
+HTML.new(table-attributes => Str);
+--- expect
+border="1"
+class="t"
+!! X::TypeCheck::Assignment
+
+=== obj-hash-attr-from-new
+from: Air 0.1.32 lib/Air/Base.rakumod:554
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Site {
+    has %.routes;
+}
+my $s = Site.new(routes => { '/' => 'home', '/about' => 'about' });
+say $s.routes.keys.sort;
+say Site.new.routes.elems;
+say $s.routes.^name;
+--- expect
+(/ /about)
+0
+Hash
+
+=== obj-int-default-overridden
+from: DB::MySQL 0.8 lib/DB/MySQL.pm6:8
+license: BSD-2-Clause
+feature: node Class
+--- code
+my class MySQL {
+    has Int $.port = 3306;
+    has $.host = 'localhost';
+    method dsn { "$!host:$!port" }
+}
+say MySQL.new.dsn;
+say MySQL.new(port => 3307).dsn;
+MySQL.new(port => '3307');
+--- expect
+localhost:3306
+localhost:3307
+!! X::TypeCheck::Assignment

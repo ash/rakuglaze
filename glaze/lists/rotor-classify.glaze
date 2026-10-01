@@ -1,0 +1,213 @@
+# rotor/batch chunking, classify/categorize grouping, combinations.
+
+=== list-rotor-partial
+from: Base64 0.1.0 lib/Base64.rakumod:18
+license: Artistic-2.0
+feature: method rotor
+--- code
+my $blob = Blob.new(1..7);
+say $blob.rotor(3, :partial).map({ .elems });
+say $blob.rotor(3).elems;
+--- expect
+(3 3 1)
+2
+
+=== list-rotor-overlap
+from: Graph 0.1.3 lib/Graph/HexagonalGrid.rakumod:30
+license: Artistic-2.0
+feature: method rotor
+--- code
+$_ = <a b c d>;
+my @t = $_.rotor(2 => -1);
+say @t;
+--- expect
+[(a b) (b c) (c d)]
+
+=== list-rotor-bounds-grep
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/Raku.rakumod:85
+license: Artistic-2.0
+feature: method rotor
+--- code
+my @inds = 2, 2, 5;
+my @blocks = ^7;
+my @bounds = [0, |@inds, @blocks.elems].rotor(2 => -1).grep({ $_[0] < $_[1] });
+say @bounds;
+--- expect
+[(0 2) (2 5) (5 7)]
+
+=== list-rotor-kv-pairs
+from: Text::Plot 0.1.4 lib/Text/Plot.rakumod:557
+license: Artistic-2.0
+feature: method rotor
+--- code
+my %histogram = 10 => 1, 2 => 5, 3 => 2;
+my @pairs = %histogram.kv.rotor(2).sort(*.head.Int);
+say @pairs;
+my @acc = [\+] @pairs.map(*.tail);
+say @acc;
+--- expect
+[(2 5) (3 2) (10 1)]
+[5 7 8]
+
+=== list-rotor-fixed-xxx
+from: Digest 1.1.0 lib/Digest/MD5.rakumod:24
+license: Artistic-2.0
+feature: method rotor
+--- code
+my @r = flat < 7 12 17 22 5 9 14 20 >.rotor(4) Xxx 2;
+say @r.elems;
+say @r[^6];
+--- expect
+16
+(7 12 17 22 7 12)
+
+=== list-rotor-chunks-loop
+from: Lingua::Translation::DeepL 0.1.5 lib/Lingua/Translation/DeepL.rakumod:146
+license: Artistic-2.0
+feature: method rotor
+--- code
+my @texts = <a b c d e>;
+my $maxTextsPerQuery = 2;
+for @texts.rotor($maxTextsPerQuery, :partial) -> $t {
+    say $t.join('+');
+}
+--- expect
+a+b
+c+d
+e
+
+=== list-rotor-reverse-groups
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/Generators/Russian.rakumod:19
+license: Artistic-2.0
+feature: method rotor
+--- code
+my $e = 1234567;
+my @o = $e.comb.reverse.rotor(3, :partial)».reverse».join.reverse;
+say @o;
+--- expect
+[1 234 567]
+
+=== list-batch-arrays
+from: Listicles 1.6.0 lib/Listicles.rakumod:112
+license: MIT
+feature: method batch
+--- code
+my @l = 1..5;
+my @b = @l.batch(2).map({.Array}).Array;
+say @b.raku;
+--- expect
+[[1, 2], [3, 4], [5]]
+
+=== list-classify-whatever
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/I18N/Translation.rakumod:94
+license: Artistic-2.0
+feature: method classify
+--- code
+my @available = <en fr en de>;
+my $available = @available.classify(*);
+say $available.keys.sort;
+say $available<en>;
+--- expect
+(de en fr)
+[en en]
+
+=== list-classify-kv-loop
+from: zef 1.1.4 lib/Zef/CLI.rakumod:534
+license: Artistic-2.0
+feature: method classify
+--- code
+my class Candi { has $.from; has $.name }
+my @uninstalled = Candi.new(:from<p6c>, :name<A>), Candi.new(:from<cpan>, :name<B>), Candi.new(:from<p6c>, :name<C>);
+for @uninstalled.classify(*.from).sort(*.key)».kv -> ($from, $candidates) {
+    say "$from: {$candidates».name.join(',')}";
+}
+--- expect
+cpan: B
+p6c: A,C
+
+=== list-classify-count-pairs
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers/RecordsSummary.rakumod:79
+license: Artistic-2.0
+feature: method classify
+--- code
+my @vec = 'a', 1, 'b', 'a', 2.5, 'a';
+my @r = @vec.grep({ $_ ~~ Str }).classify({ $_ }).map({ $_.key => $_.value.elems }).Array;
+say @r.sort(*.key);
+--- expect
+(a => 3 b => 1)
+
+=== list-classify-pairs-by-value
+from: ML::NLPTemplateEngine 0.1.9 lib/ML/NLPTemplateEngine/Core.rakumod:43
+license: Artistic-2.0
+feature: method classify
+--- code
+my %spec-to-name = a => 'X', b => 'Y', c => 'X';
+my %name-to-spec = %spec-to-name.pairs.classify({ $_.value }).map({ $_.key => $_.value>>.key.sort });
+say %name-to-spec<X>;
+say %name-to-spec<Y>;
+--- expect
+(a c)
+(b)
+
+=== list-categorize-by-bool
+from: Data::ExampleDatasets 0.2.4 lib/Data/ExampleDatasets.rakumod:114
+license: Artistic-2.0
+feature: method categorize
+--- code
+my %itemToURLs = 'datasets::iris' => 'u1', 'other::titanic' => 'u2';
+my $sourceSpec = 'iris';
+my %catRes = %itemToURLs.categorize({ so $_.key ~~ / .* '::' $sourceSpec / });
+say %catRes{True}.first.value;
+say %catRes{False}».key;
+--- expect
+u1
+[other::titanic]
+
+=== list-categorize-deepmap-sum
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers/ParetoPrincipleStatistic.rakumod:74
+license: Artistic-2.0
+feature: method categorize
+--- code
+my @pvec = a => 1, b => 2, a => 3;
+my %hvec = @pvec.categorize({ $_.key }).deepmap({ $_.value })>>.sum;
+say %hvec.sort;
+--- expect
+(a => 4 b => 2)
+
+=== list-categorize-multiple-groups
+from: Red 0.2.5 lib/MetamodelX/Red/Model.rakumod:201
+license: Artistic-2.0
+feature: method categorize
+--- code
+my class Col { has $.name; has @.unique-groups }
+my @cols = Col.new(:name<a>, :unique-groups<g1 g2>), Col.new(:name<b>, :unique-groups<g1>), Col.new(:name<c>);
+for @cols.grep(*.unique-groups.elems > 0).categorize(*.unique-groups).sort(*.key).map(*.value) -> @grp {
+    say @grp».name;
+}
+--- expect
+[a b]
+[a]
+
+=== list-combinations-filtered
+from: Graph 0.1.3 lib/Graph/Leaper.rakumod:22
+license: Artistic-2.0
+feature: method combinations
+--- code
+my $moves = (1, 2);
+say (-$moves.head, -$moves.tail, $moves.tail, $moves.head).sort.combinations(2).grep({ $_».abs.sum == $moves.sum }).unique(:with(&[eqv])).Array;
+--- expect
+[(-2 -1) (-2 1) (-1 2) (1 2)]
+
+=== list-combinations-all-nonempty
+from: fez 100.0.2 lib/Fez/CLI.rakumod:801
+license: Artistic-2.0
+feature: method combinations
+--- code
+my @keys = <a b c>;
+my @names;
+for @keys.combinations.grep(*.elems) -> @combo {
+    @names.push: @combo.join;
+}
+say @names;
+--- expect
+[a b c ab ac bc abc]

@@ -1,0 +1,38 @@
+# Grammar rules as modules write them.
+
+=== rule-separator-optional-close
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar.rakumod:198
+license: Artistic-2.0
+feature: regex %% separator
+--- code
+my grammar Decls {
+    rule TOP { '{' <decl> *%% ';' '}'? }
+    token decl { \w+ ':' \s* \w+ }
+}
+my $m = Decls.parse('{ a: 1; b: 2; }');
+say $m<decl>.map(~*).join('|');
+say so Decls.parse('{ a: 1 }');
+--- expect
+a: 1|b: 2
+True
+
+=== fen-grammar-alternation
+from: FEN::Grammar 0.0.7 lib/FEN/Grammar.rakumod:2
+license: Artistic-2.0
+feature: decl token
+--- code
+my grammar Fen {
+    token TOP { <rank>+ % '/' }
+    token rank { <position>+ }
+    token position { <piece> | <empty> }
+    token piece { <[pnbrqkPNBRQK]> }
+    token empty { <[1..8]> }
+}
+my $m = Fen.parse('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR');
+say $m<rank>.elems;
+say $m<rank>[4]<position>.map(~*).join(',');
+say so Fen.parse('rnbx/8');
+--- expect
+8
+4,P,3
+False

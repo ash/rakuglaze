@@ -1,0 +1,314 @@
+# Reductions: [+], [*], [~], [&&], [||], [+|], [==], [\+], [Z], [X], .reduce, .produce.
+
+=== list-reduce-plus-array-attr
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark.rakumod:19
+license: Artistic-2.0
+feature: prefix [+]
+--- code
+my class Bench {
+    has @.timings;
+    has $.total;
+    method sum-up { $!total = [+] @!timings; self }
+}
+say Bench.new(timings => (0.5, 1.25, 2)).sum-up.total;
+say ([+] ()).raku;
+--- expect
+3.75
+0
+
+=== list-reduce-plus-map-colon
+from: Duckie 0.0.12 lib/Duckie.rakumod:122
+license: MIT
+feature: prefix [+]
+--- code
+my $raw = Buf.new(0 xx 8, 1, 2, 0, 0, 0, 0, 0, 0);
+my $off = 0;
+my $pval = [+] (^8).map: { $raw[$off+8+$_].Int +< ($_ * 8) };
+say $pval;
+--- expect
+513
+
+=== list-reduce-plus-zip-distance
+from: Graph 0.1.3 lib/Graph/Random.rakumod:81
+license: Artistic-2.0
+feature: prefix [+]
+--- code
+my @v1 = 0, 0;
+my @v2 = 3, 4;
+say sqrt([+] (@v1 Z @v2).map({ ($_[0] - $_[1]) ** 2 }));
+--- expect
+5
+
+=== list-reduce-plus-zip-times
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/Utilities.rakumod:76
+license: Artistic-2.0
+feature: infix Z*
+--- code
+my @row = 1, 2, 3;
+my @matrix2 = [1, 0], [0, 1], [1, 1];
+my @result;
+for ^2 -> $j {
+    @result[0][$j] = [+] @row Z* @matrix2.map({ $_[$j] });
+}
+say @result[0];
+--- expect
+[4 5]
+
+=== list-reduce-times-hyper-value
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/Trie.rakumod:790
+license: Artistic-2.0
+feature: prefix [*]
+--- code
+my @res = (a => 0.5, b => 0.5), (c => 1/4, d => 2);
+my @probs = @res.map({ [*] $_».value });
+say @probs;
+--- expect
+[0.25 0.5]
+
+=== list-reduce-times-size
+from: Statistics::Distributions 0.1.8 lib/Statistics/Distributions.rakumod:96
+license: Artistic-2.0
+feature: prefix [*]
+--- code
+my @size = 2, 3, 4;
+say [*] @size;
+say [*] ();
+--- expect
+24
+1
+
+=== list-reduce-concat-map
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:287
+license: Artistic-2.0
+feature: prefix [~]
+--- code
+my class Node { has $.tag; method render(:$xml) { $xml ?? "<$!tag/>" !! "<$!tag>" } }
+my @children = Node.new(:tag<br>), Node.new(:tag<hr>);
+sub render-children(:$xml) { [~] @children.map({ .render(:$xml) }); }
+say render-children();
+say render-children(:xml);
+--- expect
+<br><hr>
+<br/><hr/>
+
+=== list-reduce-concat-mixed-slip
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:95
+license: Artistic-2.0
+feature: prefix [~]
+--- code
+$_ = <a b c>;
+say [~] '[', .map({ $_.uc }).Slip, ']';
+--- expect
+[ABC]
+
+=== list-reduce-concat-hyper-ast
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:127
+license: Artistic-2.0
+feature: prefix [~]
+--- code
+my class Tok { has $.ast }
+my @nmchar = <f o o>.map({ Tok.new(ast => $_) });
+my Str $name = [~] @nmchar».ast;
+say $name;
+--- expect
+foo
+
+=== list-reduce-and-map
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:474
+license: Artistic-2.0
+feature: prefix [&&]
+--- code
+my @mask = 0x11, 0x22, 0xFF;
+my $reducable = [&&] @mask.map: { $_ %% 17 };
+say $reducable;
+@mask.push: 0x10;
+say [&&] @mask.map: { $_ %% 17 };
+--- expect
+True
+False
+
+=== list-reduce-and-bools
+from: File::Presence 0.2.0 lib/File/Presence.pm6:33
+license: Unlicense
+feature: prefix [&&]
+--- code
+my %p = e => True, r => True, d => False;
+my Bool:D $exists-readable-dir = [&&] %p<e>, %p<r>, %p<d>;
+say $exists-readable-dir;
+say [&&] ();
+--- expect
+False
+True
+
+=== list-reduce-or-hyper
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance.rakumod:663
+license: MIT
+feature: prefix [||]
+--- code
+my class Cmd { has $.success }
+my %cmd = a => Cmd.new(:success(False)), b => Cmd.new(:success(True));
+my $found-cmd = [||] %cmd.values>>.success;
+say $found-cmd;
+--- expect
+True
+
+=== list-reduce-bit-or-reduce-method
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:886
+license: Artistic-2.0
+feature: method reduce
+--- code
+my @channels = 0, 3, 9;
+my int $mask = @channels.map(1 +< *).reduce(&[+|]);
+say $mask;
+say $mask.base(2);
+--- expect
+521
+1000001001
+
+=== list-reduce-bit-or-meta
+from: GTK::Simple 0.3.0 lib/GTK/Simple/Widget.rakumod:47
+license: Artistic-2.0
+feature: prefix [+|]
+--- code
+my $mask = 0x100;
+my @events = 1, 4, 16;
+$mask +|= [+|] @events;
+say $mask;
+--- expect
+277
+
+=== list-reduce-numeq-flat
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:254
+license: Artistic-2.0
+feature: prefix [==]
+--- code
+sub is-constant(@diagonal) { [==]((@diagonal.flat).flat) }
+say is-constant([3, 3, 3]);
+say is-constant([3, 3, 4]);
+say is-constant([7]);
+--- expect
+True
+False
+True
+
+=== list-reduce-method-whatever-star
+from: Base58 0.0.5 lib/Base58.rakumod:18
+license: MIT
+feature: method reduce
+--- code
+my @bytes = 1, 0, 255;
+say @bytes.reduce(256 * * + *);
+--- expect
+65791
+
+=== list-reduce-method-placeholder
+from: Statistics::Distributions 0.1.8 lib/Statistics/Distributions/Defined.rakumod:302
+license: Artistic-2.0
+feature: method reduce
+--- code
+my @dims = 1, 1, 1;
+say @dims.reduce({ $^a == $^b });
+my @mixed = 3, 3, 4;
+say @mixed.reduce({ $^a == $^b });
+--- expect
+True
+False
+
+=== list-reduce-sub-pointy
+from: Digest 1.1.0 lib/HMAC.rakumod:17
+license: Artistic-2.0
+feature: call reduce
+--- code
+my @key = 1, 2, 3;
+my $msg = 'm';
+say reduce -> $m, $i { (@key Z[+^] $i xx *).join(',') ~ "|$m" }, $msg, 0x36, 0x5c;
+--- expect
+93,94,95|55,52,53|m
+
+=== list-triangular-plus
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/DuospaceInput.rakumod:30
+license: Artistic-2.0
+feature: prefix [\+]
+--- code
+my @char-widths = 1, 2, 1, 2;
+my @char-widths-prefix-sum = [\+] @char-widths;
+say @char-widths-prefix-sum;
+--- expect
+[1 3 4 6]
+
+=== list-triangular-plus-leading-zero
+from: Statistics::Distributions 0.1.8 lib/Statistics/Distributions/Utilities.rakumod:73
+license: Artistic-2.0
+feature: prefix [\+]
+--- code
+my @vec = 0.25, 0.5, 0.25;
+@vec = [\+] [0, |@vec];
+say @vec;
+--- expect
+[0 0.25 0.75 1]
+
+=== list-triangular-plus-array-then-map
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/CurrencyFormats.rakumod:363
+license: Artistic-2.0
+feature: prefix [\+]
+--- code
+my @length-existence-table = 1, 0, 1, 1, 0;
+my @length-transform   = ([\+]   @length-existence-table).map({ $^x - 1 < 0 ?? 0 !! $^x - 1});
+say @length-transform;
+my @count-transform = ([\+] @length-existence-table) Z* @length-existence-table;
+say @count-transform;
+--- expect
+[0 0 1 2 2]
+[1 0 2 3 0]
+
+=== list-triangular-concat-paths
+from: Shell::Command 1.2 lib/Shell/Command.rakumod:52
+license: MIT
+feature: prefix [\~]
+--- code
+my $name = 'a/b/c';
+for [\~] $name.split(/<[\/]>/).map({"$_/"}) {
+    say $_;
+}
+--- expect
+a/
+a/b/
+a/b/c/
+
+=== list-produce-method
+from: File::Ignore 1.2 lib/File/Ignore.rakumod:126
+license: Artistic-2.0
+feature: method produce
+--- code
+my @parts = <src lib Foo>;
+for @parts.produce(* ~ "/" ~ *) {
+    say $_;
+}
+--- expect
+src
+src/lib
+src/lib/Foo
+
+=== list-reduce-zip-transpose
+from: Math::Matrix 0.4.2 lib/Math/Matrix/ArrayOfArray.rakumod:54
+license: Artistic-2.0
+feature: prefix [Z]
+--- code
+my @m = [1, 2, 3], [4, 5, 6];
+my @t = [Z] @m;
+say @t.elems;
+say @t.map(*.join(',')).join(' ');
+--- expect
+3
+1,4 2,5 3,6
+
+=== list-reduce-cross-join
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/FuzzyMatching.rakumod:212
+license: Artistic-2.0
+feature: prefix [X]
+--- code
+my @candidates = <red blue>, <car bike>;
+@candidates = ([X] @candidates).map(*.join(' '));
+say @candidates;
+--- expect
+[red car red bike blue car blue bike]

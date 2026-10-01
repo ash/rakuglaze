@@ -1,0 +1,228 @@
+# sort as modules write it: placeholders, two-key comparators, key extractors, list keys, .= forms.
+
+=== list-sort-placeholder-cmp
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:175
+license: Artistic-2.0
+feature: method sort
+--- code
+my @meths = <new say gist Str>;
+for @meths.sort({$^a cmp $^b}) -> $meth {
+    say $meth;
+}
+--- expect
+Str
+gist
+new
+say
+
+=== list-sort-two-keys-or
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Runner.rakumod:368
+license: Artistic-2.0
+feature: method sort
+--- code
+my @summaries = { description => 'b', key => 2 }, { description => 'a', key => 9 },
+                { description => 'b', key => 1 };
+say @summaries.sort({ $^a<description> cmp $^b<description> || $^a<key> cmp $^b<key> }).List.map(*<key>);
+--- expect
+(9 1 2)
+
+=== list-sort-numeric-index-tie
+from: PDF 0.6.15 lib/PDF/IO/Writer.rakumod:177
+license: Artistic-2.0
+feature: method sort
+--- code
+my @entries = [ 'c', 2, 0 ], [ 'a', 1, 5 ], [ 'b', 1, 3 ];
+say @entries
+    .sort({ $^a[1] <=> $^b[1] || $^a[2] <=> $^b[2] })
+    .map(*[0]).join;
+--- expect
+bac
+
+=== list-sort-descending-placeholder
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:148
+license: Artistic-2.0
+feature: method sort
+--- code
+my class Bucket { has $.cost }
+my @buckets = (3, 10, 7).map({ Bucket.new(cost => $_) });
+my @sorted = @buckets.sort({ $^b.cost <=> $^a.cost });
+say @sorted.map(*.cost);
+--- expect
+(10 7 3)
+
+=== list-sort-whatever-method
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/Data.rakumod:62
+license: Artistic-2.0
+feature: method sort
+--- code
+my class Part { has $.file-name }
+my %parts = x => Part.new(:file-name<lib/B.rakumod>), y => Part.new(:file-name<lib/A.rakumod>);
+say %parts.values.sort(*.file-name).List.map(*.file-name);
+--- expect
+(lib/A.rakumod lib/B.rakumod)
+
+=== list-sort-negated-whatever
+from: Cromponent 0.0.13 lib/Cromponent/MetaCromponentRole.rakumod:34
+license: Artistic-2.0
+feature: method sort
+--- code
+my @loads = sub ($a) {}, sub ($a, $b, $c) {}, sub ($a, $b) {};
+for @loads.sort(-*.count) -> &load {
+    say &load.count;
+}
+--- expect
+3
+2
+1
+
+=== list-sort-pairs-by-value-desc
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Message.rakumod:114
+license: Artistic-2.0
+feature: method sort
+--- code
+my @values = 'gzip' => 0.5, 'br' => 1.0, 'identity' => 0.1;
+say @values.sort(-*.value).map(*.key);
+--- expect
+(br gzip identity)
+
+=== list-sort-list-key
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client/CookieJar.rakumod:138
+license: Artistic-2.0
+feature: method sort
+--- code
+my @cookie-list = { path => '/a/b', t => 2 }, { path => '/', t => 1 }, { path => '/a/b', t => 1 };
+say @cookie-list.sort({ .<path>.comb.elems, .<t> }).map({ .<path> ~ q{@} ~ .<t> });
+--- expect
+(/@1 /a/b@1 /a/b@2)
+
+=== list-sort-tuple-key-then-whatever
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Plugin/HTML/SCSS.rakumod:56
+license: Artistic-2.0
+feature: method sort
+--- code
+my @p-tuples = ('b.css', 2), ('a.css', 2), ('z.css', 1);
+my @css = @p-tuples.sort({ .[1], .[0] }).map( *.[0] ).list;
+say @css;
+--- expect
+[z.css a.css b.css]
+
+=== list-sort-paren-key-tuple
+from: Template::HAML 0.9.6 lib/Template/HAML/Lint.rakumod:169
+license: Artistic-2.0
+feature: method sort
+--- code
+my class Diag { has $.line; has $.column }
+my @diags = Diag.new(:line(3), :column(1)), Diag.new(:line(1), :column(9)), Diag.new(:line(1), :column(2));
+say @diags.sort({ ($_.line, $_.column) }).List.map({ "{.line}:{.column}" });
+--- expect
+(1:2 1:9 3:1)
+
+=== list-sort-key-then-sort-value
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Optimizer.rakumod:198
+license: Artistic-2.0
+feature: method sort
+--- code
+my %groups = a => 2, b => 3, c => 3;
+with %groups.pairs.sort(*.key).sort({+.value}).tail {
+    say .key;
+}
+--- expect
+c
+
+=== list-sort-assign-method
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:221
+license: Artistic-2.0
+feature: method sort
+--- code
+my @list = <bb a ccc ab b>;
+@list .= sort({.Str, .chars});
+say @list;
+@list .= sort({.chars, .Str});
+say @list;
+--- expect
+[a ab b bb ccc]
+[a b ab bb ccc]
+
+=== list-sort-assign-colon-block
+from: PDF 0.6.15 lib/PDF/IO/Writer.rakumod:132
+license: Artistic-2.0
+feature: method sort
+--- code
+my @idx = { obj-num => 4 }, { obj-num => 1 }, { obj-num => 3 };
+@idx .= sort: { .<obj-num> };
+say @idx.map(*<obj-num>);
+--- expect
+(1 3 4)
+
+=== list-sort-named-sub
+from: Graph 0.1.3 lib/Graph.rakumod:549
+license: Artistic-2.0
+feature: method sort
+--- code
+my &as = { .split('_')[1].Int };
+my @vs = <v_10 v_2 v_1>;
+@vs .= sort(&as);
+say @vs;
+--- expect
+[v_1 v_2 v_10]
+
+=== list-sort-private-callable-attr
+from: Pretty::Table 0.0.4 lib/Pretty/Table.rakumod:1316
+license: MIT
+feature: method sort
+--- code
+my class Table {
+    has &!sort-key = *.[1];
+    has @.rows;
+    method sorted { my @rows = @!rows; @rows = @rows.sort(&!sort-key); @rows }
+}
+say Table.new(rows => ([1, 'b'], [2, 'a'])).sorted.map(*[0]);
+--- expect
+(2 1)
+
+=== list-sort-then-reverse
+from: Text::Plot 0.1.4 lib/Text/Plot.rakumod:507
+license: Artistic-2.0
+feature: method reverse
+--- code
+my @tally = 3, 11, 2;
+@tally = @tally.sort.reverse;
+say @tally;
+say <b c a>.sort.reverse.join;
+--- expect
+[11 3 2]
+cba
+
+=== list-sort-unique-numeric
+from: Text::Utils 4.0.2 lib/Text/Utils.rakumod:199
+license: Artistic-2.0
+feature: method unique
+--- code
+my @ints = 10, 2, 10, 33, 2;
+say @ints.unique.sort({ $^a <=> $^b }).List;
+--- expect
+(2 10 33)
+
+=== list-sort-by-int-keys
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Backend/Response.rakumod:207
+license: Artistic-2.0
+feature: method sort
+--- code
+my %tool-call-builders = '10' => 'c', '2' => 'b', '0' => 'a';
+say %tool-call-builders.keys.sort(*.Int).map({ %tool-call-builders{$_} }).join;
+say %tool-call-builders.keys.sort.join(',');
+--- expect
+abc
+0,10,2
+
+=== list-sort-squish
+from: Code::Coverable 0.0.14 lib/Code/Coverable.rakumod:67
+license: Artistic-2.0
+feature: method squish
+--- code
+my @lines = 7, 3, 3, 9, 7, 7;
+say @lines.sort.squish.List;
+say @lines.squish;
+--- expect
+(3 7 9)
+(7 3 9 7)

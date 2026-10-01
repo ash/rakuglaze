@@ -1,0 +1,360 @@
+# Match objects: positions, pre/postmatch, captures, caps and chunks.
+
+=== rx-prematch-plus-capture
+from: Lingua::EN::Stem::Porter 1.2 lib/Lingua/EN/Stem/Porter.rakumod:84
+license: MIT
+feature: method prematch
+--- code
+for <caresses ponies cats caress> -> $word is copy {
+    if $word ~~ /[(ss||i)es||(<-[s]>)s]$/ {
+        $word = $/.prematch ~ $0;
+    }
+    say $word;
+}
+--- expect
+caress
+poni
+cat
+caress
+
+=== rx-postmatch-empty-match-guard
+from: Bailador 0.0.19 lib/Bailador/Route.pm:35
+license: MIT
+feature: method postmatch
+--- code
+my $uri = '/admin/users/42';
+my $match = $uri ~~ / '/admin' /;
+my $postmatch =
+    $match.to == $match.from ??
+    $uri.substr($match.to) !!
+    $match.postmatch;
+my $prematch = $match.prematch;
+say "[$prematch] [$postmatch]";
+say $match.from, ' ', $match.to;
+--- expect
+[] [/users/42]
+0 6
+
+=== rx-match-to-substr-rest
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Params.rakumod:37
+license: Artistic-2.0
+feature: method to
+--- code
+sub normalize(Str:D $name) {
+    return 'no key' unless $name ~~ / ^ <[\[\]]>* (<-[\[\]]>+) <[\]]>* /;
+    my $key   = ~$0;
+    my $after = $name.substr($/.to);
+    "$key | '$after'";
+}
+say normalize('user[name]');
+say normalize('ids[]');
+say normalize('plain');
+say normalize('[]');
+--- expect
+user | '[name]'
+ids | '[]'
+plain | ''
+no key
+
+=== rx-from-or-to-by-capture
+from: Template::Mustache 1.2.7 lib/Template/Mustache.rakumod:231
+license: Artistic-2.0
+feature: method from
+--- code
+for '{{#items}}', '{{/items}}' -> $tag {
+    $tag ~~ / '{{' (<[#/^]>) (\w+) '}}' /;
+    my %h = :val(~$1.trim), :on($0 ne '/'), :pos($0 eq '/' ?? $/.from !! $/.to);
+    say %h.sort.map({ "{.key}={.value}" }).join(' ');
+}
+--- expect
+on=True pos=10 val=items
+on=False pos=0 val=items
+
+=== rx-postmatch-stringified
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Render.rakumod:279
+license: Artistic-2.0
+feature: method postmatch
+--- code
+my $remaining = 'head: Title text here';
+if $remaining ~~ / ^ (\w+) ':' \s* / {
+    my $kind = ~$0;
+    $remaining = ~$/.postmatch;
+    say "$kind -> $remaining";
+    say $remaining.WHAT.^name;
+}
+--- expect
+head -> Title text here
+Str
+
+=== rx-prematch-or-empty-ternary
+from: XML::XPath 0.9.3 lib/XML/XPath/FunctionCall/String.pm6:34
+license: Artistic-2.0
+feature: method prematch
+--- code
+sub substring-before(Str $s, Str $sep) {
+    my $match = $s.match($sep);
+    return $match ?? $match.prematch !! '';
+}
+sub substring-after(Str $s, Str $sep) {
+    my $match = $s.match($sep);
+    return $match ?? $match.postmatch !! '';
+}
+say substring-before('1999/04/01', '/');
+say substring-after('1999/04/01', '/');
+say substring-before('abc', 'x').raku;
+--- expect
+1999
+04/01
+""
+
+=== rx-caps-pairs-key-value
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/AST.rakumod:45
+license: Artistic-2.0
+feature: method caps
+--- code
+my $m = 'margin: 1px auto' ~~ / <prop=.ident> ':' [\s* $<val>=\w+]+ /;
+for $m.caps -> Pair:D $_ {
+    my $key = .key.lc;
+    say $key, ' => ', .value.Str;
+}
+--- expect
+prop => margin
+val => 1px
+val => auto
+
+=== rx-caps-map-value-join
+from: Cro::Core 0.8.10 lib/Cro/MediaType.rakumod:88
+license: Artistic-2.0
+feature: method caps
+--- code
+my grammar QS {
+    token TOP { '"' ~ '"' [<qtext> | <quoted-pair>]* }
+    token qtext { <-["\\\n]>+ }
+    token quoted-pair { \\ <( . )> }
+}
+my $m = QS.parse(Q{"say \"hi\" now"});
+say $m.caps.map(*.value.Str).join;
+say $m.caps.map(*.key).join(',');
+--- expect
+say "hi" now
+qtext,quoted-pair,qtext,quoted-pair,qtext
+
+=== rx-caps-elems-count
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/ExtraRoles.rakumod:27
+license: Artistic-2.0
+feature: method caps
+--- code
+my $m = 'key=value' ~~ / $<k>=\w+ '=' $<v>=\w+ /;
+say $m.caps.elems;
+say $m.caps>>.kv.map(-> ($k, $v) { "<$k> $v" }).join('; ');
+my $none = 'abc' ~~ / \w+ /;
+say $none.caps.elems;
+--- expect
+2
+<k> key; <v> value
+0
+
+=== rx-chunks-keyed-pieces
+from: Text::ShellWords 0.1.1 lib/Text/ShellWords.rakumod:144
+license: Artistic-2.0
+feature: method chunks
+--- code
+my token dq {
+    '"' ~ '"'
+    [$<plain> = <-[\\"]> *] *
+        %% $<bs> = [\\ .]
+}
+my $m = Q{"a\"b\\c"} ~~ / <dq> /;
+say $m<dq>.chunks.map(-> $c {
+    given $c.key {
+        when '~'  { "~({$c.value})" }
+        when 'bs' { $c.value.substr(1) }
+        default   { $c.value.Str }
+    }
+}).join('|');
+--- expect
+~(")|a|"|b|\|c|~(")
+
+=== rx-values-first-made
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/Bulgarian/Standard/ListManagementCommand.rakumod:5
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar Cmd {
+    token TOP { <take> | <drop> }
+    token take { 'take' \s+ (\d+) }
+    token drop { 'drop' \s+ (\d+) }
+}
+my class A {
+    method TOP($/) { make $/.values[0].made; }
+    method take($/) { make "head($0)" }
+    method drop($/) { make "skip($0)" }
+}
+say Cmd.parse('take 3', :actions(A)).made;
+say Cmd.parse('drop 10', :actions(A)).made;
+--- expect
+head(3)
+skip(10)
+
+=== rx-named-capture-list-index
+from: Intl::Number::Plural 0.5.4 lib/Intl/Number/Plural.pm6:256
+license: Artistic-2.0
+feature: regex make
+--- code
+my grammar R {
+    token TOP { <value> '..' <value> }
+    token value { \d+ }
+}
+my class RA {
+    method TOP ($/) { make $<value>[0].Str.Int..$<value>[1].Str.Int }
+}
+my $r = R.parse('2..5', :actions(RA)).made;
+say $r.raku;
+say $r.elems;
+--- expect
+2..5
+4
+
+=== rx-named-inside-positional
+from: PDF::Content 0.9.11 lib/PDF/Content/Image.rakumod:48
+license: Artistic-2.0
+feature: regex ident
+--- code
+for 'data:image/PNG;base64,iVBOR', 'data:,hello' -> $uri {
+    $uri ~~ m/^('data:' [<t=.ident> '/' <s=.ident>]? $<b64>=";base64"? $<start>=",") /;
+    my $path = ~ $0;
+    my Str $mime-type = ( $0<t> // '(missing)').lc;
+    my Str $mime-subtype = ( $0<s> // '').lc;
+    my Bool \base64 = ? $0<b64>;
+    say "$path | $mime-type | $mime-subtype | {base64}";
+}
+--- expect
+data:image/PNG;base64, | image | png | True
+data:, | (missing) |  | True
+
+=== rx-match-pos-zero-no-match
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/DescribeBaseObjects.rakumod:151
+license: Artistic-2.0
+feature: method pos
+--- code
+my $m = 'hello world' ~~ / o \s w /;
+say $m.pos;
+my $empty = '' ~~ / x? /;
+say $empty.pos == 0 ?? '[empty match]' !! 'matched';
+say $empty.Bool;
+--- expect
+7
+[empty match]
+True
+
+=== rx-match-str-chop
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:10
+license: Artistic-2.0
+feature: method Str
+--- code
+my $line = 'in sub foo at lib/Foo.rakumod: line 12';
+if $line ~~ / \S+ ':' / {
+    my str $name = $/.Str.chop;
+    say $name;
+}
+--- expect
+lib/Foo.rakumod
+
+=== rx-match-in-sub-param-where
+from: PDF::Content 0.9.11 lib/PDF/Content/Image.rakumod:46
+license: Artistic-2.0
+feature: node RegexLit
+--- code
+my subset DataURI of Str where /^ 'data:' /;
+multi sub load(DataURI $u) { "data uri, {$u.chars} chars" }
+multi sub load(Str $u)     { "path $u" }
+say load('data:,x');
+say load('img/a.png');
+--- expect
+data uri, 7 chars
+path img/a.png
+
+=== rx-made-default-on-parse
+from: Text::CodeProcessing 0.6.0 lib/Text/CodeProcessing.rakumod:450
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar H {
+    token TOP { '#' \s* <pair>+ % [\s* ',' \s*] }
+    token pair { (\w+) '=' (\w+) }
+}
+my class HA {
+    method TOP($/) { make $<pair>.map(*.made).hash }
+    method pair($/) { make ~$0 => ~$1 }
+}
+for '# lang=raku, eval=true', 'no header' -> $input {
+    my %header = H.parse($input, actions => HA.new).made // %();
+    say %header.sort.map({ "{.key}:{.value}" }).join(' ') || '(none)';
+}
+--- expect
+eval:true lang:raku
+(none)
+
+=== rx-made-or-make-method-form
+from: Time::Crontab 1.0.0 lib/Time/Crontab/Actions.pm6:31
+license: Artistic-2.0
+feature: method make
+--- code
+my grammar Dow {
+    token TOP { <dow-value> }
+    token dow-value { <dow-number> | <dow-name> }
+    token dow-number { <[0..7]> }
+    token dow-name { mon | tue | wed }
+}
+my class DA {
+    method TOP($/) { $/.make: $<dow-value>.made }
+    method dow-value($/) { $/.make: $/<dow-number>.made // $/<dow-name>.made }
+    method dow-number($/) { make +$/ }
+    method dow-name($/) { make <mon tue wed>.first(~$/, :k) + 1 }
+}
+say Dow.parse('5', :actions(DA)).made;
+say Dow.parse('tue', :actions(DA)).made;
+--- expect
+5
+2
+
+=== rx-values-hyper-made-join
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Bulgarian/Predicate.rakumod:10
+license: Artistic-2.0
+feature: method made
+--- code
+my grammar P {
+    rule TOP { <predicate> }
+    rule predicate { <gt-cmp> | <lt-cmp> }
+    rule gt-cmp { (\w+) '>' (\d+) }
+    rule lt-cmp { (\w+) '<' (\d+) }
+}
+my class PA {
+    method TOP($/) { make $<predicate>.made }
+    method predicate($/) { make $/.values>>.made.join(' '); }
+    method gt-cmp($/) { make "$0 > $1" }
+    method lt-cmp($/) { make "$0 < $1" }
+}
+say P.parse('age > 30', :actions(PA)).made;
+say P.parse('size < 4', :actions(PA)).made;
+--- expect
+age > 30
+size < 4
+
+=== rx-match-numeric-coercion
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Base/Grammar.rakumod:17
+license: Artistic-2.0
+feature: regex <?{ }>
+--- code
+my grammar L {
+    token number { \d+ ['.' \d+]? }
+    token length:sym<zero> { <number> <?{ +$<number> == 0 }> }
+    token TOP { <length:sym<zero>> }
+}
+say so L.parse('0');
+say so L.parse('0.0');
+say so L.parse('3');
+--- expect
+True
+True
+False

@@ -1,0 +1,191 @@
+# first with :k / :end, min/max/minmax with a key, sum.
+
+=== list-first-whatever-k
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:48
+license: Artistic-2.0
+feature: method first
+--- code
+my @executed = <a b c d>;
+my $failing = 'c';
+my $idx = @executed.first(* eq $failing, :k);
+say $idx;
+my @prior = @executed[0 ..^ $idx].grep(* ne $failing).List;
+say @prior;
+say @executed.first(* eq 'z', :k);
+--- expect
+2
+[a b]
+Nil
+
+=== list-first-k-leading-adverb
+from: Duckie 0.0.12 lib/Duckie/Result.rakumod:67
+license: MIT
+feature: method first
+--- code
+my @column-names = <id name email>;
+my $name = 'email';
+my $index = @column-names.first( :k, * eq $name );
+say $index;
+--- expect
+2
+
+=== list-first-value-k-rotate
+from: Graph 0.1.3 lib/Graph.rakumod:1060
+license: Artistic-2.0
+feature: method rotate
+--- code
+my @strings = <d b a c>;
+my $smallest = @strings.min;
+my @strings2 = @strings.clone.rotate(@strings.first($smallest,:k));
+say @strings2;
+say @strings;
+--- expect
+[a c d b]
+[d b a c]
+
+=== list-first-end-no-matcher
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Support/Utils.rakumod:11
+license: Artistic-2.0
+feature: method first
+--- code
+my $name = 'App::Model::User';
+say $name.split('::').first(:end);
+say $name.split('::').first;
+--- expect
+User
+App
+
+=== list-first-end-code
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:292
+license: Artistic-2.0
+feature: method first
+--- code
+my &code = * %% 2;
+my @values = 1, 4, 7, 8, 9;
+say @values.first(&code, :end);
+say @values.first(&code, :end, :k);
+say @values.first(&code);
+--- expect
+8
+3
+4
+
+=== list-first-with-block
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Body.rakumod:100
+license: Artistic-2.0
+feature: method first
+--- code
+my class Header { has $.name; has $.value }
+my @headers = Header.new(name => 'Host', value => 'x'), Header.new(name => 'Content-Type', value => 'text/plain');
+with @headers.first(*.name.lc eq 'content-type') {
+    say .value;
+}
+say @headers.first(*.name eq 'Accept').defined;
+--- expect
+text/plain
+False
+
+=== list-first-k-assign-index
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Header.rakumod:68
+license: MIT
+feature: method first
+--- code
+my class Field { has $.name; has $.v }
+my @fields = Field.new(:name<Host>, :v(1)), Field.new(:name<Accept>, :v(2));
+my $k = 'accept';
+my $f = Field.new(:name<Accept>, :v(9));
+@fields[@fields.first({ .name.lc eq $k.lc }, :k)] = $f;
+say @fields.map(*.v);
+--- expect
+(1 9)
+
+=== list-first-attribute-lookup
+from: Bailador 0.0.19 lib/Bailador/Route.pm:61
+license: MIT
+feature: method first
+--- code
+my class Route { has $.path; method is-similar-to($r) { $!path eq $r } }
+my @routes = Route.new(:path</a>), Route.new(:path</b>);
+my $matches = @routes.first({ $_.is-similar-to('/b') });
+say $matches.path;
+say @routes.first({ $_.is-similar-to('/c') }).^name;
+--- expect
+/b
+Nil
+
+=== list-first-defined-chain
+from: zef 1.1.4 lib/Zef/Extract.rakumod:175
+license: Artistic-2.0
+feature: method first
+--- code
+my @extractors = { Nil }, { (q{META6.json}, q{lib/A.rakumod}) }, { (q{x},) };
+my $name-paths := @extractors.map({ .() }).first(*.defined).map(*.uc);
+say $name-paths;
+--- expect
+(META6.JSON LIB/A.RAKUMOD)
+
+=== list-max-by-whatever
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/Migrate.rakumod:179
+license: Artistic-2.0
+feature: method max
+--- code
+my @versions = q{9}, q{10}, q{2};
+say @versions.max(*.Int).Str;
+say @versions.max;
+--- expect
+10
+9
+
+=== list-min-pair-by-value
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/FuzzyMatching.rakumod:66
+license: Artistic-2.0
+feature: method min
+--- code
+my %dists = apple => 3, apply => 1, ample => 2;
+my $distPair = %dists.min({ $_.value });
+say $distPair.key;
+say $distPair.^name;
+--- expect
+apply
+Pair
+
+=== list-max-chars-of-lines
+from: Text::Table::Simple 0.1.0 lib/Text/Table/Simple.rakumod:140
+license: Artistic-2.0
+feature: method max
+--- code
+my @r = ['ab', "x\nlonger"], ['abcd', Str];
+my $col = 1;
+say @r[*;$col].map({ .defined && .chars ?? .lines.max(*.chars).chars !! 0 }).max;
+say @r[*;0].map(*.chars).max;
+--- expect
+6
+4
+
+=== list-minmax-destructure
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:392
+license: Artistic-2.0
+feature: method minmax
+--- code
+my @values = 5, 3, 9, 1;
+say @values ?? ((.min,.max) with @values.minmax) !! ();
+say @values.minmax.^name;
+say @values.minmax;
+--- expect
+(1 9)
+Range
+1..9
+
+=== list-sum-of-map
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/JUnit.rakumod:330
+license: Artistic-2.0
+feature: method sum
+--- code
+my class Suite { has @.cases }
+my @suites = Suite.new(cases => <a b>), Suite.new(cases => <c>), Suite.new;
+my $total-tests = @suites.map({ .cases.elems }).sum;
+say $total-tests;
+say ().sum;
+--- expect
+3
+0

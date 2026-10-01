@@ -1,0 +1,353 @@
+# Item containers ($[], @$x, <>, .item), coercions (.list/.List/.Array/.Seq/.cache/.eager), arrays of arrays, shaped and multi-dim arrays.
+
+=== list-itemized-push-append
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/Diff.rakumod:295
+license: Artistic-2.0
+feature: term $[...]
+--- code
+my @as = [1, 2], [3, 4];
+my @zip;
+for ^2 -> $index {
+    @zip.append: $[ $index, |(@as.map: { $_[$index] }) ], ;
+}
+say @zip.elems;
+say @zip[1];
+--- expect
+2
+[1 2 4]
+
+=== list-itemized-empty-compare
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToLongFormat.rakumod:56
+license: Artistic-2.0
+feature: term $[...]
+--- code
+for (Nil, $[], $['id'], Whatever) -> $idColsSpec {
+    if !(so $idColsSpec) or $idColsSpec eq $[] or $idColsSpec.isa(Whatever) { say 'none' }
+    else { say $idColsSpec.join(',') }
+}
+--- expect
+none
+none
+id
+none
+
+=== list-itemized-array-deref-for
+from: App::GPTrixie 0.29 lib/GPT/FileGenerator.pm6:20
+license: Artistic-2.0
+feature: prefix @
+--- code
+my $gpt-conf = [ { name => 'a' }, { name => 'b' } ];
+for @$gpt-conf -> $mod-conf {
+    say $mod-conf<name>;
+}
+for $gpt-conf -> $all { say $all.elems }
+--- expect
+a
+b
+2
+
+=== list-itemized-destructure-deref
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:89
+license: Artistic-2.0
+feature: prefix @
+--- code
+my $op = ['+', 'new line'];
+my ($kind, $line) = @$op;
+say $kind;
+say $line;
+--- expect
++
+new line
+
+=== list-itemized-at-paren
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:155
+license: Artistic-2.0
+feature: prefix @
+--- code
+my %bMatches = x => [1, 4];
+my $ai = 'x';
+for @(%bMatches{$ai}) -> $j {
+    say $j;
+}
+my $n = 0;
+$n++ for %bMatches{$ai};
+say $n;
+--- expect
+1
+4
+1
+
+=== list-decont-for
+from: Pod::To::Man 1.2.1 lib/Pod/To/Man.rakumod:14
+license: Artistic-2.0
+feature: postfix <>
+--- code
+my $pod = ['head', 'para', 'code'];
+for $pod<> -> $node {
+    print $node, ';';
+}
+say '';
+my $c = 0;
+$c++ for $pod;
+say $c;
+--- expect
+head;para;code;
+1
+
+=== list-decont-hash-value
+from: Anolis 1.0.0 lib/Anolis.rakumod:403
+license: Artistic-2.0
+feature: postfix <>
+--- code
+my %areas = 1 => [<a b>], 2 => [<c>];
+my @areas = %areas.keys.sort.map(-> $y {
+    %areas{$y}<>
+}).flat;
+say @areas;
+--- expect
+[a b c]
+
+=== list-item-hash-in-array
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model/Bulk.rakumod:44
+license: Artistic-2.0
+feature: method item
+--- code
+my %attrs = name => 'x', id => 1;
+my @rows = [%attrs.item];
+say @rows.elems;
+my @flat = [%attrs];
+say @flat.elems;
+--- expect
+1
+2
+
+=== list-dot-list-for
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:144
+license: Artistic-2.0
+feature: method list
+--- code
+my $value = [1, [2, 3]];
+for $value.list -> $v {
+    say $v.raku;
+}
+--- expect
+1
+$[2, 3]
+
+=== list-dot-list-assign-array
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:41
+license: Artistic-2.0
+feature: method list
+--- code
+my class Example { method effective-tags { ('slow', 'db').Seq } }
+my @tags = Example.new.effective-tags.list;
+say @tags;
+say @tags.^name;
+--- expect
+[slow db]
+Array
+
+=== list-list-cached-twice
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:27
+license: Artistic-2.0
+feature: method cache
+--- code
+my %initial = executed => (1..3).map(* * 2);
+my @executed = %initial<executed>.list.cache;
+say @executed;
+my $s = (1..3).map(* + 1);
+my $c = $s.cache;
+say $c.elems, ' ', $c.sum;
+--- expect
+[2 4 6]
+3 9
+
+=== list-array-to-list-coerce
+from: App::RaCoCo 2.0.1 lib/App/Racoco/ModuleNames.rakumod:14
+license: Artistic-2.0
+feature: method List
+--- code
+my @parts = <lib App Mod>;
+my $l = @parts.reverse.List;
+say $l;
+say $l.^name;
+say (try { $l[0] = 'x'; 'mutable' }) // 'immutable';
+--- expect
+(Mod App lib)
+List
+mutable
+
+=== list-seq-to-array-method
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Actions.rakumod:220
+license: Artistic-2.0
+feature: method Array
+--- code
+my @keyws = a => 'auto', b => 'none';
+my $made = 'keywords' => @keyws.map(*.value).Array;
+say $made.value.^name;
+$made.value.push: 'inherit';
+say $made.value;
+--- expect
+Array
+[auto none inherit]
+
+=== list-seq-method-of-array
+from: HTTP::Request::FormData 0.2 lib/HTTP/Request/FormData.pm6:199
+license: Artistic-2.0
+feature: method Seq
+--- code
+my class Form { has @.parts; method parts() returns Seq:D { @!parts.Seq } }
+my $f = Form.new(parts => <a b>);
+say $f.parts.^name;
+say $f.parts.join('&');
+--- expect
+Seq
+a&b
+
+=== list-eager-list
+from: LogP6 1.6.4 lib/LogP6/ConfigFile.rakumod:72
+license: Artistic-2.0
+feature: method eager
+--- code
+my @json = <x y>;
+my $seen = 0;
+my $r = @json.map({ $seen++; .uc }).eager.List;
+say $seen;
+say $r;
+--- expect
+2
+(X Y)
+
+=== list-array-of-arrays-xx
+from: FEN::Grammar 0.0.7 lib/FEN/Utils.rakumod:5
+license: Artistic-2.0
+feature: infix xx
+--- code
+my $dimension = 3;
+my @matrix = [["." xx $dimension] xx $dimension];
+@matrix[1][2] = 'K';
+say @matrix.elems;
+say @matrix.map(*.join).join('/');
+--- expect
+3
+.../..K/...
+
+=== list-array-of-arrays-dp
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:248
+license: Artistic-2.0
+feature: index [][]
+--- code
+my @a = <a b c>;
+my @b = <a c>;
+my @t;
+for 0..@a.elems -> $i { @t[$i][0] = 0 }
+for 0..@b.elems -> $j { @t[0][$j] = 0 }
+for 1..@a.elems -> $i {
+    for 1..@b.elems -> $j {
+        @t[$i][$j] = @a[$i-1] eq @b[$j-1] ?? @t[$i-1][$j-1] + 1 !! max(@t[$i-1][$j], @t[$i][$j-1]);
+    }
+}
+say @t[*-1][*-1];
+--- expect
+2
+
+=== list-array-of-arrays-with
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:95
+license: Artistic-2.0
+feature: index [][]
+--- code
+my @tbl = [1, Any], [3];
+my @cells;
+for ^2 -> $i {
+    for ^2 -> $j {
+        with @tbl[$i][$j] { @cells.push: $_ } else { @cells.push: q{-} }
+    }
+}
+say @cells.join(q{ });
+--- expect
+1 - 3 -
+
+=== list-shaped-array-assign
+from: PDF::Class 0.5.30 lib/PDF/NameTree.rakumod:44
+license: Artistic-2.0
+feature: decl shaped array
+--- code
+my @limits[2] = 'aaa', 'zzz';
+say @limits;
+say @limits.shape;
+@limits[1] = 'mmm';
+say @limits.join('..');
+--- expect
+[aaa zzz]
+(2)
+aaa..mmm
+
+=== list-shaped-array-too-many
+from: HarfBuzz 0.1.7 lib/HarfBuzz/Shaper.rakumod:123
+license: Artistic-2.0
+feature: decl shaped array
+--- code
+my @scale = 2, 4;
+my $size = 12;
+my @vec[2] = @scale.map: $size / *;
+say @vec;
+my @three[2] = 1, 2, 3;
+--- expect
+[6 3]
+!! X::AdHoc
+
+=== list-multidim-semicolon-index
+from: Dan 0.0.3 lib/Dan.rakumod:315
+license: Artistic-2.0
+feature: index [;]
+--- code
+my @series = [1, 2, 3], [4, 5, 6];
+my @data;
+for ^2 -> $i {
+    for ^3 -> $j {
+        @data[$j;$i] = @series[$i][$j]
+    }
+}
+say @data.elems;
+say @data[2;1];
+say @data.map(*.join(',')).join(' ');
+--- expect
+3
+6
+1,4 2,5 3,6
+
+=== list-multidim-whatever-column
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Request.rakumod:166
+license: Artistic-2.0
+feature: index [*;*]
+--- code
+my @str = 'a' => 'x; y', 'b' => 'z';
+say @str.map({ .value.split(/';' ' '?/).List })[*;*];
+--- expect
+(x y z)
+
+=== list-multidim-row-all
+from: Math::Matrix 0.4.2 lib/Math/Matrix/ArrayOfArray.rakumod:35
+license: Artistic-2.0
+feature: index [*]
+--- code
+my @m = [1, 2], [3, 4];
+say so (@m == 1 or @m[0] == all @m[*]);
+@m.push: [5];
+say so (@m == 1 or @m[0] == all @m[*]);
+--- expect
+True
+False
+
+=== list-zen-slice-elems-all
+from: Data::TypeSystem 0.1.8 lib/Data/TypeSystem/Examiner.rakumod:110
+license: Artistic-2.0
+feature: index [*]
+--- code
+my $l = [[1, 2], [3, 4]];
+say so $l[*].&{ $_».elems.all == $_[0].elems };
+$l.push: [5];
+say so $l[*].&{ $_».elems.all == $_[0].elems };
+--- expect
+True
+False

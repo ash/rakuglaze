@@ -1,0 +1,432 @@
+# Breaking strings apart: split (limits, regexes, :skip-empty, :v), comb, words, lines.
+
+=== str-split-limit-two-destructure
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:95
+license: Artistic-2.0
+feature: method split
+--- code
+for 'name=value=more', 'flag' -> $pair {
+    my ($key, $value) = $pair.split('=', 2);
+    say "$key: {$value // '(none)'}";
+}
+--- expect
+name: value=more
+flag: (none)
+
+=== str-split-limit-index-zero
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:299
+license: Artistic-2.0
+feature: method split
+--- code
+for 'user:secret', 'anon' {
+    say .split(":", 2)[0];
+}
+--- expect
+user
+anon
+
+=== str-split-limit-four-skip-slot
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:140
+license: Artistic-2.0
+feature: method split
+--- code
+my $line = 'in SETTING::src/core.c/Any.rakumod:123:extra';
+my ($setting, $, $file, $linenr) = $line.words[1].split(':', 4);
+say $setting;
+say $file;
+say $linenr;
+--- expect
+SETTING
+src/core.c/Any.rakumod
+123:extra
+
+=== str-split-blank-line-separator
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodyParsers.rakumod:172
+license: Artistic-2.0
+feature: method split
+--- code
+my $part = "Content-Type: text/plain\r\nX-A: 1\r\n\r\nbody text\r\n\r\nmore";
+my ($header, $body-str) = $part.split("\r\n\r\n", 2);
+say $header.lines.elems;
+say $body-str.raku;
+--- expect
+2
+"body text\r\n\r\nmore"
+
+=== str-split-regex-char-class
+from: Bailador 0.0.19 lib/Bailador/Request.pm:141
+license: MIT
+feature: method split
+--- code
+my $cookies = 'a=1; b=2, c=3';
+for $cookies.split(/<[;,]>\s/) -> $cookie {
+    my ($name, $value) = $cookie.trim.split(/\s*\=\s*/, 2);
+    say "$name -> $value";
+}
+--- expect
+a -> 1
+b -> 2
+c -> 3
+
+=== str-split-regex-alternation
+from: Collection 0.18.0 lib/Collection/RefreshPlugins.rakumod:36
+license: Artistic-2.0
+feature: method split
+--- code
+my $collections = 'alpha beta,gamma   delta';
+for $collections.split(/\s+ | \,/) {
+    say "<$_>";
+}
+--- expect
+<alpha>
+<beta>
+<gamma>
+<delta>
+
+=== str-split-regex-count-lines
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:12
+license: Artistic-2.0
+feature: method split
+--- code
+my $orig = "line one\nline two\nline three";
+my $pos = 12;
+say $orig.substr(0, $pos).split(/\n/).elems;
+--- expect
+2
+
+=== str-split-regex-path-separators
+from: Crust 0.0.1 lib/Crust/App/File.pm6:39
+license: Artistic-2.0
+feature: method split
+--- code
+my $path = 'static\\css/site.css';
+my @path = $path.split(/<[\\/]>/);
+say @path.elems;
+say @path.join('|');
+--- expect
+3
+static|css|site.css
+
+=== str-split-regex-then-hyper-subst
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:404
+license: Artistic-2.0
+feature: method split
+--- code
+my $val = '/Times:/Roman:/Bold/';
+say $val.split(/\:/)>>.subst(rx{'/'$},'');
+--- expect
+(/Times /Roman /Bold)
+
+=== str-split-regex-skip-empty-sort
+from: Graph 0.1.3 lib/Graph.rakumod:542
+license: Artistic-2.0
+feature: method split
+--- code
+my @vs = <v_10 v_2 v:1 v_33>;
+@vs = try @vs.sort({ $_.split(/<[:_]>/, :skip-empty).grep(/\d+/)».Numeric });
+say @vs;
+--- expect
+[v:1 v_2 v_10 v_33]
+
+=== str-split-regex-v-capture-limit
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:148
+license: Artistic-2.0
+feature: method split
+--- code
+my $line = 'lib/Foo.rakumod:42 in block';
+my ($before, Int() $linenr) = $line.split(/ ":" <( \d+ /, :v, 2);
+say $before;
+say $linenr + 1;
+--- expect
+lib/Foo.rakumod:
+43
+
+=== str-split-v-keeps-newlines
+from: Selkie 0.16.0 lib/Selkie/Widget/RichText.rakumod:236
+license: Artistic-2.0
+feature: method split
+--- code
+my $text = "one\ntwo\nthree";
+my @parts = $text.split(/\n/, :v);
+say @parts.elems;
+say @parts.map({ $_ ~~ Match ?? '\n' !! $_ }).join('|');
+--- expect
+5
+one|\n|two|\n|three
+
+=== str-split-skip-empty-hash
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:137
+license: Artistic-2.0
+feature: method split
+--- code
+my $line = 'a:1;;b:2;';
+my %values = ($line // '').split(';', :skip-empty)
+    .map(*.split(':')).map({ .[0] => .[1] });
+say %values.sort.map({ "{.key}={.value}" }).join(',');
+--- expect
+a=1,b=2
+
+=== str-split-empty-string-chars
+from: DB::Xoos 0.1.1 lib/DB/Xoos/SQL.pm6:49
+license: Artistic-2.0
+feature: method split
+--- code
+my @params = 1, 2, 3;
+my $quote = {};
+say (($quote<placeholder>//'?') x @params.elems).split('', :skip-empty).join(', ');
+--- expect
+?, ?, ?
+
+=== str-split-empty-no-skip
+from: TOML 3 lib/TOML.rakumod:40
+license: Artistic-2.0
+feature: method split
+--- code
+my $obj = 'abc';
+my @s = |$obj.split('', :skip-empty);
+say @s.elems;
+say $obj.split('').raku;
+--- expect
+3
+("", "a", "b", "c", "").Seq
+
+=== str-split-skip-empty-lc
+from: Intl::LanguageTag 0.12.7 lib/Intl/LanguageTag/BCP47.rakumod:496
+license: Artistic-2.0
+feature: method split
+--- code
+for 't-EN-us', 'de--CH' -> $text {
+    say $text.lc.substr((2 if $text.starts-with: 't-')).split('-', :skip-empty);
+}
+--- expect
+(en us)
+(de ch)
+
+=== str-split-name-tail
+from: Air 0.1.32 lib/Air/Functional.rakumod:125
+license: Artistic-2.0
+feature: method split
+--- code
+my class Air::Widget::Button { }
+say Air::Widget::Button.^name.split('::').tail.lc;
+say Air::Widget::Button.^name.split('::')[*-1];
+--- expect
+button
+Button
+
+=== str-split-map-tc-join
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:59
+license: Artistic-2.0
+feature: method tc
+--- code
+say 'fail-level-check'.split('-').map(*.tc).join;
+--- expect
+FailLevelCheck
+
+=== str-comb-no-args-loop
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:14
+license: Artistic-2.0
+feature: method comb
+--- code
+my $str = 'a b"c';
+say [~] $str.comb.map: {
+    $_ ~~ /<[a..z]>/ ?? $_ !! .ord.fmt("\\x[%x]")
+};
+--- expect
+a\x[20]b\x[22]c
+
+=== str-comb-destructure-two
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:193
+license: Artistic-2.0
+feature: method comb
+--- code
+for 'ex', 'Gx' -> $pair {
+    my ($fg, $bg) = $pair.comb;
+    say "fg=$fg bg=$bg";
+}
+--- expect
+fg=e bg=x
+fg=G bg=x
+
+=== str-comb-two-hex-blob
+from: Digest::SHA1::Native 1.0.1 lib/Digest/SHA1/Native.rakumod:27
+license: Artistic-2.0
+feature: method comb
+--- code
+my $hex = 'de00adbeef';
+my $blob = Blob.new( $hex.comb(2).map({ :16($_) }));
+say $blob.elems;
+say $blob.list;
+--- expect
+5
+(222 0 173 190 239)
+
+=== str-comb-six-bit-groups
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:409
+license: Artistic-2.0
+feature: method comb
+--- code
+my $blob = 'Man'.encode;
+my $out = $blob».fmt('%08b').join.comb(6);
+say $out;
+say $out.map(*.parse-base(2));
+--- expect
+(010011 010110 000101 101110)
+(19 22 5 46)
+
+=== str-comb-pct-escapes-utf8
+from: PostCocoon::Url 1.1 lib/PostCocoon/Url.rakumod:56
+license: Artistic-2.0
+feature: method comb
+--- code
+say utf8.new(|'%C3%A9%74%C3%A9'.comb(3).map(*.substr(1).parse-base(16))).decode;
+--- expect
+été
+
+=== str-comb-regex-quantified-range
+from: Lingua::EN::Numbers 2.8.3 lib/Lingua/EN/Numbers.pm6:122
+license: Artistic-2.0
+feature: method comb
+--- code
+my $int = 1234567;
+say join ',', reverse gather for $int.flip.comb(/\d ** 1..3/) {
+    take .flip;
+};
+--- expect
+1,234,567
+
+=== str-comb-regex-vowel-groups
+from: Lingua::EN::Syllable 1.0.3 lib/Lingua/EN/Syllable.rakumod:57
+license: Artistic-2.0
+feature: method comb
+--- code
+for <beautiful rhythm queue> -> $word {
+    my $syl = $word.comb(/<[aeiouy]>+/);
+    say "$word: {$syl.elems} {$syl.join('-')}";
+}
+--- expect
+beautiful: 3 eau-i-u
+rhythm: 1 y
+queue: 1 ueue
+
+=== str-comb-regex-signed-numbers
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:386
+license: Artistic-2.0
+feature: method comb
+--- code
+my $val = '-12 +34 7  0';
+say [ $val.comb(/[<[+-]>|\w|"."]+/)».Int ];
+--- expect
+[-12 34 7 0]
+
+=== str-comb-nonspace-head
+from: Math::Libgsl::BLAS 0.0.5 lib/Math/Libgsl/Raw/BLAS.rakumod:15
+license: Artistic-2.0
+feature: method comb
+--- code
+my $out = "\tlibgsl.so.27 (libc6) => /usr/lib/libgsl.so.27\n\tlibgsl.so.25 (libc6) => /old\n";
+say $out.split("\n").grep(/^ \s+ libgsl\.so\. \d+ /).sort.head.comb(/\S+/).head;
+--- expect
+libgsl.so.25
+
+=== str-words-destructure-three
+from: HTTP::Easy 1.3 lib/HTTP/Easy.rakumod:120
+license: Artistic-2.0
+feature: method words
+--- code
+my $request = "GET  /index.html   HTTP/1.1";
+my ($method, $uri, $protocol) = $request.words;
+say "$method|$uri|$protocol";
+--- expect
+GET|/index.html|HTTP/1.1
+
+=== str-words-head-in-interpolation
+from: CodeUnit 0.0.11 lib/CodeUnit.rakumod:89
+license: Artistic-2.0
+feature: method words
+--- code
+my $code = ':frobnicate now please';
+say "Unknown REPL command: $code.words.head()";
+--- expect
+Unknown REPL command: :frobnicate
+
+=== str-words-with-pair
+from: App::RaCoCo 2.0.1 lib/App/Racoco/CoveredLinesCollector.rakumod:51
+license: Artistic-2.0
+feature: method words
+--- code
+my @h = 'lib/A.rakumod x 12', 'lib/B.rakumod y 7';
+say @h.map(-> $h { .[0] => .[2] with $h.words}).map(*.gist).join('; ');
+--- expect
+lib/A.rakumod => 12; lib/B.rakumod => 7
+
+=== str-words-index
+from: Intl::UserLanguage 0.4.0 lib/Intl/UserLanguage/Windows.pm6:30
+license: Artistic-2.0
+feature: method words
+--- code
+my $entry = 'PreferredUILanguages  REG_MULTI_SZ  en-US\0fr-FR';
+say $entry.words[2].split('\0');
+--- expect
+(en-US fr-FR)
+
+=== str-chars-words-lines-zip
+from: Data::Importers 0.1.8 lib/Data/Importers.rakumod:67
+license: Artistic-2.0
+feature: method lines
+--- code
+my $txt = "the quick brown\nfox jumps\n\nover";
+my %h = <chars words lines> Z=> [$txt.chars, $txt.words.elems, $txt.lines.elems];
+say %h<chars words lines>;
+--- expect
+(31 6 4)
+
+=== str-lines-elems-line-number
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/ErrorHandling.rakumod:55
+license: Artistic-2.0
+feature: method lines
+--- code
+my $target = "first line\nsecond line\nthird";
+my $parsed = $target.substr(0, 15).trim-trailing;
+my $line-no = $parsed.lines.elems;
+say "$line-no: {$parsed.lines.tail}";
+--- expect
+2: seco
+
+=== str-lines-not-chomped
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:122
+license: Artistic-2.0
+feature: method lines
+--- code
+my $source = "a\nbb\r\nccc";
+for $source.lines(:!chomp) {
+    say .raku;
+}
+--- expect
+"a\n"
+"bb\r\n"
+"ccc"
+
+=== str-lines-kv
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:893
+license: Artistic-2.0
+feature: method lines
+--- code
+my $text = "use v6;\n\nsay 1;\n";
+for $text.lines.kv -> $idx, $line {
+    say "{$idx + 1}: $line" if $line;
+}
+--- expect
+1: use v6;
+3: say 1;
+
+=== str-lines-comb-width
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:837
+license: Artistic-2.0
+feature: method comb
+--- code
+my $width = 4;
+my $text = "abcdefghij\n\nxyz";
+say ($text.lines.map: { (|.comb($width)) || '' }).raku;
+--- expect
+("abcd", "efgh", "ij", "", "xyz").Seq

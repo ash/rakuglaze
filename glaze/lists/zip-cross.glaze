@@ -1,0 +1,312 @@
+# Zip and cross: Z, Z=>, Z~, Z[op], X~, X=>, X-, X*, and reversed R//.
+
+=== list-zip-fatarrow-hash
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:107
+license: Artistic-2.0
+feature: infix Z=>
+--- code
+my @bsd-order = <di ln so>;
+my $bsd-rules = 'exfxgx';
+my %rules = @bsd-order Z=> $bsd-rules.comb(2).map({ .uc });
+say %rules.sort;
+--- expect
+(di => EX ln => FX so => GX)
+
+=== list-zip-fatarrow-infinite-range
+from: DBIish 0.6.9 lib/DBDish/Pg/Connection.rakumod:225
+license: BSD-2-Clause
+feature: infix Z=>
+--- code
+my @column-names = <id name email>;
+my %col-map := (@column-names Z=> (0..*)).Map;
+say %col-map<email>;
+say %col-map.^name;
+--- expect
+2
+Map
+
+=== list-zip-fatarrow-caret-elems
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/Roles/Koremutake/WordedNumberSpec.rakumod:27
+license: Artistic-2.0
+feature: infix Z=>
+--- code
+my @phonemes = <ba be bi bo>;
+my %phoneme_to_number = @phonemes Z=> ^@phonemes.elems;
+say %phoneme_to_number<bi>;
+say %phoneme_to_number.elems;
+--- expect
+2
+4
+
+=== list-zip-fatarrow-once-infinity
+from: Base58 0.0.5 lib/Base58.rakumod:28
+license: MIT
+feature: infix Z=>
+--- code
+my @alphabet = <1 2 3 4 5 6 7 8 9 A B C>;
+my $s = '2B';
+say $s.comb.map({(once %(@alphabet Z=> ^∞)){$_}});
+--- expect
+(1 10)
+
+=== list-zip-fatarrow-angle
+from: CSS::Properties 0.10.9 lib/CSS/Properties/Util.rakumod:85
+license: Artistic-2.0
+feature: infix Z=>
+--- code
+my @hsl = 120, 50, 25;
+my $r = [ <num percent percent> Z=> @hsl ];
+say $r.elems;
+say $r.map(*.key);
+say $r[1].value;
+--- expect
+3
+(num percent percent)
+50
+
+=== list-zip-for-destructure
+from: DBIish 0.6.9 lib/DBDish/StatementHandle.rakumod:121
+license: BSD-2-Clause
+feature: infix Z
+--- code
+my @a = 1, 'Ann';
+my @column-name = <id name>;
+for @a Z @column-name -> ($v, $n) {
+    say "$n: $v";
+}
+--- expect
+id: 1
+name: Ann
+
+=== list-zip-flat-pairs-ahead
+from: Cro::Core 0.8.10 lib/Cro.rakumod:502
+license: Artistic-2.0
+feature: infix Z
+--- code
+my @components-in = <source parse route>;
+for flat @components-in Z @components-in[1..*] -> $comp, $next {
+    say "$comp -> $next";
+}
+--- expect
+source -> parse
+parse -> route
+
+=== list-zip-with-counter
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:300
+license: Artistic-2.0
+feature: infix Z
+--- code
+my @sub_elements = <x y z>;
+for @sub_elements Z 0..* -> ($sub_element, $index) {
+    say "$index:$sub_element";
+}
+--- expect
+0:x
+1:y
+2:z
+
+=== list-zip-comma-styles
+from: Terminal::Table 0.1.1 lib/Terminal/Table/Generator.rakumod:145
+license: MIT
+feature: infix Z,
+--- code
+my @array = [1, 2], [3, 4];
+my @styles = 'bold', 'dim';
+for @array Z, @styles -> ($inner_array, $inner_style) {
+    say "$inner_style: {$inner_array.join('+')}";
+}
+--- expect
+bold: 1+2
+dim: 3+4
+
+=== list-zip-hash-literal
+from: FastCGI 0.9.0 lib/FastCGI/Protocol.rakumod:31
+license: Artistic-2.0
+feature: infix Z
+--- code
+my @vals = 1, 7, 512, 0;
+my %h = %('type', 'request-id', 'content-length', 'padding-length' Z @vals);
+say %h.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+content-length 512=padding-length 0 type 1=request-id 7
+
+=== list-zip-concat-numbers
+from: Pretty::Table 0.0.4 lib/Pretty/Table.rakumod:720
+license: MIT
+feature: infix Z~
+--- code
+my $n = 3;
+my @field-names = ('Field ' xx $n) Z~ (1..$n);
+say @field-names.join('|');
+--- expect
+Field 1|Field 2|Field 3
+
+=== list-zip-concat-join
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/HTML.rakumod:270
+license: Artistic-2.0
+feature: infix Z~
+--- code
+my @res = <a b c>;
+my @sep = ', ', ' & ', '';
+my $res = (@res Z~ @sep).join('');
+say $res;
+--- expect
+a, b & c
+
+=== list-zip-plus-halves
+from: Dan 0.0.3 lib/Dan.rakumod:258
+license: Artistic-2.0
+feature: infix Z+
+--- code
+my @x = 10, 20, 30, 40;
+my @d = 0.5, 2.5;
+say ( @x[@d».floor] Z+ @x[@d».ceiling] ) »/» 2;
+--- expect
+(15 35)
+
+=== list-zip-bracketed-ne
+from: Graph 0.1.3 lib/Graph/Hypercube.rakumod:29
+license: Artistic-2.0
+feature: infix Z[ne]
+--- code
+for <0110 0111 1001> -> $t {
+    my $f = '0110';
+    say "$t: ", ($f.comb Z[ne] $t.comb).sum == 1;
+}
+--- expect
+0110: False
+0111: True
+1001: False
+
+=== list-zip-bracketed-times-sequence
+from: Red 0.2.5 lib/Red/Driver/CommonSQL.rakumod:1008
+license: Artistic-2.0
+feature: infix Z[*]
+--- code
+my $value = '1:02:03';
+say [+] $value.comb(/\d+/).reverse Z[*] (1, 10, 100 ... *);
+--- expect
+123
+
+=== list-zip-bracketed-sub
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:371
+license: Artistic-2.0
+feature: infix Z[&sub]
+--- code
+sub make-positional($type, $ordinal) { "$ordinal:$type" }
+my @positional-types = Int, Str;
+my @ordinals = <first second third>;
+my @positionals = @positional-types.map(*.^name) Z[&make-positional] @ordinals;
+say @positionals;
+--- expect
+[first:Int second:Str]
+
+=== list-cross-concat-range
+from: Graph 0.1.3 lib/Graph/Complete.rakumod:28
+license: Artistic-2.0
+feature: infix X~
+--- code
+my ($prefix, $i, $k) = 'v', 2, 3;
+my @level = "{$prefix}{$i}_" X~ (^$k);
+say @level;
+--- expect
+[v2_0 v2_1 v2_2]
+
+=== list-cross-concat-hyper-str
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:129
+license: Artistic-2.0
+feature: infix X~
+--- code
+my $nc = 4;
+my @cns = ('X' X~ (1 .. $nc)>>.Str).Array;
+say @cns;
+--- expect
+[X1 X2 X3 X4]
+
+=== list-cross-concat-join-empty
+from: Cro::Core 0.8.10 lib/Cro/MediaType.rakumod:74
+license: Artistic-2.0
+feature: infix X~
+--- code
+my %parts = subtype-name => 'vnd.api';
+my @extra-parts = <json gzip>;
+%parts<subtype-name> ~= join '', ('+' X~ @extra-parts);
+say %parts<subtype-name>;
+--- expect
+vnd.api+json+gzip
+
+=== list-cross-fatarrow-default
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToPrettyTable.rakumod:41
+license: Artistic-2.0
+feature: infix X=>
+--- code
+my @allColnames = <a b c>;
+my $missing-value = '';
+my %emptyRow = @allColnames X=> $missing-value;
+say %emptyRow.keys.sort;
+say %emptyRow<b>.raku;
+--- expect
+(a b c)
+""
+
+=== list-cross-fatarrow-all-pairs
+from: Graph 0.1.3 lib/Graph.rakumod:326
+license: Artistic-2.0
+feature: infix X=>
+--- code
+my @vs = 1, 2;
+my @edges = (@vs X=> @vs);
+say @edges.elems;
+say @edges.map({ .key ~ '-' ~ .value }).join(' ');
+--- expect
+4
+1-1 1-2 2-1 2-2
+
+=== list-cross-fatarrow-tail-head
+from: Graph 0.1.3 lib/Graph.rakumod:330
+license: Artistic-2.0
+feature: infix X=>
+--- code
+my @vs = <hub a b c>;
+my %rules = @vs.tail(*-1) X=> @vs.head;
+say %rules.sort.map(*.kv.join('>')).join(' ');
+--- expect
+a>hub b>hub c>hub
+
+=== list-cross-minus-xor-index
+from: Digest 1.1.0 lib/Digest/SHA1.rakumod:17
+license: Artistic-2.0
+feature: infix X-
+--- code
+my @W = 1..16;
+say @W[16 X- <3 8 14 16>];
+say [+^] @W[16 X- <3 8 14 16>];
+--- expect
+(14 9 3 1)
+5
+
+=== list-cross-times-scale
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers/ParetoPrincipleStatistic.rakumod:25
+license: Artistic-2.0
+feature: infix X*
+--- code
+my @cumSum = 1, 3, 6, 10;
+my $tsum = 10;
+@cumSum = @cumSum X* 1 / $tsum;
+say @cumSum;
+--- expect
+[0.1 0.3 0.6 1]
+
+=== list-cross-for-destructure
+from: Digest 1.1.0 lib/Digest/SHA3.rakumod:41
+license: Artistic-2.0
+feature: infix X
+--- code
+my @lanes[3;3] = (0 xx 3) xx 3;
+my @D = 1, 2, 4;
+for ^3 X ^3 -> ($x, $y) { @lanes[$x;$y] +^= @D[$x] }
+say @lanes[2;1];
+say @lanes.shape;
+--- expect
+4
+(3 3)

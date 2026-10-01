@@ -1,0 +1,627 @@
+# Building strings: interpolation forms, heredocs and Q adverbs, x / ~ / ~= / [~] / join, leg/cmp, trans, S///, sprintf corners.
+
+=== str-interp-method-call-parens
+from: Cro::Core 0.8.10 lib/Cro/MediaType.rakumod:123
+license: Artistic-2.0
+feature: node InterpStr
+--- code
+my $out = 'text/html';
+for (charset => 'utf-8', q => '0.9') -> $p {
+    my $prefix = "; $p.key()=";
+    $out ~= $prefix ~ $p.value;
+}
+say $out;
+my $p = a => 1;
+say "no call: $p.key";
+--- expect
+text/html; charset=utf-8; q=0.9
+no call: a	1.key
+
+=== str-interp-array-zen-slice
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:239
+license: Artistic-2.0
+feature: node InterpStr
+--- code
+my @names = 'foo', 'b@r', '-x';
+my $msg = "Invalid name(s): @names[]";
+say $msg;
+say "not interpolated: @names";
+say "one: @names[1] and email: user@example.com";
+--- expect
+Invalid name(s): foo b@r -x
+not interpolated: @names
+one: b@r and email: user@example.com
+
+=== str-interp-block-join
+from: Actionable 0.0.7 lib/Actionable.rakumod:258
+license: Artistic-2.0
+feature: node InterpStr
+--- code
+for 42, (1, 2, 3) -> $v is copy {
+    $v = "[{$v.join(", ")}]" if $v ~~ Iterable;
+    say $v;
+}
+--- expect
+42
+[1, 2, 3]
+
+=== str-interp-block-method-chain
+from: Air 0.1.32 lib/Air/Base.rakumod:1122
+license: Artistic-2.0
+feature: node InterpStr
+--- code
+my class Change { has $.path }
+my $change = Change.new(path => 'site/pages/index.raku');
+say "File change detected: {$change.path.IO.basename}";
+say "elems: {(1, 2, 3).elems} and sum: { [+] 1..4 }";
+--- expect
+File change detected: index.raku
+elems: 3 and sum: 10
+
+=== str-interp-hash-angle
+from: Backtrace::AsHTML 0.0.1 lib/Backtrace/AsHTML.pm6:41
+license: Artistic-2.0
+feature: node InterpStr
+--- code
+my %opt = style => 'pre { color: red }', title => 'Oops';
+my $out = '';
+$out ~= sprintf '<style type="text/css">%s</style>', %opt<style>;
+$out ~= "<title>{%opt<title>}</title>";
+say $out;
+say "%opt{'title'} and %opt<style>.chars()";
+say "%opt<title></title>";   # a second <...> subscript: Str is not Associative
+--- expect
+<style type="text/css">pre { color: red }</style><title>Oops</title>
+Oops and 18
+!! X::AdHoc
+
+=== str-interp-attribute-in-message
+from: MUGS::Core 0.1.4 lib/MUGS/Message.rakumod:23
+license: Artistic-2.0
+feature: method tclc
+--- code
+my class X::Unknown is Exception {
+    has $.type;
+    has $.id;
+    method message { "{$.type.tclc} '$.id' is unknown" }
+}
+say X::Unknown.new(type => 'GAME', id => 'chess').message;
+--- expect
+Game 'chess' is unknown
+
+=== str-heredoc-qq-trim
+from: Config::TOML 0.1.3 lib/X/Config/TOML.rakumod:12
+license: Unlicense
+feature: quote heredoc
+--- code
+my $subject = 'key';
+my Str:D $message = qq:to/EOF/.trim;
+    {'-' x 12}
+    {$subject.tc}: duplicate
+    {'-' x 12}
+    EOF
+say $message;
+--- expect
+------------
+Key: duplicate
+------------
+
+=== str-heredoc-qq-chomp
+from: Data::Importers 0.1.8 lib/Data/Importers.rakumod:34
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my $file = 'data.csv';
+my $msg = qq:to/MEH/.chomp;
+    Cannot import $file:
+      unknown format
+    MEH
+say "[$msg]";
+--- expect
+[Cannot import data.csv:
+  unknown format]
+
+=== str-heredoc-q-no-interpolation
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:94
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my $usage = q:to/END/;
+    Usage: racoco [--exec=<cmd>] $lib
+      {not a block} @not-an-array
+    END
+print $usage;
+--- expect
+Usage: racoco [--exec=<cmd>] $lib
+  {not a block} @not-an-array
+
+=== str-heredoc-q-s-scalars-only
+from: FEN::Grammar 0.0.7 lib/FEN/Result.rakumod:12
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my $white-castling = 'K, Q';
+my $active = 'w';
+my $state-text = q:s:to/SHOW/;
+    Active color: $active
+    White may castle on: $white-castling
+    Not a block: {1 + 1} @list
+    SHOW
+print $state-text;
+--- expect
+Active color: w
+White may castle on: K, Q
+Not a block: {1 + 1} @list
+
+=== str-heredoc-Q-c-closures-only
+from: Clipboard 0.1.2 lib/Clipboard.rakumod:63
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my $cmd = 'pbcopy';
+my $usage = Q:c:to/EOH/;
+    If --clipboard-command is empty, no copying is done.
+    Default: {$cmd.uc} ($cmd stays literal, so does \n)
+    EOH
+print $usage;
+--- expect
+If --clipboard-command is empty, no copying is done.
+Default: PBCOPY ($cmd stays literal, so does \n)
+
+=== str-heredoc-Q-c-s-mixed
+from: Image::Markup::Utilities 0.1.2 lib/Image/Markup/Utilities.rakumod:218
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my @attrs = 'width="10"', 'height="20"';
+my $id = 'g1';
+my $values = (1..3).map({ "#g{$_}" }).join(';');
+print Q:c:s:to/END/;
+<svg {@attrs.join(' ')}>
+  <use id="$id" values="$values"/>
+</svg>
+END
+--- expect
+<svg width="10" height="20">
+  <use id="g1" values="#g1;#g2;#g3"/>
+</svg>
+
+=== str-heredoc-angle-terminator
+from: LibXML 0.11.3 lib/LibXML/Config.rakumod:249
+license: Artistic-2.0
+feature: quote heredoc
+--- code
+my $text = q:to<END>.chomp;
+    Thread change detected
+      not safe
+    END
+say $text.lines.elems;
+say $text.lines[1].raku;
+--- expect
+2
+"  not safe"
+
+=== str-Q-brackets-literal
+from: Red 0.2.5 lib/X/Red/Exceptions.rakumod:17
+license: Artistic-2.0
+feature: quote Q
+--- code
+my class X::NoDB is Exception {
+    method message { Q[$*RED-DB wasn't defined] }
+}
+say X::NoDB.new.message;
+--- expect
+$*RED-DB wasn't defined
+
+=== str-Q-subst-backslash
+from: ERK 1.1.4 lib/ERK.rakumod:134
+license: Artistic-2.0
+feature: quote Q
+--- code
+my $path = Q[C:\temp\new];
+say $path;
+say $path.subst(:g, Q[\], Q[\\]);
+say Q[\].chars, ' ', Q[\\].chars;
+--- expect
+C:\temp\new
+C:\\temp\\new
+1 2
+
+=== str-Q-c-interpolates-block
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:586
+license: Artistic-2.0
+feature: quote Q
+--- code
+my ($prefix-elems, $seg-index) = 2, 1;
+my $target = '$x';
+say Q:c/with @segs[{$prefix-elems + $seg-index}]/ ~ " $target";
+--- expect
+with @segs[3] $x
+
+=== str-repeat-header-underline
+from: Pod::To::Markdown 0.2.2 lib/Pod/To/Markdown.rakumod:188
+license: Artistic-2.0
+feature: infix x
+--- code
+for 1, 2 -> $level {
+    my $head = 'Title';
+    say do given $level {
+        when 1  { $head ~ "\n" ~ ('=' x $head.chars) }
+        default { $head ~ "\n" ~ ('-' x $head.chars) }
+    }
+}
+--- expect
+Title
+=====
+Title
+-----
+
+=== str-repeat-map-chars
+from: Bailador 0.0.19 lib/Bailador/Command/routes.pm:13
+license: MIT
+feature: infix x
+--- code
+my @path = 'a', 'bcd', 'xy';
+my @indent = map {' ' x $_.chars - 1}, @path;
+say @indent.map(*.chars);
+say ('ab' x 0).raku, ' ', ('ab' x -1).raku, ' ', ('ab' x 2.7);
+--- expect
+(0 2 1)
+"" "" abab
+
+=== str-repeat-assign
+from: Date::Calendar::Strftime 0.1.1 lib/Date/Calendar/Strftime.rakumod:76
+license: Artistic-2.0
+feature: infix x=
+--- code
+my ($expected-length, $actual-length) = 5, 2;
+my $fill = '0';
+$fill x= $expected-length - $actual-length;
+say $fill ~ '42';
+--- expect
+00042
+
+=== str-repeat-compare-zeros
+from: Git::Blame::File 0.0.11 lib/Git/Blame/File.rakumod:46
+license: Artistic-2.0
+feature: infix x
+--- code
+my class Line {
+    has $.sha1;
+    method committed() { $!sha1 ne '0' x 40 }
+}
+say Line.new(sha1 => '0' x 40).committed;
+say Line.new(sha1 => 'a' ~ '0' x 39).committed;
+--- expect
+False
+True
+
+=== str-concat-assign-chain
+from: Air 0.1.32 lib/Air/Base.rakumod:825
+license: Artistic-2.0
+feature: infix ~=
+--- code
+my $scss-gather = '';
+for 'a { b: c }', 'd { e: f }' {
+    $scss-gather ~= "\n\n" ~ $_;
+}
+say $scss-gather.lines.grep(*.chars).join('|');
+my $s;
+$s ~= 'from undefined';
+say $s;
+--- expect
+a { b: c }|d { e: f }
+from undefined
+
+=== str-reduce-concat-gather
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:261
+license: Artistic-2.0
+feature: prefix [~]
+--- code
+my @nodes = 'p', 'br', 'em';
+say [~] gather for @nodes -> $node {
+    take "<$node>";
+};
+say ([~] ()).raku;
+--- expect
+<p><br><em>
+""
+
+=== str-reduce-concat-slip
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:95
+license: Artistic-2.0
+feature: prefix [~]
+--- code
+my @items = 1, 2, 3;
+say [~] '[', @items.map({ $_ * 10 ~ ';' }).Slip, ']';
+--- expect
+[10;20;30;]
+
+=== str-prefix-tilde-match
+from: Date::Calendar::Strftime 0.1.1 lib/Date/Calendar/Strftime.rakumod:46
+license: Artistic-2.0
+feature: prefix ~
+--- code
+if '2026' ~~ /(\d)(\d+)/ {
+    say [~] ~$0, '-', ~$1;
+    say (~$/).chars, ' ', ~1.5e0, ' ', ~(1, 2);
+}
+--- expect
+2-026
+4 1.5 1 2
+
+=== str-join-newline
+from: Crust 0.0.1 lib/Crust/Headers.pm6:51
+license: Artistic-2.0
+feature: method join
+--- code
+my %env = Host => 'x.org', Accept => '*/*';
+say %env.sort.map(-> $p { "{$p.key}: {$p.value}" }).join("\n");
+--- expect
+Accept: */*
+Host: x.org
+
+=== str-join-empty-parens
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/Raku.rakumod:97
+license: Artistic-2.0
+feature: method join
+--- code
+my &f = -> $x { $x.map(*<content>).join() };
+say f([{ content => 'ab' }, { content => 'cd' }]);
+say (1, (2, 3), 4).join('-');
+--- expect
+abcd
+1-2 3-4
+
+=== str-join-sub-form
+from: Bailador 0.0.19 lib/Bailador/Command/routes.pm:9
+license: MIT
+feature: call join
+--- code
+my @path = <a b c>;
+say join " -> ", @path;
+say join(',', 1..3, 'x');
+--- expect
+a -> b -> c
+1,2,3,x
+
+=== str-leg-sort-fallback
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:188
+license: Artistic-2.0
+feature: infix leg
+--- code
+my class Spec { has $.weight; has $.id }
+my @specs = Spec.new(:3weight, :id<b>), Spec.new(:5weight, :id<a>), Spec.new(:3weight, :id<a>);
+say @specs.sort({ $^b.weight <=> $^a.weight
+    || $^a.id leg $^b.id }).map({ "{.id}{.weight}" });
+say 'a' leg 'B', ' ', '10' leg '9', ' ', 10 cmp 9;
+--- expect
+(a5 a3 b3)
+More Less More
+
+=== str-cmp-lc-sort
+from: fez 100.0.2 lib/Fez/CLI.rakumod:376
+license: Artistic-2.0
+feature: infix cmp
+--- code
+my @dists = <Zef json bailador Cro>;
+say @dists.sort({ $^a.lc cmp $^b.lc });
+say ('a' cmp 'b'), ' ', ('b' cmp 'a'), ' ', ('a' cmp 'a');
+--- expect
+(bailador Cro json Zef)
+Less More Same
+
+=== str-trans-chars-to-chars
+from: JSON::JWT 1.1.2 lib/JSON/JWT.rakumod:90
+license: MIT
+feature: method trans
+--- code
+my $b64 = 'ab+/cd==';
+say $b64.trans('+/' => '-_').subst('=', :g);
+--- expect
+ab-_cd
+
+=== str-trans-delete-space
+from: MUGS::Core 0.1.4 lib/MUGS/App/LocalUI.rakumod:54
+license: Artistic-2.0
+feature: method trans
+--- code
+my $osname = 'Mac OS X'.lc.trans(' ' => '');
+say $osname;
+say '[1, 2]'.trans('[]' => '{}');
+--- expect
+macosx
+{1, 2}
+
+=== str-trans-digits-script
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Numeration.rakumod:337
+license: Artistic-2.0
+feature: method trans
+--- code
+my %fmt = :hi( { $^num.trans('0123456789' => '०१२३४५६७८९') });
+say %fmt<hi>('2026');
+--- expect
+२०२६
+
+=== str-trans-regex-keys
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Support/Log.rakumod:74
+license: Artistic-2.0
+feature: method trans
+--- code
+my $sql = "SELECT *\n  FROM t\n\tWHERE x = 1";
+say $sql.trans(/\n/ => ' ', /<[\s]>+/ => ' ');
+--- expect
+SELECT * FROM t WHERE x = 1
+
+=== str-subst-adverb-x
+from: Raku::Pod::Render 4.10.6 lib/RenderPod/Highlighting.rakumod:90
+license: Artistic-2.0
+feature: method subst
+--- code
+my $html = '<div>a</div><div>b</div><p>c</p>';
+say $html.subst(/ '<div' ~ '</div>' .+? /, '', :x(2));
+say $html.subst(/ '<div' ~ '</div>' .+? /, '', :x(3));
+--- expect
+<p>c</p>
+<div>a</div><div>b</div><p>c</p>
+
+=== str-subst-inline-ignorecase
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Relation/Query/Finders.rakumod:115
+license: Artistic-2.0
+feature: method subst
+--- code
+for 'name desc', 'id Desc  ', 'age' -> $frag {
+    say $frag.uc.contains(' DESC') ?? $frag.subst(/:i ' DESC' \s* $/, ' ASC') !! $frag;
+}
+--- expect
+name ASC
+id ASC
+age
+
+=== str-subst-rx-i-global
+from: PDF::Tags 0.2.8 lib/PDF/Tags/XML-Writer.rakumod:190
+license: Artistic-2.0
+feature: method subst
+--- code
+my $id = 'Fig 1/a.b';
+say $id.subst(rx:i/<- [a..z 0..9 _ : . -]>/, '_', :g);
+--- expect
+Fig_1_a.b
+
+=== str-subst-mutate-assign
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/ReporterHtml.rakumod:30
+license: Artistic-2.0
+feature: method subst
+--- code
+my $template = '<body>%%report-lines%%</body>';
+$template .= subst('%%report-lines%%', '<li>1</li>');
+say $template;
+--- expect
+<body><li>1</li></body>
+
+=== str-S-global-lookahead
+from: Air 0.1.32 lib/Air/Component.rakumod:221
+license: Artistic-2.0
+feature: quote S///
+--- code
+sub to-kebab(Str() $_ ) {
+    lc S:g/(\w)<?before <[A..Z]>>/$0-/
+}
+say to-kebab('MyHTTPWidget');
+say to-kebab('Plain');
+--- expect
+my-h-t-t-p-widget
+plain
+
+=== str-sprintf-percent-literal
+from: Selkie 0.16.0 lib/Selkie/Widget/ProgressBar.rakumod:190
+license: Artistic-2.0
+feature: call sprintf
+--- code
+for 5, 42, 100 -> $pct {
+    my $pct-str = sprintf('%3d%%', $pct);
+    say "[$pct-str]";
+}
+--- expect
+[  5%]
+[ 42%]
+[100%]
+
+=== str-sprintf-escaped-placeholder
+from: Log 0.3.2 lib/Log.rakumod:120
+license: Artistic-2.0
+feature: call sprintf
+--- code
+my $key = 'user';
+say sprintf('%%X{%s}', $key);
+say sprintf("%%%s%s", '-', 'd');
+--- expect
+%X{user}
+%-d
+
+=== str-sprintf-octal-nul
+from: fez 100.0.2 lib/Fez/Util/RTar.rakumod:21
+license: Artistic-2.0
+feature: call sprintf
+--- code
+for 0o644, Nil -> $mode {
+    my $field = sprintf("%07o\0", $mode//0o600).encode('ascii');
+    say $field.bytes, ' ', $field.decode.subst("\0", '\0');
+}
+--- expect
+8 0000644\0
+8 0000600\0
+
+=== str-fmt-scientific-split
+from: Lingua::EN::Numbers 2.8.3 lib/Lingua/EN/Numbers.pm6:146
+license: Artistic-2.0
+feature: method fmt
+--- code
+for 12345.678, 0.000321 -> $num {
+    my ($mantissa, $exponent) = $num.fmt("%.14e").split('e')».Numeric;
+    say "$mantissa $exponent";
+}
+--- expect
+1.2345678 4
+3.21 -4
+
+=== str-fmt-general
+from: Selkie 0.16.0 lib/Selkie/Plot/Ticks.rakumod:216
+license: Artistic-2.0
+feature: method fmt
+--- code
+for 0.0001, 123456789, 2.5 -> $abs {
+    my $scientific = $abs.fmt('%g');
+    say $scientific;
+}
+--- expect
+0.0001
+1.23457e+08
+2.5
+
+=== str-fmt-left-pad-binary
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:410
+license: Artistic-2.0
+feature: method fmt
+--- code
+my %enc = (^64) Z=> ('A'..'Z', 'a'..'z', 0..9, '+', '/').flat;
+say <010011 0101 01>.map({ %enc{ .fmt('%-6s').subst(' ', '0', :g).parse-base(2) } }).join;
+--- expect
+TUQ
+
+=== str-fmt-width-hex-and-left
+from: MoarVM::Bytecode 0.0.27 lib/MoarVM/Ops.rakumod:2080
+license: Artistic-2.0
+feature: method fmt
+--- code
+my ($index, $name) = 300, 'const_s';
+my str @parts = $index.fmt('%4x'), $name.fmt('%-16s');
+say @parts.join('|') ~ '|';
+--- expect
+ 12c|const_s         |
+
+=== str-printf-columns
+from: App::GPTrixie 0.29 lib/GPT/ListFiles.pm6:11
+license: Artistic-2.0
+feature: call printf
+--- code
+my %files = 1 => 'gtk.h', 22 => 'glib.h';
+for %files.keys.sort(+*) -> $k {
+    printf "%-5s%s%-10s - Functions(%d)\n", $k, ' : ', %files{$k}, $k * 3;
+}
+--- expect
+1     : gtk.h      - Functions(3)
+22    : glib.h     - Functions(66)
+
+=== str-samemark-strip
+from: MUGS::Core 0.1.4 lib/MUGS/Identity.rakumod:81
+license: Artistic-2.0
+feature: method samemark
+--- code
+my $stripped = 'Crème Brûlée';
+my $unmarked = $stripped.samemark(' ');
+say $unmarked;
+say $unmarked.fc;
+--- expect
+Creme Brulee
+creme brulee

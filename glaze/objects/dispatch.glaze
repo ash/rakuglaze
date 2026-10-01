@@ -1,0 +1,540 @@
+# Method resolution as modules use it: callsame / nextsame / callwith /
+# nextwith / samewith in classes and roles, multi methods on ::?CLASS:U/:D,
+# private methods, trusts, qualified calls, submethods.
+
+=== obj-callsame-parent-fallback
+from: Cro::CBOR 0.0.7 lib/Cro/CBOR.rakumod:100
+license: Artistic-2.0
+feature: call callsame
+--- code
+my class RequestDefault {
+    method select($message) { 'default-parser' }
+}
+my class Request is RequestDefault {
+    method select($message) {
+        return 'cbor-parser' if $message eq 'application/cbor';
+        callsame;
+    }
+}
+say Request.select('application/cbor');
+say Request.select('text/plain');
+--- expect
+cbor-parser
+default-parser
+
+=== obj-callsame-guard-return
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/Documentation.rakumod:76
+license: Artistic-2.0
+feature: call callsame
+--- code
+my class Base {
+    method summary($result, Int :$seed) { "summary of $result seed={$seed // 'none'}" }
+}
+my class Documentation is Base {
+    has Bool $!multi-file is built = False;
+    method summary($result, Int :$seed) {
+        return if $!multi-file;
+        callsame;
+    }
+}
+say Documentation.new.summary('ok', :seed(7));
+say Documentation.new(:multi-file).summary('ok').raku;
+--- expect
+summary of ok seed=7
+Nil
+
+=== obj-callsame-grammar-parse-override
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/ErrorHandling.rakumod:36
+license: Artistic-2.0
+feature: call callsame
+--- code
+my role ErrorHandling {
+    method ws() {
+        $*HIGHWATER = self.pos if self.pos > $*HIGHWATER;
+        callsame;
+    }
+    method parse($target, |c) {
+        my $*HIGHWATER = 0;
+        my $match = callsame;
+        $match ?? "parsed {$match.Str.raku}" !! "failed near $*HIGHWATER";
+    }
+}
+my grammar Words does ErrorHandling {
+    rule TOP { <w>+ % ',' }
+    token w { <[a..z]>+ }
+}
+say Words.parse('ab, cd');
+say Words.parse('ab, cd, 9');
+--- expect
+parsed "ab, cd"
+failed near 7
+
+=== obj-callsame-filters-mixin
+from: Collection 0.18.0 lib/Collection.rakumod:41
+license: Artistic-2.0
+feature: call callsame
+--- code
+my class Cache {
+    method sources { <a.rakudoc b.rakudoc c.rakudoc> }
+}
+my role Post-cache {
+    has %!extra = %( 'b.rakudoc' => 'pod', 'new.rakudoc' => 'pod', 'gone' => Nil );
+    method sources {
+        (%!extra.keys.sort.grep({ %!extra{$_}.so }),
+         callsame.grep({ $_ !~~ any(%!extra.keys) })).flat
+    }
+}
+my $c = Cache.new but Post-cache;
+say $c.sources;
+--- expect
+(b.rakudoc new.rakudoc a.rakudoc c.rakudoc)
+
+=== obj-callsame-multi-accepts
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:109
+license: Artistic-2.0
+feature: method ACCEPTS
+--- code
+my class Tag { has %.attr }
+my class HasAttr {
+    has $.name;
+    multi method ACCEPTS(::?CLASS:D: Tag:D $current) { $current.attr{$!name}:exists }
+    multi method ACCEPTS(::?CLASS:D: $) { False }
+}
+my class AttrIs is HasAttr {
+    has $.value;
+    multi method ACCEPTS(::?CLASS:D: Tag:D $current) {
+        return False unless callsame;
+        $current.attr{ $.name } eq $.value;
+    }
+}
+my $sel = AttrIs.new(name => 'id', value => 'top');
+say Tag.new(attr => { id => 'top' }) ~~ $sel;
+say Tag.new(attr => { id => 'x' }) ~~ $sel;
+say Tag.new(attr => { class => 'top' }) ~~ $sel;
+say 42 ~~ $sel;
+--- expect
+True
+False
+False
+False
+
+=== obj-nextsame-else-branch
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:77
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Node { method Str { 'plain node' } }
+my class Writer is Node {
+    has $.ast;
+    method Str {
+        with $.ast {
+            "written: $_";
+        }
+        else {
+            nextsame;
+        }
+    }
+}
+say Writer.new(ast => 'a{}').Str;
+say Writer.new.Str;
+--- expect
+written: a{}
+plain node
+
+=== obj-nextsame-multi-to-parent
+from: LibXML 0.11.3 lib/LibXML.rakumod:17
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Config { }
+my class Parser {
+    has $.config = 'instance-config';
+}
+my class LibXML is Parser {
+    multi method config(::?CLASS:U:) { Config }
+    multi method config(::?CLASS:D:) { nextsame }
+}
+say LibXML.config.^name;
+say LibXML.new.config;
+--- expect
+Config
+instance-config
+
+=== obj-nextsame-if-where-candidate
+from: PDF 0.6.15 lib/PDF/IO/Crypt/AST.rakumod:50
+license: Artistic-2.0
+feature: call nextsame
+--- code
+my class Crypt {
+    has Bool $.EncryptMetadata = False;
+    multi method crypt-ast('stream', Hash $ast where .<dict> eq 'Metadata') {
+        say 'metadata stream';
+        nextsame if $.EncryptMetadata;
+    }
+    multi method crypt-ast('stream', Hash $ast, |c) {
+        say "encrypting {$ast<dict>}";
+    }
+}
+Crypt.new.crypt-ast('stream', { dict => 'Metadata' });
+Crypt.new(:EncryptMetadata).crypt-ast('stream', { dict => 'Metadata' });
+Crypt.new.crypt-ast('stream', { dict => 'Page' });
+--- expect
+metadata stream
+metadata stream
+encrypting Metadata
+encrypting Page
+
+=== obj-nextwith-new-default-named
+from: CSS::Properties 0.10.9 lib/CSS/Font/Descriptor.rakumod:9
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class Font {
+    has $.module;
+    has $.family;
+}
+my class Descriptor is Font {
+    method new(:$module = 'font-face', |c) {
+        nextwith(:$module, |c);
+    }
+}
+my $d = Descriptor.new(family => 'Serif');
+say $d.module, ' ', $d.family, ' ', $d.^name;
+say Descriptor.new(module => 'css3').module;
+--- expect
+font-face Serif Descriptor
+css3
+
+=== obj-method-handles-callsame
+from: CSS::Properties 0.10.9 lib/CSS/Font/Descriptor.rakumod:11
+license: Artistic-2.0
+feature: trait handles
+--- code
+my class CSS { method src { 'url(a.woff)' } }
+my class Font {
+    method css { CSS.new }
+}
+my class Descriptor is Font {
+    method css handles<src> { callsame() }
+}
+say Descriptor.new.src;
+say Descriptor.new.css.^name;
+--- expect
+url(a.woff)
+CSS
+
+=== obj-nextwith-clone-deep
+from: Dan 0.0.3 lib/Dan.rakumod:33
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class Series {
+    has @.data;
+    has Int %.index;
+    method clone {
+        nextwith( :data(@!data.map(*.clone)), :%!index, |%_ )
+    }
+}
+my $s = Series.new(data => [[1, 2], [3]], index => { a => 0, b => 1 });
+my $t = $s.clone;
+$t.data[0].push: 99;
+say $s.data[0], ' ', $t.data[0];
+say $t.index<b>;
+say $s.clone(index => { z => 5 }).index.keys;
+--- expect
+[1 2] [1 2 99]
+1
+(z)
+
+=== obj-samewith-multi-new
+from: Dan 0.0.3 lib/Dan.rakumod:28
+license: Artistic-2.0
+feature: call samewith
+--- code
+my class Series {
+    has @.data;
+    has Int %.index;
+    multi method new( List:D :$index, *%h ) {
+        samewith( index => $index.map({ $_ => $++ }).Hash, |%h )
+    }
+}
+my $s = Series.new(index => <x y z>, data => [1, 2, 3]);
+say $s.index.sort.map(*.kv.join('=')).join(',');
+say $s.data;
+--- expect
+x=0,y=1,z=2
+[1 2 3]
+
+=== obj-nextwith-proto-new
+from: Intl::LanguageTag 0.12.7 lib/Intl/LanguageTag/BCP47.rakumod:63
+license: Artistic-2.0
+feature: call nextwith
+--- code
+my class LanguageTag {
+    has @.subtags;
+    proto method new(|) {*}
+    multi method new(Str $tag) {
+        nextwith $tag.lc.split('-')
+    }
+    multi method new(*@subtags) {
+        self.bless: :@subtags
+    }
+}
+say LanguageTag.new('EN-Latn-US').subtags;
+say LanguageTag.new('de', 'AT').subtags;
+--- expect
+[en latn us]
+[de AT]
+
+=== obj-callwith-changes-args
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Request.rakumod:272
+license: MIT
+feature: call callwith
+--- code
+my $CRLF = "\r\n";
+my class Message {
+    has @.headers;
+    method Str($eol = "\n", :$debug, Bool :$bin) { @.headers.join($eol) }
+}
+my class Request is Message {
+    has $.method = 'GET';
+    has $.file = 'index.html';
+    method Str (:$debug, Bool :$bin) {
+        my $s = "$.method /$.file HTTP/1.1";
+        $s ~= $CRLF ~ callwith($CRLF, :$debug, :$bin);
+    }
+}
+say Request.new(headers => <Host:x Accept:*>).Str.raku;
+--- expect
+"GET /index.html HTTP/1.1\r\nHost:x\r\nAccept:*"
+
+=== obj-callwith-mu-new-rest
+from: Notcurses::Native 0.6.6 lib/Notcurses/Native/Types.rakumod:141
+license: Artistic-2.0
+feature: call callwith
+--- code
+my class Options {
+    has $.termtype is rw;
+    has uint32 $.margin_t = 0;
+    has uint64 $.flags = 0;
+    multi method new(Str :$termtype, *%rest) {
+        my $self = callwith(|%rest);
+        $self.termtype = $termtype.uc;
+        $self
+    }
+}
+my $o = Options.new(termtype => 'xterm', flags => 3);
+say $o.termtype, ' ', $o.flags, ' ', $o.margin_t;
+--- expect
+XTERM 3 0
+
+=== obj-nextcallee-wrap-method
+from: Method::Protected 0.0.4 lib/Method/Protected.rakumod:2
+license: Artistic-2.0
+feature: method wrap
+--- code
+my &protected = my method (|c) {
+    my &original = nextcallee;
+    "[" ~ original(self, |c) ~ "]"
+}
+my class Counter {
+    method show($n) { "n=$n" }
+}
+Counter.^find_method('show').wrap(&protected);
+say Counter.new.show(3);
+--- expect
+[n=3]
+
+=== obj-private-method-args
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:82
+license: Artistic-2.0
+feature: node Method
+--- code
+my class Client {
+    method !read-session(Str:D $input) {
+        $input.split(',').map({ .substr(0, 1) => .substr(2) }).Hash
+    }
+    method first($server-first) {
+        my %response = self!read-session($server-first);
+        %response<r> ~ '/' ~ %response<i>;
+    }
+}
+say Client.new.first('r=abc,s=salt,i=4096');
+say Client.can('read-session').elems;
+--- expect
+abc/4096
+0
+
+=== obj-private-method-colon-call
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:25
+license: Artistic-2.0
+feature: node Method
+--- code
+my class Bisect {
+    has @.log;
+    method !log(Str $msg) { @!log.push: $msg }
+    method run {
+        self!log: "==> Bisect: initial pass";
+        self!log: "==> done";
+        @!log.elems;
+    }
+}
+my $b = Bisect.new;
+say $b.run;
+.say for $b.log;
+--- expect
+2
+==> Bisect: initial pass
+==> done
+
+=== obj-private-method-return-type
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:105
+license: Artistic-2.0
+feature: node Method
+--- code
+my class Bisect {
+    method !minimize(Str $failing, @prior --> List) {
+        @prior.grep(* lt $failing).List
+    }
+    method go { self!minimize('m', <a q c z>) }
+}
+my $r = Bisect.new.go;
+say $r, ' ', $r.^name;
+--- expect
+(a c) List
+
+=== obj-private-method-other-instance
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/CSR.rakumod:703
+license: Artistic-2.0
+feature: node Method
+--- code
+my class CSR {
+    has %!rows;
+    method !row-map($i) { %!rows{$i} // {} }
+    method set($i, $j, $v) { %!rows{$i}{$j} = $v; self }
+    method dot-row(CSR $other, $i) {
+        my %row-a = self!row-map($i);
+        my %row-b = $other!row-map($i);
+        [+] %row-a.keys.map({ %row-a{$_} * (%row-b{$_} // 0) })
+    }
+}
+my $a = CSR.new.set(0, 0, 2).set(0, 1, 3);
+my $b = CSR.new.set(0, 1, 5);
+say $a.dot-row($b, 0);
+--- expect
+15
+
+=== obj-trusts-other-class
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/CompoundUnitSet.rakumod:22
+license: Artistic-2.0
+feature: node Class
+--- code
+my class Selector { ... }
+my class CompoundUnitSet {
+    trusts Selector;
+    has %!units = (per => '{0}/{1}', times => '{0}⋅{1}');
+    method !unit($k) { %!units{$k} }
+}
+my class Selector {
+    method pick(CompoundUnitSet $s, $k) { $s!CompoundUnitSet::unit($k) }
+}
+say Selector.pick(CompoundUnitSet.new, 'per');
+say Selector.pick(CompoundUnitSet.new, 'times');
+--- expect
+{0}/{1}
+{0}⋅{1}
+
+=== obj-qualified-parent-method
+from: Data::Translators 0.1.18 lib/Data/Translators/R.rakumod:19
+license: Artistic-2.0
+feature: node Method
+--- code
+my class HTML {
+    method convert-json-node($x) { $x ~~ Whatever ?? '(Whatever)' !! "<td>{$x}</td>" }
+}
+my class R is HTML {
+    method convert-json-node($x) {
+        return self.HTML::convert-json-node($x).subst(/ ^ '(Whatever)' $/, {"\"{$/.Str}\""});
+    }
+}
+say R.new.convert-json-node(*);
+say R.new.convert-json-node(5);
+--- expect
+"(Whatever)"
+<td>5</td>
+
+=== obj-qualified-mu-gist-type-object
+from: Hash::Agnostic 0.0.20 lib/Hash/Agnostic.rakumod:184
+license: Artistic-2.0
+feature: method gist
+--- code
+my role Agnostic {
+    multi method gist(::?ROLE:U:) { self.Mu::gist }
+    multi method gist(::?ROLE:D:) { 'agnostic: ' ~ self.keys.join(',') }
+    method keys { <a b> }
+}
+my class MyHash does Agnostic { }
+say MyHash.gist;
+say MyHash.new.gist;
+--- expect
+(MyHash)
+agnostic: a,b
+
+=== obj-multi-type-object-invocant
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:195
+license: Artistic-2.0
+feature: decl multi
+--- code
+my %Glyphs = space => 32, A => 65;
+my class AFM {
+    has %.glyphs-used = A => 65;
+    multi method glyphs(::?CLASS:U:) { %Glyphs }
+    multi method glyphs(::?CLASS:D:) { %!glyphs-used }
+}
+say AFM.glyphs.keys.sort;
+say AFM.new.glyphs.keys.sort;
+--- expect
+(A space)
+(A)
+
+=== obj-multi-class-method-plus
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/Data.rakumod:39
+license: Artistic-2.0
+feature: decl multi
+--- code
+my class Data {
+    has $.lines;
+    multi method plus(::?CLASS:U: ::?CLASS:D $data, $ --> ::?CLASS) { $data }
+    multi method plus(::?CLASS:D: ::?CLASS:D $data, $ --> ::?CLASS) {
+        Data.new(lines => $!lines + $data.lines)
+    }
+}
+say Data.plus(Data.new(lines => 3), Nil).lines;
+say Data.new(lines => 2).plus(Data.new(lines => 3), Nil).lines;
+--- expect
+3
+5
+
+=== obj-submethod-singleton-instance
+from: Air 0.1.32 lib/Air/Base.rakumod:282
+license: Artistic-2.0
+feature: decl submethod
+--- code
+my class Head {
+    my Head $instance;
+    has $.made = 0;
+    submethod instance {
+        unless $instance {
+            $instance = Head.bless(made => 1);
+        };
+        $instance;
+    }
+}
+my class SubHead is Head { }
+say Head.instance === Head.instance;
+say Head.instance.made;
+SubHead.instance;
+--- expect
+True
+1
+!! X::Method::NotFound

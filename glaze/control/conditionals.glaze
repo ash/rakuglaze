@@ -1,0 +1,460 @@
+# if/elsif/else, unless, with/orwith/without, ternary chains, `do if`,
+# statement modifiers — as modules branch.
+
+=== ctl-elsif-type-chain
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:37
+license: Artistic-2.0
+feature: node If
+--- code
+sub words-of($word-set) {
+    if $word-set ~~ Str {
+        $word-set.words.List
+    }
+    elsif $word-set ~~ List {
+        $word-set
+    }
+    else {
+        die "unexpected type: {$word-set.^name}";
+    }
+}
+say words-of('a bb c').elems;
+say words-of(<x y>).join(',');
+say (try words-of(42)) // 'died';
+say $!.message;
+--- expect
+3
+x,y
+died
+unexpected type: Int
+
+=== ctl-elsif-defined-and
+from: AlgorithmsIT 0.0.4 lib/AlgorithmsIT/Classes.rakumod:40
+license: Artistic-2.0
+feature: node If
+--- code
+my class Span {
+    has $.R-start;
+    has $.R-end;
+    method describe {
+        if !$!R-start.defined && !$!R-end.defined { 'empty' }
+        elsif $!R-start.defined and $!R-end.defined { "{$!R-start}..{$!R-end}" }
+        else { 'open' }
+    }
+}
+say Span.new.describe;
+say Span.new(R-start => 1, R-end => 5).describe;
+say Span.new(R-start => 1).describe;
+--- expect
+empty
+1..5
+open
+
+=== ctl-elsif-all-pairs
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:45
+license: Artistic-2.0
+feature: node If
+--- code
+sub kind(@points) {
+    if @points.all ~~ Positional:D {
+        'vectors'
+    } elsif @points.all ~~ Pair:D {
+        'labelled'
+    } else {
+        'mixed'
+    }
+}
+say kind([[1, 2], [3, 4]]);
+say kind([a => [1, 2], b => [3, 4]]);
+say kind([1, a => 2]);
+--- expect
+vectors
+labelled
+mixed
+
+=== ctl-unless-block
+from: Air 0.1.32 lib/Air/Base.rakumod:283
+license: Artistic-2.0
+feature: node Unless
+--- code
+my %instances;
+sub instance($name) {
+    my $instance = %instances{$name};
+    unless $instance {
+        $instance = %instances{$name} = "obj-$name";
+        say "created $name";
+    }
+    $instance
+}
+say instance('a');
+say instance('a');
+say %instances.elems;
+--- expect
+created a
+obj-a
+obj-a
+1
+
+=== ctl-unless-postfix-counter
+from: Air 0.1.32 lib/Air/Base.rakumod:385
+license: Artistic-2.0
+feature: node Unless
+--- code
+my class Site {
+    has $!loaded = 0;
+    has @.log;
+    method defaults { @!log.push: 'defaults' }
+    method load { self.defaults unless $!loaded++; self }
+}
+my $s = Site.new;
+$s.load.load.load;
+say @($s.log).elems;
+say $s.log;
+--- expect
+1
+[defaults]
+
+=== ctl-orwith-chain
+from: Cro::Core 0.8.10 lib/Cro/MessageWithBody.rakumod:28
+license: Artistic-2.0
+feature: node With
+--- code
+my class Msg {
+    has $.body-byte-stream;
+    has $.body;
+    method stream {
+        with $!body-byte-stream {
+            "stream: $_"
+        }
+        orwith $!body {
+            "body: $_"
+        }
+        else {
+            'empty'
+        }
+    }
+}
+say Msg.new(body-byte-stream => 'bytes', body => 'b').stream;
+say Msg.new(body => 0).stream;
+say Msg.new.stream;
+--- expect
+stream: bytes
+body: 0
+empty
+
+=== ctl-orwith-junction
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:304
+license: Artistic-2.0
+feature: node With
+--- code
+sub mode($format, @filters) {
+    with ($format, @filters[0]).all {
+        "format $format, filter @filters[0]"
+    } orwith ($format, @filters[0]).any {
+        'Both format and filter must be defined.'
+    } else {
+        'by extension'
+    }
+}
+say mode('zip', ['gzip']);
+say mode('zip', []);
+say mode(Any, []);
+--- expect
+format zip, filter gzip
+Both format and filter must be defined.
+by extension
+
+=== ctl-without-block
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:259
+license: Artistic-2.0
+feature: node Without
+--- code
+my class Archive {
+    has $!archive;
+    method open($name) {
+        without $!archive {
+            $!archive = "handle:$name";
+            say 'opened';
+        }
+        $!archive
+    }
+}
+my $a = Archive.new;
+say $a.open('x.tar');
+say $a.open('y.tar');
+--- expect
+opened
+handle:x.tar
+handle:x.tar
+
+=== ctl-without-postfix-autoviv
+from: Anolis 1.0.0 lib/Anolis.rakumod:101
+license: Artistic-2.0
+feature: node Without
+--- code
+my %areas;
+for (1, 'a'), (2, 'b'), (1, 'c') -> ($y, $name) {
+    %areas{$y} = [] without %areas{$y};
+    %areas{$y}.push: $name;
+}
+say "$_: %areas{$_}.join(',')" for %areas.keys.sort;
+--- expect
+1: a,c
+2: b
+
+=== ctl-return-without
+from: App::RaCoCo 2.0.1 lib/App/Racoco.rakumod:89
+license: Artistic-2.0
+feature: node Without
+--- code
+my class Report {
+    has $!data;
+    method set($d) { $!data = $d; self }
+    method lines { return without $!data; $!data.lines.elems }
+}
+say Report.new.lines.raku;
+say Report.new.set("a\nb\nc").lines;
+--- expect
+Nil
+3
+
+=== ctl-ternary-nested-parens
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:1081
+license: Artistic-2.0
+feature: infix ?? !!
+--- code
+my %hits = 3 => 5, 7 => 0;
+sub hit($counts, $ln) { $counts ?? (%hits{$ln} // 0) !! (%hits{$ln} ?? 1 !! 0) }
+say hit(True, 3);
+say hit(False, 3);
+say hit(False, 7);
+say hit(True, 9);
+--- expect
+5
+1
+0
+0
+
+=== ctl-ternary-concat-pieces
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router/LinkGenerator.rakumod:19
+license: Artistic-2.0
+feature: infix ?? !!
+--- code
+sub link($root-url, $prefix, $path) {
+    $root-url ~ ($root-url.ends-with('/') ?? '' !! '/') ~ ($prefix ?? "$prefix/" !! '') ~ $path
+}
+say link('http://h', 'api', 'users');
+say link('http://h/', '', 'users');
+--- expect
+http://h/api/users
+http://h/users
+
+=== ctl-ternary-die-branch
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:57
+license: Artistic-2.0
+feature: infix ?? !!
+--- code
+sub flag($k, $v) {
+    $v ~~ Bool
+    ?? $v
+    !! ($v.lc eq 'true' ?? True !! ($v.lc eq 'false' ?? False !! die "$k can only be set to 'true' or 'false', got: '$v'"))
+}
+say flag('color', 'TRUE');
+say flag('color', 'false');
+say flag('color', False);
+say flag('color', 'maybe');
+--- expect
+True
+False
+False
+!! X::AdHoc
+
+=== ctl-do-if-elsif
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:499
+license: Artistic-2.0
+feature: prefix do
+--- code
+my enum Mode <Read Write ReadWrite>;
+sub mode(:$r, :$w, :$rw) {
+    do if $r {
+        Read;
+    }
+    elsif $w {
+        Write;
+    }
+    else {
+        ReadWrite;
+    }
+}
+say mode(:r);
+say mode(:w);
+say mode(:rw);
+--- expect
+Read
+Write
+ReadWrite
+
+=== ctl-do-if-destructure
+from: CSS::Properties 0.10.9 lib/CSS/PageBox.rakumod:63
+license: Artistic-2.0
+feature: prefix do
+--- code
+sub page(@length, $width = 595, $height = 842) {
+    my $auto = False;
+    my ($page-width, $page-height) = do if @length {
+        @length[1] //= @length[0];
+        @length;
+    } else {
+        $auto = True;
+        ($width, $height);
+    }
+    "$page-width x $page-height auto=$auto"
+}
+say page([300]);
+say page([300, 400]);
+say page([]);
+--- expect
+300 x 300 auto=False
+300 x 400 auto=False
+595 x 842 auto=True
+
+=== ctl-do-if-inline-else
+from: Red 0.2.5 lib/Red/Driver/Pg.rakumod:250
+license: Artistic-2.0
+feature: prefix do
+--- code
+my class Results { method hashes { [{a => 1}, {a => 2}] } }
+sub rows($s) {
+    do if $s ~~ Results { $s.hashes } else { [] }
+}
+say rows(Results.new).elems;
+say rows(Nil).elems;
+--- expect
+2
+0
+
+=== ctl-if-inline-else-in-map
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/Raku.rakumod:109
+license: Artistic-2.0
+feature: node If
+--- code
+my @blocks = { content => "```raku\nsay 1\n```" }, { content => 'plain' };
+my @pairs = @blocks.map({ if $_<content> ~~ / ^ '```' (\V*)\n (.*?) \n '```'  $ / { $0.Str => $1.Str } else { '' => $_<content> } });
+say .key.raku, ' => ', .value for @pairs;
+--- expect
+"raku" => say 1
+"" => plain
+
+=== ctl-if-in-pointy-hash
+from: Date::Calendar::Strftime 0.1.1 lib/Date/Calendar/Strftime.rakumod:145
+license: Artistic-2.0
+feature: node If
+--- code
+my $date = Date.new(2024, 3, 14);
+my %fmt = u  => -> { if $date.can('day-of-week') { sprintf("%d",   $date.day-of-week) } else { Nil } },
+          Y  => -> { $date.year };
+say %fmt<u>();
+say %fmt<Y>();
+my $str = 'x';
+say (-> { if $str.can('day-of-week') { 1 } else { Nil } })().raku;
+--- expect
+4
+2024
+Nil
+
+=== ctl-return-if-junction-type
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:80
+license: Artistic-2.0
+feature: node If
+--- code
+my enum Out-type <S L AH AL H HA>;
+sub out(Out-type $out-type) {
+    my %m = a => 1;
+    return %m if $out-type ~~ HA|H;
+    return %m.keys.List;
+}
+say out(H).^name;
+say out(HA).^name;
+say out(L).^name;
+--- expect
+Hash
+Hash
+List
+
+=== ctl-return-unless-defined
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark/Format.rakumod:16
+license: Artistic-2.0
+feature: node Unless
+--- code
+sub fmt-num($n) {
+    return 'null' unless $n.defined;
+    return 'NaN' if $n.isNaN;
+    $n.round(0.01).Str
+}
+say fmt-num(Any);
+say fmt-num(NaN);
+say fmt-num(1.23456);
+--- expect
+null
+NaN
+1.23
+
+=== ctl-die-unless-exists-all
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:83
+license: Artistic-2.0
+feature: node Unless
+--- code
+sub check(%response) {
+    die "Missing fields" unless %response{all(<r s i>)}:exists;
+    'ok'
+}
+say check({ r => 1, s => 2, i => 3 });
+say check({ r => 1, s => 2 });
+--- expect
+ok
+!! X::AdHoc
+
+=== ctl-postfix-for-mutate
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:61
+license: Artistic-2.0
+feature: node For
+--- code
+my @abbrev-words = <Foo BAR baZ>;
+$_ .= lc for @abbrev-words;
+say @abbrev-words;
+--- expect
+[foo bar baz]
+
+=== ctl-postfix-for-in-array-literal
+from: Air 0.1.32 lib/Air/Base.rakumod:629
+license: Artistic-2.0
+feature: node For
+--- code
+my class Node {
+    has $.name;
+    has @.children;
+    method tree($depth = 0) {
+        ('  ' x $depth) ~ $!name ~ "\n" ~ [.tree($depth + 1) for @!children].join
+    }
+}
+my $t = Node.new(name => 'root', children => [Node.new(name => 'a', children => [Node.new(name => 'a1')]), Node.new(name => 'b')]);
+print $t.tree;
+--- expect
+root
+  a
+    a1
+  b
+
+=== ctl-if-block-take-for
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Files.rakumod:31
+license: Artistic-2.0
+feature: node If
+--- code
+my %tree = root => <x.raku y.raku>, 'z.raku' => ();
+sub find($path) { %tree{$path}.List }
+my @found = gather for <root z.raku> -> $path {
+    if %tree{$path}.elems { .take for find($path) }
+    else                  { take $path }
+};
+say @found;
+--- expect
+[x.raku y.raku z.raku]

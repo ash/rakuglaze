@@ -1,0 +1,181 @@
+# Ranges (^n, ..^, Range.new) and the repetition operators xx and x.
+
+=== list-range-caret-for
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:961
+license: Artistic-2.0
+feature: prefix ^
+--- code
+my $rc = 3;
+my @got;
+for ^$rc -> $i {
+    @got.push: $i * $i;
+}
+say @got;
+say (^$rc).raku;
+--- expect
+[0 1 4]
+^3
+
+=== list-range-excl-end-reverse
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Runner.rakumod:179
+license: Artistic-2.0
+feature: method reverse
+--- code
+my @result = <a b c d>;
+for (1 ..^ @result.elems).reverse -> $i {
+    print $i;
+}
+say '';
+--- expect
+321
+
+=== list-range-smartmatch-when
+from: Color 1.004001 lib/Color/Conversion.rakumod:98
+license: Artistic-2.0
+feature: infix ..^
+--- code
+for 30, 60, 359 -> $h {
+    given $h {
+        when   0..^60  { say "$h: red-yellow" }
+        when  60..^120 { say "$h: yellow-green" }
+        default        { say "$h: other" }
+    }
+}
+--- expect
+30: red-yellow
+60: yellow-green
+359: other
+
+=== list-range-caret-elems-loop
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark/Format.rakumod:111
+license: Artistic-2.0
+feature: prefix ^
+--- code
+my @headers = <name time>;
+my @widths  = 6, 5;
+for ^@headers.elems -> $i {
+    say @headers[$i].fmt("%-{@widths[$i]}s") ~ '|';
+}
+--- expect
+name  |
+time |
+
+=== list-range-caret-array-direct
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:136
+license: Artistic-2.0
+feature: prefix ^
+--- code
+my @values = <p q r>;
+my @copy;
+@copy.ASSIGN-POS($_, @values.AT-POS($_)) for ^@values;
+say @copy;
+--- expect
+[p q r]
+
+=== list-range-object-new
+from: PDF::Class 0.5.30 lib/PDF/Function/Exponential.rakumod:46
+license: Artistic-2.0
+feature: method new
+--- code
+my $r = Range.new(2, 5);
+say $r;
+say $r.elems;
+say $r.minmax;
+say Range.new(1, 4, :excludes-max).list;
+--- expect
+2..5
+4
+(2 5)
+(1 2 3)
+
+=== list-xx-zero-array
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:146
+license: Artistic-2.0
+feature: infix xx
+--- code
+my $worker-count = 3;
+my @loads = (0 xx $worker-count).Array;
+@loads[1] += 5;
+say @loads;
+--- expect
+[0 5 0]
+
+=== list-xx-fresh-arrays
+from: Anolis 1.0.0 lib/Anolis.rakumod:330
+license: Artistic-2.0
+feature: infix xx
+--- code
+my @grid = [1], [2];
+@grid.splice: 1, 0, [] xx 2;
+@grid[1].push: 'x';
+say @grid.elems;
+say @grid[2].elems;
+--- expect
+4
+0
+
+=== list-xx-whatever-zip-hash
+from: DBIish 0.6.9 lib/DBDish/StatementHandle.rakumod:119
+license: BSD-2-Clause
+feature: infix xx
+--- code
+my @column-name = <id name>;
+my %rows = @column-name Z=> [] xx *;
+%rows<id>.push: 1;
+say %rows<id>;
+say %rows<name>;
+--- expect
+[1]
+[]
+
+=== list-xx-whatever-slice-assign
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/RequestParser.rakumod:15
+license: Artistic-2.0
+feature: infix xx
+--- code
+my @allowed-methods = <GET POST>;
+my %allowed-methods;
+%allowed-methods{@allowed-methods} = True xx *;
+say %allowed-methods.sort;
+--- expect
+(GET => True POST => True)
+
+=== list-xx-polymod-whatever
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:218
+license: Artistic-2.0
+feature: infix xx
+--- code
+$_ = 70000;
+my @bytes = .polymod(256 xx *).reverse;
+say @bytes;
+--- expect
+[1 17 112]
+
+=== list-xx-slip-in-list
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree/Diff.rakumod:60
+license: Artistic-2.0
+feature: infix xx
+--- code
+my $empty_glyph = '.';
+my @root_glyphs = 0, |( $empty_glyph xx 5)  ;
+say @root_glyphs.elems;
+say @root_glyphs.join;
+--- expect
+6
+0.....
+
+=== list-x-string-indent
+from: Air 0.1.32 lib/Air/Base.rakumod:628
+license: Artistic-2.0
+feature: infix x
+--- code
+my $stub = 'docs';
+for 0..2 -> $depth {
+    print '  ' x $depth ~ "-$stub\n";
+}
+say ('ab' x 0).raku;
+--- expect
+-docs
+  -docs
+    -docs
+""

@@ -1,0 +1,268 @@
+# Growing and shrinking arrays: push/append/prepend/unshift (method and sub forms, slips), shift/pop loops.
+
+=== list-push-colon-form
+from: AlgorithmsIT 0.0.4 lib/AlgorithmsIT.rakumod:45
+license: Artistic-2.0
+feature: method push
+--- code
+my @shifts;
+for 3, 1, 4 -> $shift {
+    @shifts.push: $shift;
+}
+say @shifts;
+say @shifts.push(5, 9).elems;
+--- expect
+[3 1 4]
+5
+
+=== list-push-sub-form
+from: Cro::Core 0.8.10 lib/Cro.rakumod:216
+license: Artistic-2.0
+feature: call push
+--- code
+my @conditions;
+for <a b> {
+    push @conditions, $_;
+}
+push @conditions, <c d>;
+say @conditions.elems;
+say @conditions[2];
+--- expect
+3
+(c d)
+
+=== list-push-array-itemized
+from: Data::Transformers 0.0.2 lib/Data/Transformers.rakumod:31
+license: Artistic-2.0
+feature: method push
+--- code
+my @res = [1, 2],;
+my @a = 10, 20;
+@res.push((@res.tail <<+>> @a).Array);
+say @res.elems;
+say @res[1];
+--- expect
+2
+[11 22]
+
+=== list-push-slip-prefix
+from: Net::OSC 0.2.2 lib/Net/OSC/Message.pm6:87
+license: Artistic-2.0
+feature: prefix |
+--- code
+my @args = 'a';
+my @new-args = 1, 2;
+@args.push(|@new-args);
+say @args;
+@args.push(@new-args);
+say @args.elems;
+--- expect
+[a 1 2]
+4
+
+=== list-push-colon-slip-keys
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:863
+license: Artistic-2.0
+feature: method push
+--- code
+my %headers = host => 1, accept => 2;
+my @headers = 'user-agent';
+@headers.push: |%headers.keys.sort;
+say @headers;
+--- expect
+[user-agent accept host]
+
+=== list-append-colon-two
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:363
+license: Artistic-2.0
+feature: method append
+--- code
+my @cdiff;
+my ($ai, $bi) = 3, 5;
+@cdiff.append: $ai, $bi;
+@cdiff.append: [7, 8];
+say @cdiff;
+--- expect
+[3 5 7 8]
+
+=== list-append-array-flattens
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance.rakumod:388
+license: MIT
+feature: method append
+--- code
+my @options = 'x';
+my @opts = 'y', 'z';
+@options.append(@opts);
+say @options.elems;
+my @pushed = 'x';
+@pushed.push(@opts);
+say @pushed.elems;
+--- expect
+3
+2
+
+=== list-append-sub-form-itemized
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Server.rakumod:63
+license: Artistic-2.0
+feature: call append
+--- code
+my @after = 'log';
+my $after = ['gzip', 'etag'];
+append @after, @$after;
+say @after;
+--- expect
+[log gzip etag]
+
+=== list-append-decont
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:167
+license: Artistic-2.0
+feature: method append
+--- code
+my @init-args;
+my $value = $['a', 'b'];
+@init-args.append: $value;
+say @init-args.elems;
+@init-args.append: $value<>;
+say @init-args.elems;
+--- expect
+1
+3
+
+=== list-append-assign-method
+from: Graph 0.1.3 lib/Graph.rakumod:404
+license: Artistic-2.0
+feature: method append
+--- code
+my %adjacency-map = b => 1, a => 2;
+my @res = 'z';
+@res .= append(%adjacency-map.keys.sort);
+say @res;
+--- expect
+[z a b]
+
+=== list-prepend-colon-several
+from: Git::Status 0.0.4 lib/Git/Status.rakumod:103
+license: Artistic-2.0
+feature: method prepend
+--- code
+my @parts = 'M file.txt';
+my $directory = '/repo';
+@parts.prepend: "Status:", "  $directory", "" if @parts;
+say @parts.join('|');
+--- expect
+Status:|  /repo||M file.txt
+
+=== list-prepend-paren
+from: DB::Xoos 0.1.1 lib/DB/Xoos/SQL.pm6:120
+license: Artistic-2.0
+feature: method prepend
+--- code
+my @s = <id name>;
+my $table = 'users';
+say @s.prepend($table);
+say @s.prepend(<a b>).elems;
+--- expect
+[users id name]
+5
+
+=== list-unshift-colon-array
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:261
+license: Artistic-2.0
+feature: method unshift
+--- code
+my @a = <x y z>;
+my @ops = ['+', 'q'],;
+my $i = 2;
+@ops.unshift: ['=', @a[$i-1]];
+say @ops.elems;
+say @ops[0].join(' ');
+--- expect
+2
+= y
+
+=== list-unshift-sub-form
+from: Graph 0.1.3 lib/Graph.rakumod:685
+license: Artistic-2.0
+feature: call unshift
+--- code
+my %prev = c => 'b', b => 'a';
+my @path = 'c';
+my $u = 'c';
+while %prev{$u}:exists {
+    $u = %prev{$u};
+    unshift @path, $u;
+}
+say @path;
+--- expect
+[a b c]
+
+=== list-while-shift-arrow
+from: Text::MiscUtils 0.0.13 lib/Text/MiscUtils/Layout.rakumod:187
+license: Artistic-2.0
+feature: method shift
+--- code
+my @pieces = <the quick brown fox>;
+my $line = '';
+while @pieces.shift -> $piece {
+    $line ~= $piece.substr(0, 1);
+}
+say $line;
+say @pieces.elems;
+--- expect
+tqbf
+0
+
+=== list-while-pop-trailing
+from: Selkie 0.16.0 lib/Selkie/Test/Snapshot/Harness.rakumod:206
+license: Artistic-2.0
+feature: method pop
+--- code
+my @lines = 'a', 'b', '', '';
+while @lines && @lines[*-1] eq '' { @lines.pop }
+say @lines.elems;
+say @lines.raku;
+--- expect
+2
+["a", "b"]
+
+=== list-pop-conditional-stack
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:307
+license: Artistic-2.0
+feature: method pop
+--- code
+my @stack;
+for '(', '[', ']', ')', ')' -> $c {
+    if $c eq '(' | '[' { @stack.push($c) }
+    elsif $c eq ')' | ']' | '}' { @stack.pop if @stack.elems }
+}
+say @stack.elems;
+my $top = @stack.elems ?? @stack[*-1] !! '';
+say $top.raku;
+--- expect
+0
+""
+
+=== list-pop-then-int
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:133
+license: Artistic-2.0
+feature: method pop
+--- code
+my @words = <in block at foo.raku line 42>;
+my int $linenr = @words.pop.Int;
+say $linenr + 1;
+say @words.tail;
+--- expect
+43
+line
+
+=== list-pop-empty-array
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:130
+license: Artistic-2.0
+feature: method pop
+--- code
+my $r = [].pop;
+say $r.^name;
+say $r.exception.^name;
+--- expect
+Failure
+X::Cannot::Empty

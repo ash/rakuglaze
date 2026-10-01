@@ -1,0 +1,554 @@
+# Building hashes and maps as modules write them: %( ... ) literals, Map.new,
+# .Map/.Hash coercion, Z=> and X=> zips, typed and object hashes,
+# `is default`, merging by list assignment and slips.
+
+=== hash-literal-colonpairs-return
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/TimeIntervalSpec.rakumod:276
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my class Interval {
+    has $!unit = 'day';
+    has $!length = 3;
+    method spec { return %(:$!unit, :$!length) }
+}
+my %s = Interval.new.spec;
+say %s.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+length=3 unit=day
+
+=== hash-literal-colonpair-arrays
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Bisect.rakumod:187
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my @executed = <a b c>;
+my @failed = <b>;
+my $out = 'ok';
+my %r = %( :@executed, :@failed, :status(1), :$out );
+say %r<executed>.elems, ' ', %r<failed>, ' ', %r<status>, ' ', %r<out>;
+say %r<executed>.^name;
+--- expect
+3 [b] 1 ok
+Array
+
+=== hash-literal-empty-return
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:122
+license: Artistic-2.0
+feature: node HashLit
+--- code
+sub nearest(@points) {
+    return %() if @points.elems == 0;
+    %( point => @points[0] )
+}
+say nearest(()).elems;
+say nearest(()).^name;
+say nearest((1, 2))<point>;
+--- expect
+0
+Hash
+1
+
+=== hash-literal-conditional-colonpair
+from: Air 0.1.32 lib/Air/Base/Elements.rakumod:95
+license: Artistic-2.0
+feature: node HashLit
+--- code
+sub table(*%attrs) { %attrs.sort.map({ "{.key}={.value}" }).join(' ') || '<none>' }
+for 'wide', Str -> $class {
+    say table |%(:$class if $class), border => 1;
+}
+--- expect
+border=1 class=wide
+border=1
+
+=== hash-literal-junction-keys
+from: CSS::Font::Resources 0.0.11 lib/CSS/Font/Resources/Source.rakumod:6
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my constant %Extensions = %( :woff<woff>, :woff2<woff2>, 'ttf'|'ttc' => 'truetype', 'otf'|'otc' => 'opentype' );
+say %Extensions.elems;
+say %Extensions<woff2>;
+say %Extensions.keys.map(*.^name).unique.sort;
+--- expect
+6
+woff2
+(Str)
+
+=== hash-literal-zip-keys-values
+from: DB 0.5 lib/DB/Result.rakumod:26
+license: BSD-2-Clause
+feature: infix Z=>
+--- code
+my class Result {
+    has @.keys = <id name>;
+    method hash(@row) { %( @!keys.list Z=> @row ) }
+}
+my %h = Result.new.hash([7, 'seven']);
+say %h<id>, ' ', %h<name>;
+--- expect
+7 seven
+
+=== hash-map-whatever-true
+from: Selkie 0.16.0 lib/Selkie/Widget.rakumod:1833
+license: Artistic-2.0
+feature: method map
+--- code
+my @kinds = <button label>;
+my %wanted = @kinds.map(* => True);
+for <label slider button> {
+    say "$_: ", %wanted{$_} // False;
+}
+--- expect
+label: True
+slider: False
+button: True
+
+=== hash-map-whatever-true-dot-hash
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Helpers/Text.rakumod:12
+license: Artistic-2.0
+feature: method hash
+--- code
+my %uncountable = <equipment information rice money species series fish sheep deer>.map(* => True).hash;
+sub pluralize($w) { %uncountable{$w} ?? $w !! $w ~ 's' }
+say pluralize($_) for <sheep cat rice>;
+--- expect
+sheep
+cats
+rice
+
+=== hash-map-method-call-pairs
+from: PDF 0.6.15 lib/PDF/COS/DateString.rakumod:31
+license: Artistic-2.0
+feature: method map
+--- code
+my class D { has $.year = 2024; has $.month = 3; has $.day = 9 }
+my $dt = D.new;
+my %args = <year month day>.map: {$_ => $dt."$_"() };
+say %args.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+day=9 month=3 year=2024
+
+=== hash-map-new-colon
+from: DateTime::TimeZone 0.10.2 lib/DateTime/TimeZone.rakumod:4
+license: Artistic-2.0
+feature: method new
+--- code
+my %timezones := BEGIN Map.new: (
+    'UTC' => 0,
+    'CET' => 3600,
+    'EST' => -18000,
+);
+say %timezones<CET>;
+say %timezones.^name;
+say %timezones.keys.sort;
+--- expect
+3600
+Map
+(CET EST UTC)
+
+=== hash-map-new-double-paren
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/AST.rakumod:34
+license: Artistic-2.0
+feature: method new
+--- code
+my $renderer = 'r';
+my %exports = sub => 1;
+my $m = Map.new((:$renderer, exports => %exports, :used-files(<a b>)));
+say $m.keys.sort;
+say $m<used-files>;
+--- expect
+(exports renderer used-files)
+(a b)
+
+=== hash-map-new-named-args
+from: JSON::Collector 0.0.5 lib/JSON/Collector.rakumod:107
+license: Artistic-2.0
+feature: method new
+--- code
+sub from-json($s) { "from:$s" }
+sub to-json($s) { "to:$s" }
+my $exports = BEGIN Map.new('&from-json' => &from-json, '&to-json' => &to-json);
+say $exports.keys.sort;
+say $exports<&to-json>('x');
+--- expect
+(&from-json &to-json)
+to:x
+
+=== hash-map-immutable
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:214
+license: Artistic-2.0
+feature: method Map
+--- code
+my %meta = name => 'Foo', ver => '1.0';
+my %identities;
+%identities<Foo:ver<1.0>> := %meta.Map;
+say %identities<Foo:ver<1.0>><name>;
+%identities<Foo:ver<1.0>><name> = 'Bar';
+--- expect
+Foo
+!! X::AdHoc
+
+=== hash-is-map-grep
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:586
+license: Artistic-2.0
+feature: trait is Map
+--- code
+my %reverse = a => <x y>, b => (), c => <z>;
+my %unr is Map = %reverse.grep: {
+    .value.elems
+}
+say %unr.^name;
+say %unr.keys.sort;
+--- expect
+Map
+(a c)
+
+=== hash-is-map-map-block
+from: MoarVM::Bytecode 0.0.27 lib/MoarVM/Ops.rakumod:2053
+license: Artistic-2.0
+feature: trait is Map
+--- code
+my @info = <add:3 sub:2 noop:0>;
+my %adverbs  is Map  = @info.map: {
+    my ($name, $arity) = .split(':');
+    $name => +$arity
+}
+say %adverbs<sub>;
+say %adverbs.values.sum;
+--- expect
+2
+5
+
+=== hash-map-from-pairs-dotmap
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Configuration.rakumod:139
+license: Artistic-2.0
+feature: method Map
+--- code
+my $text = 'lib = src ; reporter = html';
+my $m = $text.split(/<[=;]>/).map(*.trim).map({ $^a => $^b }).Map;
+say $m<lib>, ' ', $m<reporter>;
+say $m.^name;
+--- expect
+src html
+Map
+
+=== hash-capture-hash-map
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Custom.rakumod:84
+license: Artistic-2.0
+feature: method Map
+--- code
+sub kw(|c) {
+    my $kwargs = c.hash.Map;
+    $kwargs.sort.map({ "{.key}={.value}" }).join(',')
+}
+say kw(1, 2, :a(3), :b<x>);
+--- expect
+a=3,b=x
+
+=== hash-coerce-grep-dothash
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToPrettyTable.rakumod:120
+license: Artistic-2.0
+feature: method Hash
+--- code
+my %args = field-names => <a b>, align => 'left', title => 'T';
+my %rest = |%args.grep({ $_.key ne 'field-names' }).Hash;
+say %rest.keys.sort;
+--- expect
+(align title)
+
+=== hash-map-pairs-dot-hash
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Coverable/CoverableIndex.rakumod:36
+license: Artistic-2.0
+feature: method Hash
+--- code
+my class Cov { has $.file-name }
+my @c = Cov.new(file-name => 'a.raku'), Cov, Cov.new(file-name => 'b.raku');
+my %index = @c.grep(*.so).map({ $_.file-name => $_ }).Hash;
+say %index.keys.sort;
+--- expect
+(a.raku b.raku)
+
+=== hash-new-from-list
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/MetaSpecsProcessing.rakumod:81
+license: Artistic-2.0
+feature: method new
+--- code
+sub process(@dslLines) {
+    return @dslLines.elems > 0 ?? Hash.new(@dslLines) !! {};
+}
+my %h = process([a => 1, b => 2]);
+say %h.sort.map(*.gist).join(' ');
+say process([]).elems;
+--- expect
+a => 1 b => 2
+0
+
+=== hash-new-kv-plus-colonpair
+from: Bailador 0.0.19 lib/Bailador/App.pm:262
+license: MIT
+feature: method new
+--- code
+my %env = REQUEST_METHOD => 'GET';
+my $extra = Hash.new( ( %env.kv, :HTTP_CODE(404) ) );
+say $extra.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+HTTP_CODE=404 REQUEST_METHOD=GET
+
+=== hash-coerce-sub-do-for
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/CrossTabulate.rakumod:87
+license: Artistic-2.0
+feature: call Hash
+--- code
+my $valueVarName = 'n';
+my $v = { x => [{ n => 1 }, { n => 2 }], y => [{ n => 5 }] };
+my $k = 'row';
+my $p = $k => Hash( do for $v.kv -> $k1, $v1 { $k1 => $v1.map({ $_{$valueVarName} }).sum } );
+say $p.key, ': ', $p.value.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+row: x=3 y=5
+
+=== hash-coercion-return-type
+from: Exportable 0.0.4 lib/Exportable.pm6:1
+license: Artistic-2.0
+feature: call Hash
+--- code
+sub exported-EXPORT(%exports, *@names --> Hash()) {
+    @names.map({ $_ => %exports{$_} })
+}
+my %e = exported-EXPORT({ '&a' => 1, '&b' => 2, '&c' => 3 }, '&a', '&c');
+say %e.^name;
+say %e.keys.sort;
+--- expect
+Hash
+(&a &c)
+
+=== hash-enums-hash-constant
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/Values_and_Units.rakumod:53
+license: Artistic-2.0
+feature: method Hash
+--- code
+my enum CSSUnits (em => 'length', px => 'length', deg => 'angle');
+my constant %Dim = CSSUnits.enums.Hash;
+say %Dim<deg>;
+say %Dim.keys.sort;
+--- expect
+angle
+(deg em px)
+
+=== hash-constant-list-of-pairs
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:105
+license: Artistic-2.0
+feature: decl constant
+--- code
+my constant %opt2prefix = clearer => 'clear',
+                          predicate => 'has';
+say %opt2prefix<predicate>;
+say %opt2prefix.^name;
+--- expect
+has
+Map
+
+=== hash-assign-empty-list
+from: File::Temp 0.0.12 lib/File/Temp.rakumod:104
+license: Artistic-2.0
+feature: infix =
+--- code
+my %roster = a => 1, b => 2;
+say %roster.elems;
+%roster = ();
+say %roster.elems;
+say so %roster;
+--- expect
+2
+0
+False
+
+=== hash-merge-list-assign-later-wins
+from: Graph 0.1.3 lib/Graph.rakumod:767
+license: Artistic-2.0
+feature: infix =
+--- code
+my %default = a => 0, b => 0, c => 0;
+my %distances = b => 4;
+%distances = %default, %distances;
+say %distances.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+a=0 b=4 c=0
+
+=== hash-merge-self-and-other
+from: DSL::Entity::MachineLearning 0.1.2 lib/DSL/Entity/MachineLearning/ResourceAccess.rakumod:30
+license: Artistic-2.0
+feature: infix =
+--- code
+my %resources = en => 'English';
+my %resources-bg = bg => 'Bulgarian', en => 'Engl.';
+%resources = %resources, %resources-bg;
+say %resources.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+bg=Bulgarian en=Engl.
+
+=== hash-merge-slips-literal
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:229
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my %default_colors = key => 'blue', value => 'white', title => 'red';
+my $colors = { value => 'green' };
+my %c = %(|%default_colors, |$colors);
+say %c.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+key=blue title=red value=green
+
+=== hash-merge-slip-override-pair
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Backend/OpenAICommon.rakumod:550
+license: Artistic-2.0
+feature: node HashLit
+--- code
+for { role => 'system', content => 'be terse' }, { role => 'user', content => 'hi' } -> %m {
+    my %out = %m<role> eq 'system' ?? %( |%m, name => 'sys' ) !! %m;
+    say %out.sort.map({ "{.key}={.value}" }).join(' ');
+}
+--- expect
+content=be terse name=sys role=system
+content=hi role=user
+
+=== hash-merge-pairs-then-hash
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Citations.rakumod:94
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my $csl-raku-data = { title => 'T', year => 1999 };
+my %converted = year => 2001, author => 'A';
+my %r = %( |$csl-raku-data.pairs, |%converted );
+say %r.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+author=A title=T year=2001
+
+=== hash-merge-slip-trailing-colonpair
+from: Path::Router 0.5.1 lib/Path/Router.pm6:229
+license: Artistic-2.0
+feature: node HashLit
+--- code
+sub path-for(%h) { %h.keys.sort.join(',') }
+my %path-map = controller => 'c', action => 'a';
+my %context = user => 1;
+say path-for %( |%path-map, :%context);
+--- expect
+action,context,controller
+
+=== hash-append-hash
+from: Text::Table::Simple 0.1.0 lib/Text/Table/Simple.rakumod:147
+license: Artistic-2.0
+feature: method append
+--- code
+my %options = headers => { a => 1 }, rows => 2;
+my %o = rows => 3, border => '|';
+%options.append: %o;
+say %options<rows>;
+say %options<border>;
+--- expect
+[2 3]
+|
+
+=== hash-push-pair-list
+from: Email::Simple 2.1.4 lib/Email/Simple/Header.rakumod:68
+license: CC0-1.0
+feature: method push
+--- code
+my @headers = <To a@x>, <Received r1>, <Received r2>;
+my %headers is default(Nil);
+%headers.push(.[0].lc => .[1]) for @headers;
+say %headers<to>;
+say %headers<received>;
+say %headers<cc>.raku;
+--- expect
+a@x
+[r1 r2]
+Nil
+
+=== hash-push-colonpair-with
+from: DBIish 0.6.9 lib/DBDish/Pg.rakumod:72
+license: BSD-2-Clause
+feature: method push
+--- code
+my %params = host => 'h';
+for 'db', Str -> $dbname {
+    %params.push((:$dbname)) with $dbname;
+}
+say %params.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+dbname=db host=h
+
+=== hash-push-zip
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToWideFormat.rakumod:122
+license: Artistic-2.0
+feature: method push
+--- code
+my %h = id => 1;
+my $var = 'temp';
+my $aggrRes = 21.5;
+%h.push( [$var] Z=> [$aggrRes] );
+say %h.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+id=1 temp=21.5
+
+=== hash-push-duplicates-to-array
+from: Bailador 0.0.19 lib/Bailador/Request.pm:80
+license: MIT
+feature: method push
+--- code
+my %ret;
+for 'a=1&b=2&a=3'.split('&') -> $p {
+    my @pair = $p.split('=');
+    %ret.push((@pair[0] => |@pair[1]));
+}
+say %ret<a>.raku;
+say %ret<b>.raku;
+--- expect
+$["1", "3"]
+$(slip("2",))
+
+=== hash-empty-braces-default
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:738
+license: Artistic-2.0
+feature: infix //
+--- code
+my %options = timeout => 3;
+my $auth = %options<auth> // {};
+say $auth.^name;
+say $auth.elems;
+--- expect
+Hash
+0
+
+=== hash-state-empty-braces
+from: Bailador 0.0.19 lib/Bailador/Command/watch.pm:84
+license: MIT
+feature: decl state
+--- code
+sub changed($file) {
+    state $seen = {};
+    my $new = !$seen{$file};
+    $seen{$file} = True;
+    $new
+}
+say changed('a'), changed('b'), changed('a');
+--- expect
+TrueTrueFalse
+
+=== hash-colonpair-empty-braces
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/AST.rakumod:32
+license: Artistic-2.0
+feature: node HashLit
+--- code
+my %*TEMPLATE-EXPORTS = :sub{}, :macro{}, :fragment{};
+%*TEMPLATE-EXPORTS<sub><greet> = 1;
+say %*TEMPLATE-EXPORTS.keys.sort;
+say %*TEMPLATE-EXPORTS<sub>.keys;
+say %*TEMPLATE-EXPORTS<macro>.^name;
+--- expect
+(fragment macro sub)
+(greet)
+Hash

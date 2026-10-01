@@ -1,0 +1,61 @@
+# Protos and multis as modules declare them.
+
+=== proto-capture-star
+from: Array::Sorted::Util 0.0.11 lib/Array/Sorted/Util.rakumod:13
+license: Artistic-2.0
+feature: decl proto
+--- code
+my proto sub finds(|) {*}
+my multi sub finds(@a, $needle) { @a.first($needle, :k) }
+my multi sub finds(@a, $needle, :$all!) { @a.grep($needle, :k).List }
+say finds(<a b c b>, 'b');
+say finds(<a b c b>, 'b', :all);
+--- expect
+1
+(1 3)
+
+=== proto-signature-optional-and-slurpy
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:92
+license: Artistic-2.0
+feature: decl proto
+--- code
+our proto sub lcs-like(@a, $, $counting?, &fcn?, %args?, *%) {*}
+multi sub lcs-like(@a, $b, $counting?, &fcn?, %args?, *%) {
+    "{@a.elems} {$b} {$counting // 'none'} {&fcn ?? 'fcn' !! 'no-fcn'}"
+}
+say lcs-like([1, 2], 'x');
+say lcs-like([1, 2], 'x', 1, { $_ });
+--- expect
+2 x none no-fcn
+2 x 1 fcn
+
+=== proto-method-spaced-star
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:948
+license: Artistic-2.0
+feature: decl proto
+--- code
+my class Stream {
+    proto method read(|c) { * }
+    multi method read(Int $n) { "read $n" }
+    multi method read() { 'read all' }
+}
+say Stream.read(3);
+say Stream.read;
+--- expect
+read 3
+read all
+
+=== multi-new-by-arity
+from: Compress::Bzip2 0.4.1 lib/Compress/Bzip2.pm6:12
+license: Artistic-2.0
+feature: decl multi
+--- code
+my class Err {
+    has $.action; has $.code; has $.handle;
+    multi method new($action, $code, $handle) { self.bless(:$action, :$code, :$handle) }
+    multi method new($action, $code) { self.new($action, $code, 'none') }
+}
+my $e = Err.new('open', 2);
+say ($e.action, $e.code, $e.handle).join('|');
+--- expect
+open|2|none

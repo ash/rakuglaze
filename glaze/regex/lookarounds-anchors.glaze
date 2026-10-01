@@ -1,0 +1,393 @@
+# Lookarounds, anchors, word boundaries, capture markers and alternation.
+
+=== rx-before-as-alternative-end
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar.rakumod:87
+license: Artistic-2.0
+feature: regex ?before
+--- code
+my grammar D {
+    rule TOP { '{' <decl>* '}' }
+    rule decl { \w+ ':' \w+ <end-decl> }
+    rule end-decl { ';' | <?before '}'> | $ }
+}
+say D.parse('{ a: b; c: d }')<decl>.elems;
+say so D.parse('{ a: b c: d }');
+--- expect
+2
+False
+
+=== rx-before-subrule-then-call
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:40
+license: Artistic-2.0
+feature: regex ?before
+--- code
+my grammar Ref {
+    token TOP { <iref> }
+    token iref { || <?before <.scheme> ':'> <IRI> || <relative> }
+    token scheme { <[a..z]> <[a..z0..9+.-]>* }
+    token IRI { <scheme> ':' \S+ }
+    token relative { \S+ }
+}
+for 'https://x.y/z', 'docs/index.html', '1abc:x' -> $s {
+    my $m = Ref.parse($s)<iref>;
+    say $s, ' -> ', $m<IRI> ?? "absolute ({$m<IRI><scheme>})" !! 'relative';
+}
+--- expect
+https://x.y/z -> absolute (https)
+docs/index.html -> relative
+1abc:x -> relative
+
+=== rx-frugal-until-before
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:63
+license: Artistic-2.0
+feature: regex ?before
+--- code
+my token comment { '<' [ '!--' .*? '--' <?before '>'> ] '>' }
+say ('x <!-- a -- b --> y' ~~ / <comment> /).Str;
+say so '<!-- open' ~~ / <comment> /;
+--- expect
+<!-- a -- b -->
+False
+
+=== rx-not-before-unit-suffix
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar.rakumod:112
+license: Artistic-2.0
+feature: regex !before
+--- code
+my grammar T {
+    token num { \d+ ['.' \d+]? }
+    proto rule term1 {*}
+    rule term1:sym<num> {<num><!before ['%'|\w]>}
+    rule term1:sym<pct> {<num>'%'}
+    rule term1:sym<dim> {<num>\w+}
+    token TOP { <term1> }
+}
+for <12 50% 3px 1.5> -> $s {
+    my $m = T.parse($s);
+    say $s, ' -> ', $m<term1>.keys.grep(* ne 'num').head // 'num';
+}
+--- expect
+12 -> num
+50% -> num
+3px -> num
+1.5 -> num
+
+=== rx-not-before-in-rule
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/Colors.rakumod:48
+license: Artistic-2.0
+feature: regex !before
+--- code
+my grammar C {
+    token number { \d+ ['.' \d*]? }
+    rule color-alpha{<number><!before '%'>}
+    rule TOP { <color-alpha> }
+}
+say C.parse('0.5')<color-alpha><number>.Str;
+say so C.parse('50%');
+--- expect
+0.5
+False
+
+=== rx-not-before-alternatives-after-ws
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:221
+license: Artistic-2.0
+feature: regex !before
+--- code
+my token combinator { \s* ['>' | '~' | '+'] \s* | \s+ <!before '>' | '~' | '+'> }
+for 'div > p', 'div p', 'div  ~ p', 'div+p' -> $s {
+    my $m = $s ~~ / \w+ <combinator> \w+ /;
+    say "$s => [{$m<combinator>.Str.trim || 'descendant'}]";
+}
+--- expect
+div > p => [>]
+div p => [descendant]
+div  ~ p => [~]
+div+p => [+]
+
+=== rx-custom-word-boundaries
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Entity/Grammar/EntityNames.rakumod:15
+license: Artistic-2.0
+feature: regex ?after
+--- code
+my token name-punct-char { <[-_.]> }
+my regex wbpl { <!after [ <alnum> | <name-punct-char> ]> <?before [ <alnum> | <name-punct-char> ]> }
+my regex wbpr { <?after [ <alnum> | <name-punct-char> ]> <!before [ <alnum> | <name-punct-char> ]> }
+my $text = 'use data-frame and data-frames, not my-data-frame';
+say ($text ~~ m:g/ <.wbpl> 'data-frame' <.wbpr> /).map(*.from).join(',');
+say ($text ~~ m:g/ << 'data-frame' >> /).map(*.from).join(',');
+--- expect
+!! X::Method::NotFound
+
+=== rx-after-before-around-placeholder
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:178
+license: Artistic-2.0
+feature: regex ?after
+--- code
+my $head = '<span class="hl">';
+my &mark = { $^a.subst( / <?after '<td>'> $^b <?before '</td>'> /, $head ~ $^b ~ '</span>', :g) };
+say mark('<td>3</td><td>13</td><td>3</td>', '3');
+--- expect
+<td><span class="hl">3</span></td><td>13</td><td><span class="hl">3</span></td>
+
+=== rx-after-any-char-camel-to-snake
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Cable/Channel.rakumod:13
+license: Artistic-2.0
+feature: regex ?after
+--- code
+for <ChatChannel RoomsChannel X ABC> -> $word {
+    say $word.subst(/<?after .> <:Lu>/, { '_' ~ $/.Str }, :g).lc;
+}
+--- expect
+chat_channel
+rooms_channel
+x
+a_b_c
+
+=== rx-after-variable-length-lookbehind
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/Jupyter.rakumod:60
+license: Artistic-2.0
+feature: regex ?after
+--- code
+my %refs = logo => 'img/logo.png', icon => 'img/i.svg';
+my $source = 'See ![the logo][logo] and [logo] and ![x][icon].';
+for %refs.sort -> (:key($k), :value($v)) {
+    $source = $source.subst( / <?after '![' <-[\[\]\v]>*  ']'> '[' $k ']' /, '(' ~ $v ~ ')'):g;
+}
+say $source;
+--- expect
+See ![the logo](img/logo.png) and [logo] and ![x](img/i.svg).
+
+=== rx-ordered-alternation-lookbehind-y
+from: Lingua::EN::Stem::Porter 1.2 lib/Lingua/EN/Stem/Porter.rakumod:4
+license: MIT
+feature: regex ?after
+--- code
+my regex c {
+    [
+    || <-[aeiou]>
+    || <?after <[aeiou]>> y
+    || << y
+    ]
+}
+my regex v {
+    [
+    || <[aeiou]>
+    || [<!after <[aeiou]>> y]
+    ]
+}
+for <toy syzygy yes> -> $w {
+    say $w, ': ', $w.comb.keys.map({ $w ~~ /^ . ** {$_} <c>/ ?? 'C' !! $w ~~ /^ . ** {$_} <v>/ ?? 'v' !! '?' }).join;
+}
+--- expect
+!! X::Syntax::Regex::QuantifierValue
+
+=== rx-not-after-escape-split
+from: Bailador 0.0.19 lib/Bailador/CLI.pm:39
+license: MIT
+feature: regex !after
+--- code
+my $w = Q{lib,t\,x,bin};
+my @list = $w.split: /<!after \\> \,/;
+s/\\\,/,/ for @list;
+say @list.raku;
+--- expect
+["lib", "t,x", "bin"]
+
+=== rx-not-after-subst-without-replacement
+from: Data::Importers 0.1.8 lib/Data/Importers.rakumod:97
+license: Artistic-2.0
+feature: regex !after
+--- code
+my $js = Q{x = JSON.parse("{\"a\":1}"); y = 2;};
+say $js.subst(/'JSON.parse("' .*? <!after \\> '")'/, :g);
+--- expect
+x = ; y = 2;
+
+=== rx-not-after-octet-suffix
+from: Email::Valid 1.0.7 lib/Email/Valid.rakumod:31
+license: Artistic-2.0
+feature: regex !after
+--- code
+my grammar IP {
+    token TOP { <ipv4-host> }
+    token octet { \d ** 1..3 <?{ $/ <= 255 }> }
+    token multicast  { (<.octet>)<?{ $0 ~~ 224..239}>\.<.octet> ** 3 % '.' }
+    token ipv4 { <.octet> ** 4 % '.' }
+    token ipv4-host  { <!before [<multicast>]>[<ipv4>] <!after '.0'> }
+}
+for <10.1.2.3 230.1.1.1 10.1.2.0 300.1.1.1 192.168.1.10> -> $ip {
+    say $ip, ': ', so IP.parse($ip);
+}
+--- expect
+10.1.2.3: True
+230.1.1.1: False
+10.1.2.0: False
+300.1.1.1: False
+192.168.1.10: True
+
+=== rx-capture-markers-in-brackets
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:69
+license: Artistic-2.0
+feature: regex <( )>
+--- code
+my token IPv6address { <[0..9a..fA..F:]>+ }
+my token ip-literal { '[' <( <.IPv6address> )> ']' }
+my $m = 'http://[fe80::1]:80/' ~~ / <ip-literal> /;
+say $m<ip-literal>.Str;
+say $m<ip-literal>.from, ' ', $m<ip-literal>.to;
+--- expect
+!! X::Method::NotFound
+
+=== rx-capture-markers-tag-body
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:483
+license: Artistic-2.0
+feature: regex <( )>
+--- code
+say ('text <.name> more' ~~ / '<' <( <-[>]>* )> '>' /).Str;
+say ('<>' ~~ / '<' <( <-[>]>* )> '>' /).Str.raku;
+--- expect
+.name
+""
+
+=== rx-capture-markers-proto-negated-class
+from: File::Ignore 1.2 lib/File/Ignore.rakumod:24
+license: Artistic-2.0
+feature: regex <( )>
+--- code
+my grammar Glob {
+    token TOP { <matcher>+ }
+    proto token matcher    { * }
+    token matcher:sym<*>   { <sym> }
+    token matcher:sym<?>   { <sym> }
+    token matcher:sym<[]>  { '[' [$<negate>='!']? <( <-[\]]>+ )> ']' }
+    token matcher:sym<lit> { <-[/*?[]>+ }
+}
+for Glob.parse('a*[!xy]?.[ch]')<matcher> -> $m {
+    say $m.Str, ($m<negate> ?? ' (negated)' !! '');
+}
+--- expect
+a
+*
+xy (negated)
+?
+.
+ch
+
+=== rx-capture-markers-optional-quote
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:1040
+license: Artistic-2.0
+feature: regex <( )>
+--- code
+for 'multipart/form-data; boundary="xyz123"', 'multipart/mixed; boundary=abc' -> $ct {
+    say ($ct ~~ / 'boundary=' '"'? <( <-["]>+ )> /).Str;
+}
+--- expect
+xyz123
+abc
+
+=== rx-ordered-alternation-named-regex
+from: Bailador 0.0.19 lib/Bailador/Request.pm:46
+license: MIT
+feature: regex [
+--- code
+my regex bcharnospace { <[0..9]> || <[ a..z  A..Z]> || "'" || '(' || ')' || '+' || '_' || ',' || '-' || '.'  || '/' || ':' || '=' || '?' };
+my $ct = 'multipart/form-data; boundary="----abc_123"';
+if $ct ~~ / 'multipart/form-data;'  .* 'boundary' '=' '"' ? ( <bcharnospace> ** 0..69  ) \s* '"' ? / {
+    say ~$0;
+}
+--- expect
+----abc_123
+
+=== rx-ordered-alternation-fallback
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:12
+license: Artistic-2.0
+feature: regex [
+--- code
+my grammar F {
+    token TOP { [ <directive> | <literal> ]+ }
+    token directive { '%' [ <block-section> || <char-name> ] }
+    token block-section { '{' $<block>=<-[}]>+ '}' $<type>=<[a..zA..Z]> }
+    token char-name { <[a..zA..Z%]> }
+    token literal { <-[\%]>+ }
+}
+my $m = F.parse('%h %{User-agent}i "%r" %%');
+say $m<directive>.map({ .<block-section> ?? "B({.<block-section><block>}:{.<block-section><type>})" !! "C({.<char-name>})" }).join(' ');
+--- expect
+C(h) B(User-agent:i) C(r) C(%)
+
+=== rx-ltm-vs-ordered
+from: Crust 0.0.1 lib/Crust/Request.pm6:70
+license: Artistic-2.0
+feature: regex [
+--- code
+my @keys = <HTTP_HOST CONTENT_LENGTH SERVER_NAME http_x>;
+say @keys.grep({ m:i/^(HTTP|CONTENT)/ }).join(',');
+say ('abcd' ~~ / ab | abcd /).Str;
+say ('abcd' ~~ / ab || abcd /).Str;
+--- expect
+HTTP_HOST,CONTENT_LENGTH,http_x
+abcd
+ab
+
+=== rx-line-anchors-skip-blank
+from: CSS::Specification 0.5.3 lib/CSS/Specification.rakumod:10
+license: Artistic-2.0
+feature: regex [
+--- code
+my grammar Spec {
+    rule TOP { [<def=.prop-spec> | ^^ $$ || <.unexpected> ] * }
+    token prop-spec { ^^ \w+ ':' \N* $$ }
+    token unexpected { \N+ }
+}
+my $m = Spec.parse("color: red\n\nwidth: 1px\n");
+say $m<def>.map(*.Str).join(' | ');
+--- expect
+color: red | width: 1px
+
+=== rx-word-start-end-named-quote
+from: Bailador 0.0.19 lib/Bailador/Request/Multipart.pm:16
+license: MIT
+feature: regex -[
+--- code
+for 'form-data; name="file"; filename="a.txt"', 'form-data; filename="b.txt"' -> $content-disposition {
+    if $content-disposition ~~ / << name >> '=' '"' ( <-["]>+ ) '"' / {
+        say "name: $0";
+    }
+    else {
+        say 'no name';
+    }
+}
+--- expect
+name: file
+no name
+
+=== rx-word-boundary-subst-uc
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:877
+license: Artistic-2.0
+feature: quote s///
+--- code
+for <content-type x-forwarded-for etag> -> $field-name is copy {
+    s:g/ <|w> (\w) /$0.uc()/ given $field-name;
+    say $field-name;
+}
+--- expect
+Content-Type
+X-Forwarded-For
+Etag
+
+=== rx-word-boundary-in-when
+from: Gnome::N 0.1.54 lib/Gnome/N/GnomeRoutineCaller.rakumod:430
+license: Artistic-2.0
+feature: regex <|w>
+--- code
+for num32, num64, int32, Str {
+    given $_ {
+        when .^name ~~ / <|w> num / { say "{.^name}: numeric" }
+        default { say "{.^name}: other" }
+    }
+}
+--- expect
+num32: numeric
+num64: numeric
+int32: other
+Str: other

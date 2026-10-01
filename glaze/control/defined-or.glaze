@@ -1,0 +1,716 @@
+# Short-circuit operators as control flow: `//` with die/fail/return/next,
+# `//=`/`||=`/`&&=`, andthen/orelse/notandthen, `or die`, `and next`,
+# `if ... -> $x`, and junctions in conditions.
+
+=== ctl-defor-empty-slip
+from: Air 0.1.32 lib/Air/Base.rakumod:326
+license: Artistic-2.0
+feature: infix //
+--- code
+my class Page {
+    has @.inners;
+    has $.nav;
+    has $.tagline;
+    method parts { my @inners = |@.inners, $.nav // Empty, $.tagline // Empty; @inners }
+}
+say Page.new(inners => <a b>, nav => 'N').parts;
+say Page.new(inners => <a>, tagline => 'T').parts;
+say Page.new.parts.elems;
+--- expect
+[a b N]
+[a T]
+0
+
+=== ctl-defor-die
+from: BitEnum 0.5 lib/BitEnum.rakumod:20
+license: Artistic-2.0
+feature: infix //
+--- code
+my enum EnumBits (X-READ => 1, X-WRITE => 2);
+sub lookup(Str $str, :$prefix = 'X-') {
+    EnumBits::{"$prefix$str"} // die "Bad value: $str"
+}
+say lookup('READ');
+say lookup('WRITE').value;
+say lookup('EXEC');
+--- expect
+X-READ
+2
+!! X::AdHoc
+
+=== ctl-defor-chain-die
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:151
+license: Artistic-2.0
+feature: infix //
+--- code
+my enum Color <red green blue>;
+sub convert($type, $value) {
+    return $type.WHO{$value} // $type.^enum_from_value($value) // die "Can't convert $value";
+}
+say convert(Color, 'green');
+say convert(Color, 2);
+say convert(Color, 'pink');
+--- expect
+green
+blue
+!! X::AdHoc
+
+=== ctl-defor-fail-typed
+from: JSON::Pointer 1.0 lib/JSON/Pointer.pm6:75
+license: Artistic-2.0
+feature: infix //
+--- code
+my class X::NonExistent is Exception {
+    has $.element;
+    method message { "Element does not exist: $!element" }
+}
+sub resolve(%json, $part) {
+    %json{$part} // fail X::NonExistent.new(:element($part));
+}
+say resolve({ a => 1 }, 'a');
+my $r = resolve({ a => 1 }, 'b');
+say $r.^name;
+say $r.exception.message;
+say so $r;
+--- expect
+1
+Failure
+Element does not exist: b
+False
+
+=== ctl-defor-return-in-map
+from: PDF 0.6.15 lib/PDF/COS/TextString.rakumod:87
+license: Artistic-2.0
+feature: infix //
+--- code
+my %pdfdoc-enc = 72 => 'H', 105 => 'i';
+sub encode(Str $str) {
+    $str.ords.map({%pdfdoc-enc{$_} // return Nil}).join;
+}
+say encode('Hi');
+say encode('Ho').raku;
+--- expect
+Hi
+Nil
+
+=== ctl-defor-return-empty-list
+from: DB::MySQL 0.8 lib/DB/MySQL/Result.pm6:28
+license: BSD-2-Clause
+feature: infix //
+--- code
+my class Result {
+    has @.rows;
+    method fetch-row { @!rows ?? @!rows.shift !! Nil }
+    method row { my $row = self.fetch-row // return (); $row.uc }
+}
+my $r = Result.new(rows => <a b>);
+say $r.row;
+say $r.row;
+say $r.row.raku;
+--- expect
+A
+B
+()
+
+=== ctl-defor-next
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:513
+license: Artistic-2.0
+feature: infix //
+--- code
+my $glyphs = { 65 => 'A', 66 => 'B' };
+my @names;
+for 65, 67, 66 {
+    my Str $glyph-name = $glyphs{$_} // next;
+    @names.push: $glyph-name;
+}
+say @names;
+--- expect
+[A B]
+
+=== ctl-defor-assign-do
+from: CSS::Stylesheet 0.1.5 lib/CSS/Selectors.rakumod:70
+license: Artistic-2.0
+feature: infix //=
+--- code
+my class Selector {
+    has $.text;
+    has $!specificity;
+    has $.computed = 0;
+    method specificity {
+        $!specificity //= do {
+            $!computed++;
+            $!text.comb('#').elems * 100 + $!text.comb('.').elems * 10
+        }
+    }
+}
+my $s = Selector.new(text => '#a.b.c');
+say $s.specificity;
+say $s.specificity;
+say $s.computed;
+--- expect
+120
+120
+1
+
+=== ctl-defor-anon-state-do
+from: CSS::Module 0.7.7 lib/CSS/Module/CSS1/Metadata.rakumod:10
+license: Artistic-2.0
+feature: infix //=
+--- code
+my $builds = 0;
+our sub index {
+    state $ //= do {
+        $builds++;
+        <color font margin>.sort.List
+    }
+}
+say index();
+say index();
+say $builds;
+--- expect
+(color font margin)
+(color font margin)
+1
+
+=== ctl-or-assign-default
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:43
+license: Artistic-2.0
+feature: infix ||=
+--- code
+sub bounds(@array, $low is copy, $high is copy) {
+    $low  ||= 0;
+    $high ||= +@array-1;
+    "$low..$high"
+}
+say bounds(<a b c d>, Nil, Nil);
+say bounds(<a b c d>, 1, 2);
+say bounds(<a b c d>, 0, 0);
+--- expect
+0..3
+1..2
+0..3
+
+=== ctl-or-assign-attr-env-chain
+from: CPAN::Uploader::Tiny 0.1.0 lib/CPAN/Uploader/Tiny.rakumod:13
+license: Artistic-2.0
+feature: infix ||=
+--- code
+my class Uploader {
+    has $!agent;
+    has $.made = 0;
+    method agent {
+        $!agent ||= do {
+            $!made++;
+            'agent/1.0'
+        }
+    }
+}
+my $u = Uploader.new;
+say $u.agent;
+say $u.agent;
+say $u.made;
+--- expect
+agent/1.0
+agent/1.0
+1
+
+=== ctl-and-assign-accumulate
+from: Test::Async 0.1.17 lib/Test/Async/Base.rakumod:344
+license: Artistic-2.0
+feature: infix &&=
+--- code
+my $rc = True;
+my @checks;
+for 1, 2, 0, 4 -> $ok {
+    @checks.push: $ok;
+    $rc &&= $ok;
+}
+say $rc;
+my @array = 1, 2, 3;
+my @typed-ref = 1, 2, 3;
+my $ok = True;
+$ok &&= @array[$_] eqv @typed-ref[$_] for ^3;
+say $ok;
+--- expect
+0
+True
+
+=== ctl-and-assign-try-defor
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:243
+license: Artistic-2.0
+feature: infix &&=
+--- code
+my class Node {
+    has $.can-trim;
+    method trimmable { $!can-trim // die 'unknown' }
+    method trim($trim is copy) { $trim &&= try { self.trimmable } // True; $trim }
+}
+say Node.new(can-trim => False).trim(True);
+say Node.new.trim(True);
+say Node.new(can-trim => False).trim(False);
+--- expect
+False
+True
+False
+
+=== ctl-max-assign-whatever-map
+from: Dan 0.0.3 lib/Dan.rakumod:338
+license: Artistic-2.0
+feature: infix max=
+--- code
+my @data = a => [1, 2], b => [1, 2, 3, 4], c => [1];
+my $row-count = 0;
+@data.map( $row-count max= *.value.elems );
+say $row-count;
+my $size = 4096;
+$size min= 512;
+say $size;
+--- expect
+4
+512
+
+=== ctl-or-die-hash-lookup
+from: BDD::Behave 0.9.5 lib/BDD/Behave/LetRuntime.rakumod:48
+license: Artistic-2.0
+feature: infix or
+--- code
+my %by-name = user => 'alice';
+sub fetch($key) {
+    my $definition = %by-name{$key} or die "Unknown let($key)";
+    $definition
+}
+say fetch('user');
+say fetch('admin');
+--- expect
+alice
+!! X::AdHoc
+
+=== ctl-or-return-binding
+from: File::Compare * lib/File/Compare.pm6:24
+license: Artistic-2.0
+feature: infix or
+--- code
+sub same(@left, @right) {
+    while my $lhs := @left.shift {
+        my $rhs := @right.shift or return False;
+        return False unless $lhs eq $rhs;
+    }
+    True
+}
+say same([<a b>], [<a b>]);
+say same([<a b>], [<a>]);
+say same([<a b>], [<a c>]);
+--- expect
+True
+False
+False
+
+=== ctl-or-return-match
+from: Crust 0.0.1 lib/Crust/MIME.pm6:183
+license: Artistic-2.0
+feature: infix or
+--- code
+sub ext($file) {
+    $file ~~ / (\.<[a..zA..Z0..9]>+) $/ or return;
+    ~$0
+}
+say ext('index.html');
+say ext('README').raku;
+--- expect
+.html
+Nil
+
+=== ctl-and-next-take
+from: Distribution::Common 0.1.0 lib/Distribution/IO/Directory.rakumod:12
+license: Artistic-2.0
+feature: infix and
+--- code
+my %tree = root => [<a.txt sub>], sub => [<b.txt c.txt>];
+my @stack = 'root';
+my @files = eager gather while ( @stack ) {
+    my $current = @stack.pop;
+    take $current and next if $current.ends-with('.txt');
+    @stack.append( |%tree{$current} );
+};
+say @files.sort;
+--- expect
+(a.txt b.txt c.txt)
+
+=== ctl-oror-die-continuation
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/ExtensionNames.rakumod:48
+license: Artistic-2.0
+feature: infix ||
+--- code
+my $result = '';
+for (ca => 'calendar', co => 'collation') {
+    $result ~= (.key || die "Odd key value for localeDisplayName extension") ~ ';';
+}
+say $result;
+for ('' => 'x',) {
+    $result ~= .key || die "Odd key value for localeDisplayName extension";
+}
+--- expect
+ca;co;
+!! X::AdHoc
+
+=== ctl-andthen-method-topic
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/ClassHOW.rakumod:138
+license: Artistic-2.0
+feature: infix andthen
+--- code
+my class Attr { has $.phony-required }
+my %seen-attr = a => Attr.new(:phony-required), b => Attr.new;
+for <a b c> -> $name {
+    say "$name: ", so (%seen-attr{$name} andthen .phony-required);
+}
+--- expect
+a: True
+b: False
+c: False
+
+=== ctl-andthen-defor-nil
+from: Code::Coverage 0.0.9 lib/Code/Coverage.rakumod:93
+license: Artistic-2.0
+feature: infix andthen
+--- code
+my class Cov { has $.source }
+my %coverables = x => Cov.new(source => 'lib/X.rakumod');
+sub source($key) { (%coverables{$key} andthen .source) // Nil }
+say source('x');
+say source('y').raku;
+--- expect
+lib/X.rakumod
+Nil
+
+=== ctl-andthen-orelse-message
+from: JSON::Unmarshal 0.18 lib/JSON/Unmarshal.rakumod:15
+license: Artistic-2.0
+feature: infix orelse
+--- code
+my class X::Unmarshal is Exception {
+    has Str $.why;
+    method message {
+        "Cannot unmarshal"
+        ~ ($.why andthen ": $_" orelse "")
+    }
+}
+say X::Unmarshal.new.message;
+say X::Unmarshal.new(why => 'bad type').message;
+--- expect
+Cannot unmarshal
+Cannot unmarshal: bad type
+
+=== ctl-andthen-call-orelse
+from: Red 0.2.5 lib/Red/Formatter.rakumod:18
+license: Artistic-2.0
+feature: infix orelse
+--- code
+sub kebab-to-snake-case($s) { $s.subst('-', '_', :g) }
+sub fmt($data) {
+    &*RED-COLUMN-FORMATTER andthen .($data) orelse kebab-to-snake-case $data
+}
+say fmt('first-name');
+{
+    my &*RED-COLUMN-FORMATTER = *.uc;
+    say fmt('first-name');
+}
+--- expect
+first_name
+FIRST-NAME
+
+=== ctl-orelse-next
+from: Path::Router 0.5.1 lib/Path/Router.pm6:86
+license: Artistic-2.0
+feature: infix orelse
+--- code
+my class Route {
+    has $.path;
+    method match(@parts) { @parts.join('/') eq $!path ?? "matched $!path" !! Nil }
+}
+my @routes = Route.new(path => 'a/b'), Route.new(path => 'c'), Route.new(path => 'a/b');
+my @matches;
+for @routes -> $route {
+    my $match = $route.match(<a b>) orelse next;
+    @matches.push: $match;
+}
+say @matches;
+--- expect
+[matched a/b matched a/b]
+
+=== ctl-orelse-chain-fallback
+from: Kind 1.0.3 lib/Kind.pm6:41
+license: Artistic-2.0
+feature: infix orelse
+--- code
+sub name(Mu $obj is raw --> Str:D) {
+    (try $obj.raku if $obj.^can('raku'))
+        orelse ($obj.^name if $obj.HOW.^can('name'))
+        orelse '?'
+}
+say name(42);
+say name(Int);
+say name('x');
+--- expect
+42
+Int
+"x"
+
+=== ctl-orelse-die-in-sub
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:400
+license: Artistic-2.0
+feature: infix orelse
+--- code
+my $option = -> $v { $v ~~ /^\d+$/ ?? +$v !! Nil };
+my $converter = sub ($value) { $option($value) orelse die "Can't convert $value argument" };
+say $converter('12');
+say $converter('0');
+say $converter('x');
+--- expect
+12
+0
+!! X::AdHoc
+
+=== ctl-notandthen-failure
+from: Test::Async 0.1.17 lib/Test/Async/Hub.rakumod:572
+license: Artistic-2.0
+feature: infix notandthen
+--- code
+my class FH {
+    has $.ok;
+    method close { $!ok ?? True !! fail "disk full" }
+}
+sub save($fh) {
+    $fh.close
+        notandthen return "close failed: {.exception.message}";
+    'saved'
+}
+say save(FH.new(:ok));
+say save(FH.new(:!ok));
+--- expect
+saved
+close failed: disk full
+
+=== ctl-if-pointy-binding
+from: Bailador 0.0.19 lib/Bailador/Log.pm:88
+license: MIT
+feature: node If
+--- code
+sub category($log-config) {
+    if $log-config{'category'} -> $category {
+        "category $category"
+    }
+    else {
+        'all'
+    }
+}
+say category({ category => 'request' });
+say category({});
+say category({ category => '' });
+--- expect
+category request
+all
+all
+
+=== ctl-if-pointy-array
+from: CSS::Font::Resources 0.0.11 lib/CSS/Font/Resources.rakumod:49
+license: Artistic-2.0
+feature: node If
+--- code
+my class Descriptor { has @.src }
+for Descriptor.new(src => <a.woff b.ttf>), Descriptor.new {
+    if .src -> @srcs {
+        say "{@srcs.elems} sources: @srcs[]";
+    }
+    else {
+        say 'none';
+    }
+}
+--- expect
+2 sources: a.woff b.ttf
+none
+
+=== ctl-if-pointy-code
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:169
+license: Artistic-2.0
+feature: node If
+--- code
+my %subs = '&shout' => sub ($s) { $s.uc };
+sub apply($in, $text, :$out = True) {
+    if $out && %subs{"&$in"} -> &code {
+        return code($text);
+    }
+    $text
+}
+say apply('shout', 'hi');
+say apply('whisper', 'hi');
+--- expect
+HI
+hi
+
+=== ctl-if-pointy-sigilless
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:126
+license: Artistic-2.0
+feature: node If
+--- code
+my class Arr {
+    has @.items;
+    method elems { @!items.elems }
+    method last-index { if self.elems -> \elems { elems - 1 } else { -1 } }
+}
+say Arr.new(items => <a b c>).last-index;
+say Arr.new.last-index;
+--- expect
+2
+-1
+
+=== ctl-junction-eq-none
+from: App::Prove6 0.0.18 lib/App/Prove6.rakumod:25
+license: Artistic-2.0
+feature: call none
+--- code
+sub check-err($err) {
+    die "Invalid value '$err' for --err\n" if defined $err && $err eq none('stderr','merge','ignore');
+    $err // 'default'
+}
+say check-err('merge');
+say check-err(Any);
+say check-err('loud');
+--- expect
+merge
+default
+loud
+
+=== ctl-junction-grep-none
+from: Collection 0.18.0 lib/Collection/TestPlugin.rakumod:321
+license: Artistic-2.0
+feature: call none
+--- code
+my %config = name => 1, version => 2, extra => 3, other => 4;
+my @specified = <name version>;
+for %config.keys.grep(none(@specified)).sort -> $k-name {
+    say "unexpected key $k-name";
+}
+--- expect
+unexpected key extra
+unexpected key other
+
+=== ctl-junction-one-args
+from: Audio::Sndfile 0.0.16 lib/Audio/Sndfile.rakumod:498
+license: Artistic-2.0
+feature: call one
+--- code
+sub open-mode(:$r, :$w, :$rw) {
+    if one($r, $w, $rw ) { 'ok' }
+    else { 'exactly one of :r, :w, :rw' }
+}
+say open-mode(:r);
+say open-mode(:r, :w);
+say open-mode();
+--- expect
+ok
+exactly one of :r, :w, :rw
+exactly one of :r, :w, :rw
+
+=== ctl-junction-all-smartmatch-true
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Cli.rakumod:59
+license: Artistic-2.0
+feature: call all
+--- code
+sub both(%unique) {
+    if True ~~ all(%unique<--html --color-blind>) { 'both' }
+    else { 'not both' }
+}
+say both({ '--html' => True, '--color-blind' => True });
+say both({ '--html' => True });
+--- expect
+both
+both
+
+=== ctl-junction-all-in-where
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:885
+license: Artistic-2.0
+feature: call all
+--- code
+sub set-channel-mask(*@channels where { @channels.elems <= 16 && all(@channels) ~~ ( 0 ..15 ) }) {
+    [+] @channels.map(1 +< *)
+}
+say set-channel-mask(0, 1, 3);
+say set-channel-mask(2, 16);
+--- expect
+11
+!! X::TypeCheck::Binding::Parameter
+
+=== ctl-junction-so-eq-any
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:30
+license: Artistic-2.0
+feature: call any
+--- code
+sub structured($sg) {
+    so $sg eq any(<Str Array Hash Set Bag Mix>);
+}
+say structured('Hash');
+say structured('Scalar');
+say structured('Hash').^name;
+--- expect
+True
+False
+Bool
+
+=== ctl-junction-elsif-eq-any
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Misc.rakumod:15
+license: Artistic-2.0
+feature: call any
+--- code
+sub kind($file) {
+    if $file.ends-with('.t') {
+        'test'
+    } elsif $file.IO.extension eq any('rakumod', 'pm6') {
+        'module'
+    } else {
+        'other'
+    }
+}
+say kind($_) for <a.t Foo.rakumod Bar.pm6 x.txt>;
+--- expect
+test
+module
+module
+other
+
+=== ctl-xor-strict
+from: Math::Matrix 0.4.2 lib/Math/Matrix.rakumod:267
+license: Artistic-2.0
+feature: infix xor
+--- code
+sub check($strict, $constant) {
+    return False if $strict.defined and ($strict xor $constant);
+    True
+}
+say check(Any, False);
+say check(True, True);
+say check(True, False);
+say check(False, True);
+--- expect
+True
+True
+False
+False
+
+=== ctl-so-bool-method
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:96
+license: Artistic-2.0
+feature: prefix so
+--- code
+my role Agnostic {
+    method elems { ... }
+    method Bool(::?ROLE:D:)    { so self.elems  }
+}
+my class Three does Agnostic { method elems { 3 } }
+my class Zero does Agnostic { method elems { 0 } }
+say ?Three.new;
+say Zero.new ?? 'yes' !! 'no';
+say so Zero.new;
+--- expect
+True
+no
+False

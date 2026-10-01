@@ -1,0 +1,279 @@
+# Grouping into hashes as modules do: classify and categorize (method and
+# sub forms, :as), then reshaping the groups with map, deepmap and »;
+# filtering and mapping a hash's pairs.
+
+=== hash-classify-key-map-pairs
+from: App::RaCoCo 2.0.1 lib/App/Racoco/CoveredLinesCollector.rakumod:52
+license: Artistic-2.0
+feature: method classify
+--- code
+my @lines = (a => 3), (b => 1), (a => 7);
+my %by = @lines
+    .classify({ $_.key })
+    .map({ $_.key => $_.value.map(*.value).sum });
+say %by.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+a=10 b=1
+
+=== hash-classify-join-key
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers.rakumod:367
+license: Artistic-2.0
+feature: method classify
+--- code
+my $data = [{ g => 'x', h => 1, v => 10 }, { g => 'x', h => 1, v => 20 }, { g => 'y', h => 2, v => 5 }];
+my @vars = <g h>;
+my $sep = '.';
+my %res = $data.classify(-> $row { @vars.map({ $row{$_} }).join($sep) });
+say "{.key}: {.value.map(*<v>).join(',')}" for %res.sort;
+--- expect
+x.1: 10,20
+y.2: 5
+
+=== hash-classify-whatever-split
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/I18N/Translation.rakumod:95
+license: Artistic-2.0
+feature: method classify
+--- code
+my @available = <en-US en-GB fr de-AT de>;
+my $shortened = @available.classify(*.split('-')[0]);
+say $shortened ~~ Hash;
+say "{.key}: {.value}" for $shortened.sort;
+--- expect
+True
+de: de-AT de
+en: en-US en-GB
+fr: fr
+
+=== hash-classify-as-value
+from: Red 0.2.5 lib/MetamodelX/Red/Model.rakumod:78
+license: Artistic-2.0
+feature: method classify
+--- code
+my @constraints = (unique => 'email'), (pk => 'id'), (unique => 'login'), (unique => 'email');
+my %c = @constraints.unique.classify: *.key, :as{ .value };
+say "{.key}: {.value}" for %c.sort;
+--- expect
+pk: id
+unique: email login
+
+=== hash-classify-destructure-named
+from: Test::Scheduler 1.2 lib/Test/Scheduler.rakumod:182
+license: Artistic-2.0
+feature: method classify
+--- code
+my $now = 10;
+my @pending = 3, 15, 8, 20;
+my (:@now, :@future) := @pending.classify: {
+    $_ <= $now ?? 'now' !! 'future'
+}
+say @now;
+say @future;
+--- expect
+[3 8]
+[15 20]
+
+=== hash-classify-pairs-by-value-state
+from: cro 0.8.10 lib/Cro/Tools/Runner.rakumod:120
+license: Artistic-2.0
+feature: method classify
+--- code
+my class Svc { has $.state }
+my %services = web => Svc.new(state => 'running'), db => Svc.new(state => 'stopped'), queue => Svc.new(state => 'running');
+my %splitted = %services.List.classify({ .value.state });
+say "{.key}: {.value».key.sort}" for %splitted.sort;
+--- expect
+running: queue web
+stopped: db
+
+=== hash-classify-sub-pair-check
+from: Inline::Perl5 0.62 lib/Inline/Perl5.pm6:912
+license: Artistic-2.0
+feature: call classify
+--- code
+my @args = 1, (a => 2), 'x', (b => 3);
+my %named = classify {$_.WHAT =:= Pair}, @args;
+%named<False> //= [];
+%named<True> //= [];
+say %named<True>.map(*.key);
+say %named<False>;
+--- expect
+(a b)
+[1 x]
+
+=== hash-classify-colon-block-hash-bind
+from: CSS::Nested 0.0.1 lib/CSS/Nested.rakumod:59
+license: Artistic-2.0
+feature: method classify
+--- code
+my %ruleset = declarations => [{ property => 'color' }, { ruleset => 'nested' }, { property => 'margin' }];
+my %ds := %ruleset<declarations>.map({ %$_ }).classify: {
+    .<ruleset>:exists ?? 'rule' !! 'decl'
+}
+say %ds<decl>.elems, ' ', %ds<rule>.elems;
+say %ds<decl>.map(*<property>);
+--- expect
+2 1
+(color margin)
+
+=== hash-classify-nested-map-bag
+from: Data::Generators 0.1.11 lib/Data/Generators/ResourceAccess.rakumod:86
+license: Artistic-2.0
+feature: method classify
+--- code
+my @petNames = <Cat Tom 2>, <Dog Rex 1>, <Cat Max 3>;
+my %specieToPetNames = @petNames.classify({ $_[0] }).map({ $_.key.lc => Bag($_.value.map({ $_[1] => $_[2] })) });
+say %specieToPetNames<cat>.total;
+say %specieToPetNames<dog>.keys;
+--- expect
+5
+(Rex)
+
+=== hash-classify-value-sort-lists
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/NumericWordForms.rakumod:165
+license: Artistic-2.0
+feature: method classify
+--- code
+my %roles = one => 'digit', ten => 'tens', two => 'digit', twenty => 'tens', hundred => 'scale';
+my @groups = %roles.pairs.classify({ $_.value }).map({ $_.value>>.key.List.sort });
+say @groups.map(*.join(q{,})).sort.join(' | ');
+--- expect
+hundred | one,two | ten,twenty
+
+=== hash-categorize-slice-join
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToWideFormat.rakumod:109
+license: Artistic-2.0
+feature: method categorize
+--- code
+my @arr-of-hashes = { id => 1, var => 'x', v => 5 }, { id => 1, var => 'y', v => 6 }, { id => 2, var => 'x', v => 7 };
+my @idColsLocal = <id>;
+my $variableColName = 'var';
+my $sep = '-';
+my %res = @arr-of-hashes.categorize({ $_{ |@idColsLocal, $variableColName}.join($sep) });
+say %res.keys.sort;
+--- expect
+(1-x 1-y 2-x)
+
+=== hash-categorize-values-grouped
+from: zef 1.1.4 lib/Zef/Repository.rakumod:153
+license: Artistic-2.0
+feature: method categorize
+--- code
+my class Cand { has $.as; has $.ver }
+my @unsorted-candis = Cand.new(as => 'Foo', ver => 1), Cand, Cand.new(as => 'Bar', ver => 2), Cand.new(as => 'Foo', ver => 3);
+my @unsorted-grouped-candis = @unsorted-candis.grep(*.defined).categorize({.as}).values;
+say @unsorted-grouped-candis.map(*.map(*.ver).join(',')).sort;
+--- expect
+(1,3 2)
+
+=== hash-grep-value-key-sort
+from: Graph 0.1.3 lib/Graph.rakumod:1250
+license: Artistic-2.0
+feature: method grep
+--- code
+my %eccentricities = a => 2, b => 3, c => 2, d => 4;
+my $me = %eccentricities.values.min;
+say %eccentricities.grep({ $_.value == $me })».key.sort.List;
+--- expect
+(a c)
+
+=== hash-grep-colon-block-pairs
+from: Color::Names 2.0.0 lib/Color/Names.rakumod:24
+license: BSD-2-Clause
+feature: method grep
+--- code
+my %c = red => { rgb => [255, 0, 0] }, maroon => { rgb => [128, 0, 0] }, lime => { rgb => [0, 255, 0] };
+my $r = 250;
+my $threshold = 150;
+my @c = %c.grep: {
+    3 * abs($r - .value<rgb>[0]) < $threshold
+}
+say @c».key.sort;
+--- expect
+(red)
+
+=== hash-map-key-value-string
+from: Air 0.1.32 lib/Air/Functional.rakumod:185
+license: Artistic-2.0
+feature: method map
+--- code
+my %h = id => 'main', class => 'wide';
+my @attrs = 'div';
+@attrs.append: %h.sort.map({.key ~ '="' ~ .value ~ '"'});
+say @attrs.join(' ');
+--- expect
+div class="wide" id="main"
+
+=== hash-map-reassign-self
+from: DSL::Entity::Metadata 0.1.1 lib/DSL/Entity/Metadata/ResourceAccess.rakumod:17
+license: Artistic-2.0
+feature: method map
+--- code
+my %files = en => 'en.csv', bg => 'bg.csv';
+my %contents = 'en.csv' => 'EN-DATA', 'bg.csv' => 'BG-DATA';
+my %resources = %files;
+%resources = %resources.map({ $_.key => %contents{$_.value} });
+say %resources.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+bg=BG-DATA en=EN-DATA
+
+=== hash-map-nested-hash-coerce
+from: Data::Summarizers 0.2.6 lib/Data/Summarizers.rakumod:124
+license: Artistic-2.0
+feature: method map
+--- code
+my %summary = a => (min => 1, max => 3), b => (min => 0, max => 9);
+my %out = %summary.map({ $_.key => $_.value.Hash }).Hash;
+say %out<b><max>;
+say %out<a>.^name;
+--- expect
+9
+Hash
+
+=== hash-map-side-effect-defined-or
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:96
+license: Artistic-2.0
+feature: method map
+--- code
+my %overrides{Mu} = (Int) => 'int-fn', (Str) => 'str-fn';
+my %by-name;
+%overrides.map({ %by-name{$_.key.^name} //= $_.value; });
+say %by-name.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+Int=int-fn Str=str-fn
+
+=== hash-values-hyper-keys-unique
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/ToPrettyTable.rakumod:46
+license: Artistic-2.0
+feature: method values
+--- code
+my $dataset = { r1 => { a => 1, b => 2 }, r2 => { b => 3, c => 4 } };
+my @allColnames = $dataset.values>>.keys.flat.unique;
+say @allColnames.sort;
+--- expect
+(a b c)
+
+=== hash-nodemap-round
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/DOK.rakumod:454
+license: Artistic-2.0
+feature: method nodemap
+--- code
+my %adjacency-map = a => { b => 1.234, c => 2.567 }, b => 0.123;
+my $scale = 0.1;
+%adjacency-map = %adjacency-map.nodemap({ $_.round($scale) });
+say %adjacency-map<b>;
+say %adjacency-map<a>.^name;
+--- expect
+0.1
+Rat
+
+=== hash-duckmap-records
+from: ML::NLPTemplateEngine 0.1.9 lib/ML/NLPTemplateEngine/Ingestion.rakumod:93
+license: Artistic-2.0
+feature: method duckmap
+--- code
+sub merge-param-records(Str $s) { $s.uc }
+my %res = a => 'x', b => ['y', 'z'], c => { d => 'w' };
+%res = %res.duckmap(&merge-param-records);
+say %res<a>, ' ', %res<b>, ' ', %res<c><d>;
+--- expect
+X [Y Z] W

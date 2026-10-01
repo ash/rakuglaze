@@ -1,0 +1,637 @@
+# Introspection as modules use it: .^name / .^shortname, .^attributes with
+# get_value / set_value, .^methods, .^mro, .^parents, .^roles, .^find_method,
+# .^lookup, .^add_method, .^can, .^does, .can, .isa, .does, WHAT, WHO.
+
+=== obj-attributes-get-value-hash
+from: Actionable 0.0.7 lib/Actionable.rakumod:236
+license: Artistic-2.0
+feature: method get_value
+--- code
+my class Action {
+    has $.verb = 'run';
+    has $!target = 'all';
+    has @.flags = <q v>;
+    method Hash { self.^attributes.map({ .name.substr(2) => .get_value(self) }).Hash }
+}
+my %h = Action.new.Hash;
+say %h.keys.sort;
+say %h<target>, ' ', %h<flags>;
+--- expect
+(flags target verb)
+all [q v]
+
+=== obj-attributes-required-names
+from: Air 0.1.32 lib/Air/Form.rakumod:388
+license: Artistic-2.0
+feature: method attributes
+--- code
+my class Form {
+    has Str $.name is required;
+    has Str $.email is required;
+    has Str $.note;
+    method required-fields {
+        ::?CLASS.^attributes.grep({ .^can('required') && .required }).map(*.name.substr(2)).list
+    }
+}
+say Form.required-fields;
+--- expect
+(name email)
+
+=== obj-attributes-first-get-value
+from: Air 0.1.32 lib/Air/Form.rakumod:410
+license: Artistic-2.0
+feature: method get_value
+--- code
+my class Form {
+    has $!answer = 42;
+    method lookup($name) {
+        my $answer = self.^attributes.first({ .name eq "\$!$name" }).get_value(self).Str;
+        "$name: $answer";
+    }
+}
+say Form.new.lookup('answer');
+--- expect
+answer: 42
+
+=== obj-attributes-set-value-by-name
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Auth/Basic.rakumod:39
+license: Artistic-2.0
+feature: method set_value
+--- code
+my class Session { has $.username; has $.token }
+my $username-prop = '$!username';
+given Session.new(token => 't0') {
+    .^attributes.grep(*.name eq $username-prop)[0].set_value($_, 'alice');
+    say .username, ' ', .token;
+}
+--- expect
+alice t0
+
+=== obj-attribute-set-value-array
+from: DB::Xoos 0.1.1 lib/DB/Xoos/Model.pm6:22
+license: Artistic-2.0
+feature: method set_value
+--- code
+my class Model {
+    has @.columns;
+    method set-columns(*@columns) {
+        my $attr = self.^attributes.first: { $_.Str eq ('@.columns'|'@!columns') };
+        $attr.set_value(self, @columns);
+        self
+    }
+}
+say Model.new.set-columns(<id name>).columns;
+--- expect
+[id name]
+
+=== obj-mro-attributes-local-accessor
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:290
+license: Artistic-2.0
+feature: method attributes
+--- code
+my class BaseForm { has $.csrf; has $!secret }
+my class Login is BaseForm { has $.user; has $.password; has $!tries }
+my @names = Login.new.^mro.reverse.map(*.^attributes(:local)).flat.grep(*.has_accessor).map(*.name);
+say @names;
+--- expect
+[$!csrf $!user $!password]
+
+=== obj-attribute-sort-by-str
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:156
+license: Artistic-2.0
+feature: method attributes
+--- code
+my class P { has $.z = 1; has @.a = 2, 3; has %!m = k => 4 }
+my $obj = P.new;
+my @attrs    = try { $obj.^attributes.sort({ $^x.Str cmp $^y.Str }) } // @();
+for @attrs -> $attr {
+    say $attr.Str, ' => ', $attr.get_value($obj).raku;
+}
+--- expect
+$!z => 1
+%!m => {:k(4)}
+@!a => [2, 3]
+
+=== obj-methods-local-names
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Spy.rakumod:15
+license: Artistic-2.0
+feature: method methods
+--- code
+my class Base { method inherited { } }
+my class Service is Base {
+    has $.x;
+    method fetch { }
+    method store($v) { }
+    method !hidden { }
+}
+my @names;
+for Service.^methods(:local) -> $m {
+    @names.push: $m.name;
+}
+say @names.grep(/^<:Ll>/).sort;
+--- expect
+(fetch store x)
+
+=== obj-methods-name-elem
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Utilities/CommandProcessing.rakumod:54
+license: Artistic-2.0
+feature: method methods
+--- code
+my class Actions {
+    method TOP($/) { }
+    method command($/) { }
+}
+my $actions = Actions.new;
+for <command query> -> $rule {
+    unless $rule (elem) $actions.^methods>>.name {
+        say "no action for $rule";
+    }
+}
+--- expect
+no action for query
+
+=== obj-methods-grep-trait-role
+from: Cromponent 0.0.13 lib/Cromponent/MetaCromponentRole.rakumod:105
+license: Artistic-2.0
+feature: method methods
+--- code
+my role Accessible { method is-accessible { True } }
+multi trait_mod:<is>(Method $m, :$accessible!) { $m does Accessible }
+my class Component {
+    method edit is accessible { 'edit' }
+    method delete is accessible { 'delete' }
+    method internal { 'internal' }
+}
+my $component = Component.new;
+for $component.^methods.grep(*.?is-accessible).sort(*.name) -> $meth {
+    say $meth.name, ' -> ', $meth($component);
+}
+--- expect
+delete -> delete
+edit -> edit
+
+=== obj-mro-reverse-ancestors
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/ActionText/RichTextable.rakumod:76
+license: Artistic-2.0
+feature: method mro
+--- code
+my class Record { }
+my class Model is Record { }
+my class Post is Model { }
+my @chain;
+for Post.^mro.reverse -> $ancestor {
+    @chain.push: $ancestor.^name;
+}
+say @chain.join(' > ');
+--- expect
+Mu > Any > Record > Model > Post
+
+=== obj-mro-skip-self
+from: Data::Dump 0.0.18 lib/Data/Dump.rakumod:36
+license: Artistic-2.0
+feature: method mro
+--- code
+my role R { }
+my class A { }
+my class B is A does R { }
+my $obj = B.new;
+for $obj.^mro[1..*] -> $x {
+    say $x.^name;
+}
+--- expect
+A
+Any
+Mu
+
+=== obj-parents-names
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:986
+license: Artistic-2.0
+feature: method parents
+--- code
+my class Shape { }
+my class Named { }
+my class Square is Shape is Named { }
+my $a = Square.new;
+my @a = try { $a.^parents.map: { $_.^name } }
+say @a;
+say Square.^parents(:all).map(*.^name);
+--- expect
+[Shape Named]
+(Shape Named Any Mu)
+
+=== obj-parents-local-loop
+from: Test::Mock 1.8 lib/Test/Mock.rakumod:60
+license: Artistic-2.0
+feature: method parents
+--- code
+my class A { }
+my class B is A { }
+my class C is B { }
+my $p = C;
+my @seen;
+loop {
+    @seen.push: $p.^name;
+    last unless $p.^parents(:local);
+    $p = $p.^parents(:local)[0];
+}
+say @seen;
+--- expect
+[C B A Any Mu]
+
+=== obj-roles-names-first
+from: Cromponent 0.0.13 lib/Cromponent/MetaCromponentRole.rakumod:69
+license: Artistic-2.0
+feature: node Role
+--- code
+my role Cromponent { }
+my role Styled { }
+my class Card does Cromponent does Styled { }
+my class Plain { }
+for Card, Plain -> $new {
+    if $new.^roles.map(*.^name).first: "Cromponent" {
+        say $new.^name, ' is a component';
+    }
+    else {
+        say $new.^name, ' is not';
+    }
+}
+say Card.^roles.map(*.^name).sort;
+--- expect
+Card is a component
+Plain is not
+(Cromponent Styled)
+
+=== obj-find-method-call-it
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Stub.rakumod:141
+license: Artistic-2.0
+feature: method find_method
+--- code
+my class Owner { method greet($who) { "hi $who" } }
+my $owner = Owner.new;
+my $method-name = 'greet';
+my &meth = $owner.^find_method($method-name);
+say &meth.name;
+say meth($owner, 'bob');
+say $owner.^find_method('nope').defined;
+--- expect
+greet
+hi bob
+False
+
+=== obj-find-method-assuming
+from: Data::Dump::Tree 2.9.4 lib/Data/Dump/Tree.rakumod:683
+license: Artistic-2.0
+feature: method find_method
+--- code
+my class Dumper {
+    has $.width = 3;
+    method split_text($t) { $t.comb($!width) }
+    method splitter { self.^find_method('split_text').assuming(self) }
+}
+my &s = Dumper.new.splitter;
+say s('abcdefgh');
+--- expect
+(abc def gh)
+
+=== obj-find-method-defined-check
+from: Net::Ethereum 0.0.185 lib/Net/Ethereum.rakumod:114
+license: Artistic-2.0
+feature: method find_method
+--- code
+my class UA { method check_connection { 'ok' } }
+my class NoCheck { }
+for UA.new, NoCheck.new -> $ua {
+    say $ua.^name, ': ', $ua.^find_method('check_connection').defined &&
+        $ua.check_connection eq 'ok';
+}
+--- expect
+UA: True
+NoCheck: False
+
+=== obj-lookup-method-or-type
+from: Gnome::N 0.1.54 lib/Gnome/N/GObjectSupport.rakumod:91
+license: Artistic-2.0
+feature: method lookup
+--- code
+my class Handlers {
+    method clicked($n) { "clicked $n" }
+}
+my class Child is Handlers { }
+my $handler-object = Handlers.new;
+my Method $sh = $handler-object.^lookup('clicked') // Method;
+say $sh.defined, ' ', $sh($handler-object, 2);
+say (Child.^lookup('clicked') // Method).defined;
+say ($handler-object.^lookup('missing') // Method).^name;
+--- expect
+True clicked 2
+True
+Method
+
+=== obj-add-method-dynamic-accessors
+from: DB::Xoos 0.1.1 lib/DB/Xoos/Row.pm6:28
+license: Artistic-2.0
+feature: method add_method
+--- code
+my class Row {
+    has %.data;
+    method TWEAK {
+        for %!data.keys.sort -> $key {
+            self.^add_method($key, method ($value?) {
+                %!data{$key} = $value if $value.defined;
+                %!data{$key}
+            }) unless self.^can($key);
+        }
+    }
+}
+my $r = Row.new(data => { id => 1, title => 'x' });
+say $r.title;
+$r.title('y');
+say $r.title, ' ', $r.id;
+--- expect
+x
+y 1
+
+=== obj-add-method-class-body
+from: HTTP::Tinyish 0.4.2 lib/HTTP/Tinyish/Base.rakumod:5
+license: Artistic-2.0
+feature: method add_method
+--- code
+my class Base {
+    method request($method, $url, *%opts) { "$method $url" ~ (%opts ?? ' +opts' !! '') }
+    for <get head put post delete> -> $method {
+        ::?CLASS.^add_method: $method, method ($url, *%opts) {
+            self.request($method.uc, $url, |%opts)
+        };
+    }
+}
+say Base.new.get('/a');
+say Base.new.post('/b', :json);
+--- expect
+GET /a
+POST /b +opts
+
+=== obj-add-method-other-class
+from: Crust 0.0.1 lib/HTTP/Message/P6W.pm6:105
+license: Artistic-2.0
+feature: method add_method
+--- code
+my class Request { has $.method = 'GET'; has $.uri = '/' }
+Request.^add_method: 'to-p6w', method (Request:D:) {
+    %( REQUEST_METHOD => $.method, PATH_INFO => $.uri )
+};
+Request.^compose;
+my %env = Request.new(uri => '/x').to-p6w;
+say %env.sort;
+--- expect
+(PATH_INFO => /x REQUEST_METHOD => GET)
+
+=== obj-hat-can-dispatch-key
+from: Bailador 0.0.19 lib/Bailador/Configuration.pm:145
+license: MIT
+feature: method can
+--- code
+my class Configuration {
+    has $.port = 3000;
+    has $.host = '0.0.0.0';
+    method describe($key) {
+        if self.^can($key) {
+            my $type = self."$key"().^name;
+            "$key is a $type";
+        }
+        else { "unknown $key" }
+    }
+}
+say Configuration.new.describe('port');
+say Configuration.new.describe('host');
+say Configuration.new.describe('ssl');
+--- expect
+port is a Int
+host is a Str
+unknown ssl
+
+=== obj-can-head-call
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:1180
+license: Artistic-2.0
+feature: method can
+--- code
+my class JSONish {
+    method from-json($s) { $s.split(',').elems }
+}
+say JSONish.can('from-json').head.(JSONish, 'a,b,c');
+say JSONish.can('to-json').elems;
+--- expect
+3
+0
+
+=== obj-can-given-candidate
+from: CSS::Properties 0.10.9 lib/CSS/Box.rakumod:185
+license: Artistic-2.0
+feature: method can
+--- code
+my class Box {
+    method top { 10 }
+    method get(Str $name) {
+        given self.can($name) {
+            .so ?? .[0](self) !! "no $name";
+        }
+    }
+}
+say Box.new.get('top');
+say Box.new.get('left');
+--- expect
+10
+no left
+
+=== obj-hat-does-role-check
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/Registry.rakumod:18
+license: Artistic-2.0
+feature: method does
+--- code
+my role Formatter { }
+my class Progress does Formatter { }
+my class Bogus { }
+for Progress, Bogus -> $class {
+    unless $class.^does(Formatter) {
+        say "{$class.^name} is not a Formatter";
+        next;
+    }
+    say "registered {$class.^name}";
+}
+--- expect
+registered Progress
+Bogus is not a Formatter
+
+=== obj-does-on-instance
+from: PDF::Font::Loader 0.8.15 lib/PDF/Font/Loader/FontObj.rakumod:497
+license: Artistic-2.0
+feature: method does
+--- code
+my role Glyphic { }
+my class Enc { }
+my class GlyphEnc is Enc does Glyphic { }
+for Enc.new, GlyphEnc.new -> $encoder {
+    my Bool $glyphic = $encoder.does(Glyphic);
+    say $encoder.^name, ' ', $glyphic;
+}
+say GlyphEnc.does(Enc);
+--- expect
+Enc False
+GlyphEnc True
+True
+
+=== obj-isa-whatever
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:21
+license: Artistic-2.0
+feature: method isa
+--- code
+sub describe($k) {
+    given $k {
+        when $_.isa(Whatever) || $_.isa(WhateverCode) { 'all' }
+        when Int { "k=$_" }
+    }
+}
+say describe(*);
+say describe(* + 1);
+say describe(3);
+--- expect
+all
+all
+k=3
+
+=== obj-isa-subclass
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:288
+license: Artistic-2.0
+feature: method isa
+--- code
+my class Base { }
+my class Derived is Base { }
+say Derived.new.isa(Base);
+say Derived.isa(Derived);
+say Base.new.isa(Derived);
+say Derived.isa('Base');
+--- expect
+True
+True
+False
+True
+
+=== obj-what-identity
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Type.rakumod:34
+license: Artistic-2.0
+feature: method WHAT
+--- code
+my class Animal { }
+my class Dog is Animal { }
+sub exactly($actual, $type) { ?($actual.defined && $actual.WHAT === $type) }
+say exactly(Dog.new, Dog);
+say exactly(Dog.new, Animal);
+say exactly(Dog, Dog);
+say Dog.new ~~ Animal;
+--- expect
+True
+False
+False
+True
+
+=== obj-what-same-type-check
+from: Selkie 0.16.0 lib/Selkie/Store/Schema.rakumod:505
+license: Artistic-2.0
+feature: method WHAT
+--- code
+my class Schema {
+    method merge($before) {
+        unless $before.WHAT === self.WHAT {
+            return "cannot merge {$before.^name} into {self.^name}";
+        }
+        'merged';
+    }
+}
+my class Other { }
+say Schema.new.merge(Schema.new);
+say Schema.new.merge(Other.new);
+--- expect
+merged
+cannot merge Other into Schema
+
+=== obj-shortname-kebab
+from: Air 0.1.32 lib/Air/Component.rakumod:240
+license: Artistic-2.0
+feature: method name
+--- code
+sub to-kebab($s) { $s.subst(/<?after <[a..z]>> (<[A..Z]>)/, { '-' ~ $0.lc }, :g).lc }
+my class Air::TodoList {
+    method url-name(--> Str()) { self.^shortname.&to-kebab }
+}
+say Air::TodoList.url-name;
+say Air::TodoList.^name;
+--- expect
+todo-list
+Air::TodoList
+
+=== obj-name-last-part
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:26
+license: Artistic-2.0
+feature: method name
+--- code
+my class BDD::Behave::Formatter::Progress { }
+my class Configuration {
+    has $!class is built;
+    has $!as is built;
+    method name { $!as.defined && $!as.chars ?? $!as !! $!class.^name.split('::')[*-1] }
+}
+say Configuration.new(class => BDD::Behave::Formatter::Progress).name;
+say Configuration.new(class => BDD::Behave::Formatter::Progress, as => 'dots').name;
+--- expect
+Progress
+dots
+
+=== obj-who-keys-ordered
+from: Getopt::Long 0.4.2 lib/Getopt/Long.rakumod:146
+license: Artistic-2.0
+feature: method WHO
+--- code
+my enum Color <red green blue>;
+my $type = Color;
+my @keys = $type.WHO.keys.sort({ $type.WHO{$^value} });
+say @keys;
+my $options = $type.^enum_values.keys.sort.Str;
+say $options;
+--- expect
+[red green blue]
+blue green red
+
+=== obj-ver-from-class
+from: CPAN::Uploader::Tiny 0.1.0 lib/CPAN/Uploader/Tiny.rakumod:15
+license: Artistic-2.0
+feature: method ver
+--- code
+my class Uploader:ver<0.1.0>:auth<zef:skaji> {
+    method agent {
+        my $ver  = self.^ver.Str;
+        "Uploader/$ver ({self.^auth})";
+    }
+}
+say Uploader.agent;
+my class NoVer { }
+say NoVer.^ver.defined;
+--- expect
+Uploader/0.1.0 (zef:skaji)
+False
+
+=== obj-type-identity-mu
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:606
+license: Artistic-2.0
+feature: infix =:=
+--- code
+my sub p(Int $x, $y, Str $z) { }
+for &p.signature.params -> $param {
+    my $type := $param.type;
+    if $type =:= Mu || $type =:= Any || $type =:= Str {
+        say "{$param.name} matches literally";
+    }
+    else { say "{$param.name} is {$type.^name}" }
+}
+--- expect
+$x is Int
+$y matches literally
+$z matches literally

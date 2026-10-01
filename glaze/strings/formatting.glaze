@@ -1,0 +1,148 @@
+# String building: sprintf/fmt, subst, trans, comb.
+
+=== sprintf-interpolated-widths
+from: Actionable 0.0.7 lib/Actionable.rakumod:259
+license: Artistic-2.0
+feature: call sprintf
+--- code
+my ($col1, $col2) = 6, 4;
+for (a => 1, bcd => 22) -> (:key($k), :value($v)) {
+    say sprintf("%-{$col1}s %-1s %-{$col2}s|", $k, '=>', $v);
+}
+--- expect
+a      => 1   |
+bcd    => 22  |
+
+=== sprintf-log-timestamp
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:146
+license: Artistic-2.0
+feature: call sprintf
+--- code
+say sprintf("%02d/%s/%04d:%02d:%02d:%02d %+03d%02d", 7, 'Mar', 2026, 9, 5, 3, -5, 30);
+say sprintf("%+03d", 2);
+--- expect
+07/Mar/2026:09:05:03 -0530
++02
+
+=== fmt-zero-pad-and-hex
+from: CBOR::Simple 0.1.4 lib/CBOR/Simple.rakumod:1288
+license: Artistic-2.0
+feature: method fmt
+--- code
+my $buf = Buf.new(0, 15, 255);
+say "h'" ~ $buf.list.map(*.fmt('%02x')).join ~ "'";
+say 42.fmt('%010d');
+say 3.14159.fmt('%.2f');
+say <a b>.fmt('%s', '-');
+--- expect
+h'000fff'
+0000000042
+3.14
+a-b
+
+=== fmt-width-strings
+from: Bailador 0.0.19 lib/Bailador/Command/routes.pm:9
+license: Artistic-2.0
+feature: method fmt
+--- code
+my ($shortname, $method) = 'home', 'GET';
+put join " ", $shortname.fmt("%10s"), $method.fmt("%10s"), join " -> ", <a b>;
+--- expect
+      home        GET a -> b
+
+=== subst-regex-anchor
+from: Air 0.1.32 lib/Air/Base/Elements.rakumod:1082
+license: Artistic-2.0
+feature: method subst
+--- code
+my $name = 'logo.svg'.subst( /.svg$/, '.png' );
+say $name;
+say 'xsvg'.subst(/.svg$/, '!');
+--- expect
+logo.png
+!
+
+=== subst-uc-escape
+from: Apache::LogFormat * lib/Apache/LogFormat/Compiler.pm6:112
+license: Artistic-2.0
+feature: method subst
+--- code
+say 'content-type'.uc.subst(/\-/, "_");
+say 'a-b-c'.subst(/\-/, "_", :g);
+--- expect
+CONTENT_TYPE
+a_b_c
+
+=== subst-ansi-escape-global
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Benchmark/Format.rakumod:90
+license: Artistic-2.0
+feature: method subst
+--- code
+my $s = "\e[1mbold\e[0m and \e[32mgreen\e[0m";
+say $s.subst(/\e '[' \d+ 'm'/, '', :g);
+--- expect
+bold and green
+
+=== subst-closure-replacement
+from: Backtrace::Files 0.0.4 lib/Backtrace/Files.rakumod:9
+license: Artistic-2.0
+feature: method subst
+--- code
+say 'line#42 here'.subst(/^ \w+ '#' /, { $/.uc });
+say 'a1b2'.subst(/\d/, { $/ * 2 }, :g);
+--- expect
+LINE#42 here
+a2b4
+
+=== trans-list-pairs
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/ReporterHtml.rakumod:99
+license: Artistic-2.0
+feature: method trans
+--- code
+my $line = '<a href="x">&</a>';
+say $line.trans(['<', '>', '&', '"'] => [ '&lt;', '&gt;', '&amp;', '&quot;' ]);
+--- expect
+&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;
+
+=== comb-regex-negated-class
+from: Collection 0.18.0 lib/Collection.rakumod:97
+license: Artistic-2.0
+feature: method comb
+--- code
+say '"abc" "def"'.trim.comb(/ <-["]>+ /)[0];
+say 'a"b"c'.comb(/ <-["]>+ /).join('|');
+--- expect
+abc
+a|b|c
+
+=== comb-pairs-hex
+from: Color 1.004001 lib/Color/Utilities.rakumod:27
+license: Artistic-2.0
+feature: method comb
+--- code
+my $hex = 'ff8000cc';
+my ( $r, $g, $b, $a ) = map { :16($_).Int }, $hex.comb(/../);
+say "$r $g $b $a";
+--- expect
+255 128 0 204
+
+=== comb-count-zip
+from: Color::DirColors 0.0.3 lib/Color/DirColors.rakumod:107
+license: Artistic-2.0
+feature: method comb
+--- code
+my @order = <dir sym sock>;
+my %rules = @order Z=> 'exfxcx'.comb(2).map(*.uc);
+say %rules.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+dir=EX sock=CX sym=FX
+
+=== comb-rotor-partial
+from: Base64 0.1.0 lib/Base64.rakumod:39
+license: Artistic-2.0
+feature: method comb
+--- code
+my @alpha = 'a'..'f';
+say 'abcdefabcde'.comb(/@alpha/).rotor(4, :partial).map(*.join).join(',');
+--- expect
+abcd,efab,cde

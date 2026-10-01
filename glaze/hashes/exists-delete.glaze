@@ -1,0 +1,416 @@
+# Hash key tests and removal as modules write them: `:exists`, `:!exists`,
+# `:delete` as a value, `:delete // default`, `with ...:delete`, adverb
+# combinations on slices.
+
+=== hash-exists-if
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:103
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %ah = ab => 'abbrev', co => 'company';
+for <ab xy co> -> $abbrev {
+    if %ah{$abbrev}:exists {
+        say "$abbrev -> %ah{$abbrev}";
+    }
+    else {
+        say "$abbrev unknown";
+    }
+}
+--- expect
+ab -> abbrev
+xy unknown
+co -> company
+
+=== hash-exists-undefined-value
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Test.rakumod:62
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %expected = warnings => Any, ast => 'x';
+if %expected<warnings>:exists && ! %expected<warnings>.defined {
+    say 'warnings key present but undefined';
+}
+say %expected<missing>:exists;
+say %expected<ast>.defined;
+--- expect
+warnings key present but undefined
+False
+True
+
+=== hash-exists-die-unique
+from: Air 0.1.32 lib/Air/Base.rakumod:604
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %stubs;
+sub add-stub($s) {
+    die "Error: Stubs must be unique!" if %stubs{$s}:exists;
+    %stubs{$s} = True;
+}
+add-stub('a');
+add-stub('b');
+say %stubs.keys.sort.join(',');
+try add-stub('a');
+say $!.message;
+--- expect
+a,b
+Error: Stubs must be unique!
+
+=== hash-not-exists
+from: Graph 0.1.3 lib/Graph.rakumod:39
+license: Artistic-2.0
+feature: adverb :!exists
+--- code
+my %adjacency-map;
+for <a b a c b> -> $v {
+    if %adjacency-map{$v}:!exists {
+        %adjacency-map{$v} = {};
+        say "added $v";
+    }
+}
+say %adjacency-map.elems;
+--- expect
+added a
+added b
+added c
+3
+
+=== hash-not-exists-postfix-if
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Watch.rakumod:45
+license: Artistic-2.0
+feature: adverb :!exists
+--- code
+my %env = PATH => '/bin';
+%env<BEHAVE_DISABLE_CONFIG> = '1' if %env<BEHAVE_DISABLE_CONFIG>:!exists;
+%env<PATH> = '/usr/bin' if %env<PATH>:!exists;
+say %env.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+BEHAVE_DISABLE_CONFIG=1 PATH=/bin
+
+=== hash-exists-none-junction-slice
+from: Red 0.2.5 lib/Red/Traits.rakumod:112
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %column = references => 'x';
+if %column<references>:exists && (%column{<model-name model-type>.none}:exists) {
+    say 'bare reference';
+}
+%column<model-name> = 'M';
+say so %column{<model-name model-type>.none}:exists;
+--- expect
+bare reference
+False
+
+=== hash-exists-in-grep
+from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:238
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %attrinit = foo-alias => 1, other => 2;
+my $base-name = 'foo';
+my @init-args = <foo-alias f>;
+with ($base-name, |@init-args).grep( { %attrinit{$_}:exists } ).head {
+    say "init via $_";
+}
+--- expect
+init via foo-alias
+
+=== hash-exists-or-chain
+from: ORM::Factory 0.9.1 lib/ORM/Factory.rakumod:178
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my class Factory {
+    has %!overrides = name => 'Bob';
+    has @!effective-attributes = 'age';
+    method has-value(Str:D $name --> Bool) {
+        %!overrides{$name}:exists ||
+        @!effective-attributes.first(* eq $name).defined;
+    }
+}
+my $f = Factory.new;
+say "$_: {$f.has-value($_)}" for <name age email>;
+--- expect
+name: True
+age: True
+email: False
+
+=== hash-exists-scalar-container
+from: Date::Calendar::Strftime 0.1.1 lib/Date/Calendar/Strftime.rakumod:168
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my $res = 'default';
+my $fmt = { string => 'custom' };
+if $fmt<string>:exists { $res = $fmt<string> }
+say $res;
+say $fmt<other>:exists;
+--- expect
+custom
+False
+
+=== hash-exists-ternary-slip
+from: Gnome::N 0.1.54 lib/Gnome/N/GnomeRoutineCaller.rakumod:141
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+for { parameters => <a b> }, { name => 'x' } -> $routine {
+    my @p = $routine<parameters>:exists ?? [|$routine<parameters>] !! [];
+    say @p.elems, ' ', @p.join(',');
+}
+--- expect
+2 a,b
+0 
+
+=== hash-exists-topic
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:117
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+for { ident => 'color' }, { num => 3 } {
+    my $prop = .<ident>:exists
+        ?? .<ident>
+        !! 'none';
+    say $prop;
+}
+--- expect
+color
+none
+
+=== hash-exists-key-method
+from: IO::Socket::SSL 0.0.4 lib/IO/Socket/SSL.rakumod:56
+license: MIT
+feature: method EXISTS-KEY
+--- code
+my %args = listen => 1, listening => 1;
+%args<listening> .= Bool if %args.EXISTS-KEY('listen');
+say %args<listening>.raku;
+say %args.EXISTS-KEY('nope');
+--- expect
+Bool::True
+False
+
+=== hash-exists-key-subset
+from: DateTime::TimeZone 0.10.2 lib/DateTime/TimeZone.rakumod:601
+license: Artistic-2.0
+feature: decl subset
+--- code
+my %timezones = UTC => 0, CET => 1;
+my subset IsTimeZone of Str:D where { %timezones.EXISTS-KEY($_) };
+say 'CET' ~~ IsTimeZone;
+say 'XYZ' ~~ IsTimeZone;
+--- expect
+True
+False
+
+=== hash-delete-statement
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:171
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %abbrevs = a => 1, ab => 2, abc => 3;
+for <a abc zz> -> $abbrev {
+    %abbrevs{$abbrev}:delete;
+}
+say %abbrevs.keys.sort;
+say %abbrevs.elems;
+--- expect
+(ab)
+1
+
+=== hash-delete-returns-value
+from: Cro::Core 0.8.10 lib/Cro/Policy/Timeout.rakumod:29
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %phases = connection => 5, headers => 10;
+my $kind = 'connection';
+my $supplied-value = %phases{$kind}:delete;
+say $supplied-value;
+say %phases.keys.sort;
+say (%phases<nope>:delete).raku;
+--- expect
+5
+(headers)
+Any
+
+=== hash-delete-defined-or
+from: Cro::TLS 0.8.10 lib/Cro/TLS.rakumod:106
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %options = port => 443;
+my $host = %options<host>:delete // 'localhost';
+my $port = %options<port>:delete // 80;
+say "$host:$port";
+say %options.elems;
+--- expect
+localhost:443
+0
+
+=== hash-delete-parenthesized-type
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Controller.rakumod:1039
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %options = format => 'json', status => 200;
+my $format          = (%options<format>:delete) // Str;
+my $layout          = (%options<layout>:delete) // Str;
+say $format;
+say $layout.^name;
+say %options.keys;
+--- expect
+json
+Str
+(status)
+
+=== hash-delete-with-topic
+from: Git::Blame::File 0.0.11 lib/Git/Blame/File.rakumod:161
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %fields = previous => 'abc123 file.txt', author => 'ash';
+with %fields<previous>:delete {
+    my ($sha, $file) = .words;
+    say "prev $sha in $file";
+}
+with %fields<missing>:delete { say 'never' }
+say %fields.keys;
+--- expect
+prev abc123 in file.txt
+(author)
+
+=== hash-delete-with-postfix
+from: Test::Async 0.1.17 lib/Test/Async/Hub.rakumod:176
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my $test-jobs = 1;
+my %plan = test-jobs => 4, skip-all => False;
+$test-jobs = $_ with %plan<test-jobs>:delete;
+say $test-jobs;
+$test-jobs = $_ with %plan<test-jobs>:delete;
+say $test-jobs;
+say %plan.keys;
+--- expect
+4
+4
+(skip-all)
+
+=== hash-delete-slice-by-keys
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/DataPart.rakumod:29
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my $data = { 1 => 3, 2 => 0, 5 => 1, 7 => 2 };
+my $purple-lines = { 2 => 0, 7 => 2 };
+$data{$purple-lines.keys}:delete;
+say $data.keys.sort;
+--- expect
+(1 5)
+
+=== hash-delete-slice-p
+from: Path::Finder 0.4.7 lib/Path/Finder.rakumod:625
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %options = depth => 2, name => '*.raku', skip => 'x', in => 'lib';
+my @in-arguments = <depth in nosuch>;
+my %in-options = %options{@in-arguments}:delete:p;
+say %in-options.sort.map(*.gist).join(' ');
+say %options.keys.sort;
+--- expect
+depth => 2 in => lib
+(name skip)
+
+=== hash-delete-exists-adverb
+from: PrettyDump 1.2.3 lib/PrettyDump.rakumod:169
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %handlers = Int => 1, Str => 2;
+say %handlers{'Int'}:delete:exists;
+say %handlers{'Int'}:delete:exists;
+say %handlers.keys;
+--- expect
+True
+False
+(Str)
+
+=== hash-delete-k
+from: Temp::Path 1.001008 lib/Temp/Path.pm6:16
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %goods = '/tmp/a' => True, '/tmp/b' => True;
+my $path = '/tmp/a';
+say %goods{$path}:delete:k;
+say (%goods{$path}:delete:k).raku;
+say %goods.keys;
+--- expect
+/tmp/a
+()
+(/tmp/b)
+
+=== hash-delete-p-slice-pg
+from: DBIish 0.6.9 lib/DBDish/Pg.rakumod:77
+license: BSD-2-Clause
+feature: adverb :delete
+--- code
+my %args = host => 'h', port => 5432, user => 'u', RaiseError => True;
+my %params = %args<host port dbname user>:p:delete;
+say %params.sort.map({ .key ~ '=' ~ .value }).join(' ');
+say %args.keys;
+--- expect
+host=h port=5432 user=u
+(RaiseError)
+
+=== hash-delete-push-default
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP2/GeneralParser.rakumod:117
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my %push-promises-for-stream = 3 => [<p1 p2>];
+for 3, 5 -> $sid {
+    my @p = |(%push-promises-for-stream{$sid}:delete // []);
+    say "$sid: {@p.elems}";
+}
+say %push-promises-for-stream.elems;
+--- expect
+3: 2
+5: 0
+0
+
+=== hash-delete-then-call
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Sql/Exec.rakumod:106
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my class Stmt { has $.sql; method dispose { say "disposed $!sql" } }
+my %stmt-cache = 'SELECT 1' => Stmt.new(sql => 'SELECT 1');
+my $sql = 'SELECT 1';
+(%stmt-cache{$sql}:delete).dispose;
+say %stmt-cache.elems;
+--- expect
+disposed SELECT 1
+0
+
+=== hash-delete-attribute-hash
+from: Cache::Async 0.3.4 lib/Cache/Async.rakumod:206
+license: Artistic-2.0
+feature: adverb :delete
+--- code
+my class Cache {
+    has %!entries;
+    method put($k, $v) { %!entries{$k} = $v }
+    method evict(Pair $evicted) { %!entries{$evicted.key}:delete }
+    method keys { %!entries.keys.sort }
+}
+my $c = Cache.new;
+$c.put($_, $_.uc) for <a b c>;
+say $c.evict((b => 1));
+say $c.keys;
+--- expect
+B
+(a c)

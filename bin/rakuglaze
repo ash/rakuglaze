@@ -1,0 +1,200 @@
+#!/usr/bin/env rakupp
+# rakuglaze — short snippets mined from ecosystem modules, run against the
+# engine that runs this script, the way tools/run-roast.raku is run.
+#
+#   rakupp bin/rakuglaze [-j=N] [-v] [PATTERN ...]   every snippet, or those whose
+#                                                    id or file path contains a PATTERN
+#   rakudo bin/rakuglaze [-j=N] --oracle [--refresh] [PATTERN ...]
+#                                                    record `expect` blocks (Rakudo only)
+#   rakupp bin/rakuglaze --check                     validate the .glaze files
+#
+# -j=N (or -jN) runs N engine processes at once; the default is every core.
+# Options go before the patterns. Mining the corpus (index, construct map,
+# real uses, coverage) is tools/mine.raku.
+
+use lib $*PROGRAM.parent.parent.add('lib');
+use Rakuglaze::Format;
+use Rakuglaze::Fire;
+use Rakuglaze::Corpus;
+
+my $root = $*PROGRAM.parent.parent;
+my $glaze = ~$root.add('glaze');
+my $tmp = ~$root.add('tmp');
+my $engine = ~$*EXECUTABLE;
+my $engine-name = $*VM.name eq 'cpp' ?? 'rakupp' !! $*VM.name eq 'moar' ?? 'rakudo' !! $*VM.name;
+
+sub matches($s, @patterns) {
+    !@patterns || @patterns.first({ $s.id.contains($_) || $s.file.contains($_) }).defined
+}
+
+my $jobs = 1;
+
+# Cut into about four chunks per job (so the progress line moves and a slow
+# chunk does not leave the other workers idle, but never so small that engine
+# start-up dominates), run them from one queue on $jobs threads, and put the
+# results back in suite order. &bad, given a result, says whether it counts
+# as not passing on the progress line.
+sub run-all(@snippets, :$timeout, :&bad) {
+    my $size = ((@snippets / ($jobs * 4)).ceiling.Int max 25) min 400;
+    my @chunks = chunk(@snippets, :$size);
+    my @results;
+    my $lock = Lock.new;
+    my ($next, $done, $failing) = 0, 0, 0;
+    my $t0 = now;
+    my $show = $*ERR.t;
+    sub progress() {
+        $*ERR.print: sprintf("\r  %d/%d snippets%s, %.1f s ", $done, +@snippets,
+                             &bad ?? ", $failing not passing" !! '', now - $t0);
+    }
+    progress() if $show;
+    await (^($jobs min @chunks)).map: {
+        start { loop {
+            my $i = $lock.protect({ $next++ });
+            last if $i >= @chunks;
+            my @r = run-chunk($engine, @chunks[$i], :$tmp, :$timeout);
+            $lock.protect({
+                @results[$i] = @r;
+                $done += @r;
+                $failing += +@r.grep({ bad($_) }) if &bad;
+                progress() if $show;
+            });
+        } }
+    };
+    $*ERR.print: "\r" ~ ' ' x 60 ~ "\r" if $show;
+    @results.map({ |$_ })
+}
+
+# -jN as well as -j=N, as tools/run-roast.raku reads it
+@*ARGS = @*ARGS.map({ /^ '-j' (\d+) $/ ?? "-j=$0" !! $_ });
+
+sub MAIN(*@patterns, Bool :v(:$verbose), Bool :$oracle, Bool :$refresh, Bool :$check,
+         Int :$j = ($*KERNEL.cpu-cores // 2) max 1, Int :$timeout = $oracle ?? 120 !! 30) {
+    $jobs = $j max 1;
+    mkdir $tmp;
+    if $check       { check() }
+    elsif $oracle   { record(@patterns, :$refresh, :$timeout) }
+    else            { fire(@patterns, :$verbose, :$timeout) }
+}
+
+sub fire(@patterns, :$verbose, :$timeout) {
+    my $t0 = now;
+    my @s = glaze-files($glaze).map({ |parse-glaze($_) })
+              .grep({ .expect.defined && matches($_, @patterns) });
+    say "rakuglaze: {+@s} snippets on $engine-name ($engine), -j=$jobs";
+    my @r = run-all(@s, :$timeout, bad => -> ($s, $status, $out) { $status ne 'ran' || !same($out, $s.expect) });
+
+    # per area — the directory under glaze/ — as run-roast tallies per synopsis
+    my %tally;          # area => { files => {file => True}, pass, wrong, crash, hang }
+    my @failed;
+    for @r -> ($s, $status, $out) {
+        my $rel = $s.file.IO.relative($glaze);
+        my $area = $rel.contains('/') ?? $rel.split('/')[0] !! '.';
+        my %t := %tally{$area} //= { files => {}, pass => 0, wrong => 0, crash => 0, hang => 0 };
+        %t<files>{$rel} = True;
+        my $kind = $status ne 'ran' ?? $status !! same($out, $s.expect) ?? 'pass' !! 'wrong';
+        %t{$kind}++;
+        say "  [PASS]   {$s.id}" if $verbose && $kind eq 'pass';
+        @failed.push: ($s, $kind, $out) unless $kind eq 'pass';
+    }
+
+    if @failed {
+        say "";
+        say "Snippets not passing ({+@failed}):";
+        for @failed -> ($s, $kind, $out) {
+            say sprintf('  %-7s  %s  (%s:%d)', "[{$kind.uc}]", $s.id, $s.file.IO.relative($root), $s.line);
+            next unless $verbose;
+            say "             expected: $_" for $s.expect.lines;
+            say "             got:      $_" for $out.lines;
+        }
+    }
+
+    my @head = 'Area', 'Files', 'Snippets', 'Pass', 'Wrong', 'Crash', 'Hang', '%';
+    my @rows;
+    my @total = 0 xx 6;
+    for %tally.keys.sort -> $a {
+        my %t = %tally{$a};
+        my @n = +%t<files>, %t<pass wrong crash hang>.sum, |%t<pass wrong crash hang>;
+        @total[$_] += @n[$_] for ^6;
+        @rows.push: [$a, |@n».Str, pct(@n[2], @n[1])];
+    }
+    @rows.push: ['Total', |@total».Str, pct(@total[2], @total[1])];
+    say "";
+    table(@head, @rows);
+    say "";
+    say sprintf("Snippets passed:  %d / %d  (%s)  in %.2f s", @total[2], @total[1], pct(@total[2], @total[1]), now - $t0);
+    exit @total[2] == @total[1] ?? 0 !! 1;
+}
+
+# Trailing blanks on a line are invisible in a .glaze file and easily lost to
+# an editor, so they do not count.
+sub same($a, $b) { $a.lines».trim-trailing eqv $b.lines».trim-trailing }
+
+sub pct($n, $of) { $of ?? sprintf('%.2f%%', 100 * $n / $of) !! '—' }
+
+# Padded to column width, text left and numbers right: readable in a terminal
+# and still a markdown table when pasted, as run-roast prints its own.
+sub table(@head, @rows) {
+    my @w = (^@head).map(-> $i { (@head[$i], |@rows.map(*[$i])).map(*.chars).max });
+    sub cell($v, $i) { $i == 0 ?? $v ~ ' ' x (@w[$i] - $v.chars) !! ' ' x (@w[$i] - $v.chars) ~ $v }
+    say '| ' ~ (^@head).map({ cell(@head[$_], $_) }).join(' | ') ~ ' |';
+    say '|' ~ (^@head).map({ $_ == 0 ?? '-' x (@w[$_] + 2) !! '-' x (@w[$_] + 1) ~ ':' }).join('|') ~ '|';
+    for @rows -> $r { say '| ' ~ (^@head).map({ cell($r[$_], $_) }).join(' | ') ~ ' |' }
+}
+
+sub record(@patterns, :$refresh, :$timeout) {
+    # Rakudo is the oracle: recording from the engine under test would make
+    # every snippet pass by construction
+    unless $*VM.name eq 'moar' {
+        note "the oracle is recorded by Rakudo: run `rakudo bin/rakuglaze --oracle`";
+        exit 2;
+    }
+    my ($recorded, $changed, $unstable, $dead) = 0 xx 4;
+    for glaze-files($glaze) -> $f {
+        my @s = parse-glaze($f);
+        my @want = ($refresh ?? @s !! @s.grep(!*.expect.defined)).grep({ matches($_, @patterns) });
+        next unless @want;
+        # twice: a snippet whose output moves between runs is not a test
+        my %a = run-all(@want, :$timeout).map({ .[0].id => .[1,2] });
+        my %b = run-all(@want, :$timeout).map({ .[0].id => .[1,2] });
+        for @want -> $s {
+            my ($st, $out) = |%a{$s.id};
+            if $st ne 'ran' {
+                note "  {$s.id}: $st under $engine-name — left unrecorded"; $dead++; next;
+            }
+            if %b{$s.id}[1] ne $out {
+                note "  {$s.id}: output differs between two runs — left unrecorded"; $unstable++; next;
+            }
+            if $s.expect.defined && !same($s.expect, $out) {
+                if $s.meta<ruled> {
+                    note "  {$s.id}: oracle moved, but the snippet carries a ruling — kept"; next;
+                }
+                $changed++;
+                note "  {$s.id}: oracle changed";
+            }
+            $recorded++ unless $s.expect.defined;
+            $s.expect = $out;
+        }
+        write-glaze($f, @s);
+    }
+    say "recorded $recorded, changed $changed, unstable $unstable, dead $dead";
+}
+
+sub check() {
+    my %seen;
+    my $bad = 0;
+    for glaze-files($glaze) -> $f {
+        for parse-glaze($f) -> $s {
+            sub complain($m) { note "{$f.IO.relative($root)}:{$s.line}: {$s.id}: $m"; $bad++ }
+            complain('duplicate id') if %seen{$s.id}++;
+            complain('no code') unless $s.code.trim;
+            complain('no from:') unless $s.meta<from>;
+            complain("license '{$s.meta<license> // ''}' is not on the allow-list")
+                unless permissive($s.meta<license> // '');
+            complain('a line of code starts with === or ---')
+                if $s.code.lines.first({ .starts-with('=== ' | '--- ') });
+            complain('code calls exit') if $s.code ~~ /« exit »/;
+        }
+    }
+    say $bad ?? "$bad problem(s)" !! 'clean';
+    exit $bad ?? 1 !! 0;
+}

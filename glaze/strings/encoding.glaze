@@ -1,0 +1,684 @@
+# Bytes and code points: encode/decode, Blob/Buf/utf8, ord/chr/ords/chrs, codes, base/parse-base, Str/Int/Numeric.
+
+=== str-encode-utf8-list-bytes
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:163
+license: Artistic-2.0
+feature: method encode
+--- code
+my $hash = 0;
+for 'né'.encode('utf-8').list -> $byte {
+    $hash = ($hash * 31 + $byte) % 65536;
+    print $byte, ' ';
+}
+say $hash;
+--- expect
+110 195 169 46388
+
+=== str-encode-percent-escape-iri
+from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:352
+license: Artistic-2.0
+feature: method encode
+--- code
+for 'ü', '€' {
+    say .Str.encode('utf8').list.map({ $_ > 16 ?? "%" ~ .base(16) !! "%0" ~ .base(16) }).join
+}
+--- expect
+%C3%BC
+%E2%82%AC
+
+=== str-encode-bytes-length
+from: HTTP::UserAgent 1.2.0 lib/HTTP/Request.rakumod:123
+license: MIT
+feature: method encode
+--- code
+my $content = 'naïve café';
+say $content.chars;
+say $content.encode.bytes.Str;
+say $content.codes;
+--- expect
+10
+12
+10
+
+=== str-encode-or-pass-buf
+from: HTTP::Server::Tiny 0.0.2 lib/HTTP/Server/Tiny.pm6:339
+license: Artistic-2.0
+feature: method encode
+--- code
+my $cl = 0;
+for 'héllo', Buf.new(1, 2, 3), 'ok' {
+    $cl += ($_ ~~ Str ?? .encode() !! $_).bytes;
+}
+say $cl;
+--- expect
+11
+
+=== str-encode-latin1-roundtrip
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodyParsers.rakumod:99
+license: Artistic-2.0
+feature: method decode
+--- code
+my $p = "cafÃ©" => 'x';
+my $encoding = 'utf-8';
+my $fixed = $p.key.encode('latin-1').decode($encoding) => $p.value;
+say $fixed.key;
+say $fixed.key.chars;
+--- expect
+café
+4
+
+=== str-decode-utf8-fallback-latin1
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Body.rakumod:90
+license: Artistic-2.0
+feature: method decode
+--- code
+for Blob.new(0x63, 0xC3, 0xA9), Blob.new(0x63, 0xE9) -> $body-blob {
+    say (try $body-blob.decode('utf-8')) // $body-blob.decode('latin-1');
+}
+--- expect
+cé
+cé
+
+=== str-decode-latin1-lines
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:956
+license: Artistic-2.0
+feature: method decode
+--- code
+my $header = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n".encode('latin1');
+my @header-lines = $header.decode('latin1').lines;
+say @header-lines.elems;
+say @header-lines[1];
+--- expect
+2
+Content-Length: 3
+
+=== str-encode-latin1-list-flat
+from: Image::PNG::Portable 0.3.2 lib/Image/PNG/Portable.rakumod:83
+license: Artistic-2.0
+feature: method encode
+--- code
+my ($key, $value) = 'Title', 'Été';
+my @data = flat $key.encode('latin-1').list, 0, $value.encode('latin-1').list;
+say @data;
+--- expect
+[84 105 116 108 101 0 201 116 233]
+
+=== str-decode-colon-arg
+from: IRC::Client 4.0.15 lib/IRC/Client.rakumod:559
+license: Artistic-2.0
+feature: method decode
+--- code
+my $buf = Buf.new(0x4E, 0xE4, 0x68);
+my $str = try $buf.decode;
+$str or $str = $buf.decode: 'latin-1';
+say $str;
+--- expect
+Näh
+
+=== str-blob-from-hex-decode
+from: Cro::Core 0.8.10 lib/Cro/ResourceIdentifier.rakumod:11
+license: Artistic-2.0
+feature: method decode
+--- code
+my @perseq = ['E2', '82', 'AC'],;
+say Blob.new(@perseq[0].map({ :16(.Str) })).decode('utf8');
+--- expect
+€
+
+=== str-blob-new-from-ords
+from: Base64 0.1.0 lib/Base64.rakumod:12
+license: Artistic-2.0
+feature: method ords
+--- code
+my $str = 'Hi!';
+my $blob = Blob.new($str.ords);
+say $blob;
+say $blob.decode;
+--- expect
+Blob:0x<48 69 21>
+Hi!
+
+=== str-buf-new-decode-slice
+from: Duckie 0.0.12 lib/Duckie.rakumod:119
+license: MIT
+feature: method decode
+--- code
+my @raw = 0, 0, 0, 0, 0x72, 0x61, 0x6B, 0x75, 0x21;
+my ($off, $len) = 0, 4;
+say Buf.new((^$len).map({ @raw[$off+4+$_] })).decode;
+--- expect
+raku
+
+=== str-buf-append-padding
+from: Crypt::LibGcrypt 1.0.11 lib/Crypt/LibGcrypt/Cipher.rakumod:96
+license: Artistic-2.0
+feature: method append
+--- code
+my $keylen = 8;
+my $key = 'secret'.encode;
+my $padded = Buf.new($key).append(0 xx $keylen - $key.bytes);
+say $padded.elems;
+say $padded.list;
+--- expect
+8
+(115 101 99 114 101 116 0 0)
+
+=== str-buf-append-encoded
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodySerializers.rakumod:159
+license: Artistic-2.0
+feature: method append
+--- code
+my $boundary = 'XyZ';
+my $encoded = Buf.new;
+$encoded.append("--$boundary\r\n".encode('ascii'));
+$encoded.append('body'.encode);
+say $encoded.bytes;
+say $encoded.decode.raku;
+--- expect
+11
+"--XyZ\r\nbody"
+
+=== str-subbuf-compare
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:87
+license: Artistic-2.0
+feature: method subbuf
+--- code
+my $client-nonce = 'abc'.encode;
+for 'abcXYZ'.encode, 'abdXYZ'.encode -> $joined-nonce {
+    say $joined-nonce.subbuf(0, $client-nonce.elems) ne $client-nonce ?? 'Incomplete nonce' !! 'ok';
+}
+--- expect
+ok
+Incomplete nonce
+
+=== str-subbuf-decode-tail
+from: IO::Socket::SSL 0.0.4 lib/IO/Socket/SSL.rakumod:139
+license: MIT
+feature: method subbuf
+--- code
+my $buf = "line one\r\n".encode;
+my $nl-bytes = 2;
+say $buf.subbuf($buf.bytes - $nl-bytes, $nl-bytes).decode('latin-1') eq "\r\n";
+say $buf.subbuf(5).decode.raku;
+--- expect
+True
+"one\r\n"
+
+=== str-utf8-new-decode-ord
+from: P5pack 0.0.15 lib/P5pack.rakumod:345
+license: Artistic-2.0
+feature: method decode
+--- code
+my @result;
+for 0x41, 0x7A -> $byte {
+    @result.push(utf8.new($byte).decode.ord);
+}
+say @result;
+--- expect
+[65 122]
+
+=== str-buf8-from-match-pairs
+from: Bitcoin::Core::Secp256k1 0.0.28 lib/Bitcoin/Core/Secp256k1.rakumod:70
+license: Artistic-2.0
+feature: call __radix
+--- code
+my $privkey = '0aff10';
+my $keybuf = buf8.new(($privkey ~~ m:g/../).map({ :16($_.Str)}));
+say $keybuf;
+--- expect
+Buf[uint8]:0x<0A FF 10>
+
+=== str-ord-compare-buffer
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/RawBodyParser.rakumod:71
+license: Artistic-2.0
+feature: call ord
+--- code
+my $buffer = "ab\r\ncd".encode;
+for ^($buffer.elems - 1) -> $i {
+    if $buffer[$i] == ord("\r") && $buffer[$i + 1] == ord("\n") {
+        say "CRLF at $i";
+    }
+}
+--- expect
+CRLF at 2
+
+=== str-ord-minus-ord
+from: IDNA::Punycode 1.0.1 lib/IDNA/Punycode.rakumod:14
+license: Artistic-2.0
+feature: call ord
+--- code
+sub digit($code) {
+    return ord($code) - ord("A")      if $code ~~ /<[A..Z]>/;
+    return ord($code) - ord("a")      if $code ~~ /<[a..z]>/;
+    ord($code) - 22
+}
+say <A z 0 9>.map(&digit);
+--- expect
+(0 25 26 35)
+
+=== str-ord-fmt-percent
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/BodySerializers.rakumod:132
+license: Artistic-2.0
+feature: method ord
+--- code
+my $target = 'a b&c';
+say $target.subst: :g, /<-[A..Za..z0..9_~.-]>/, -> Str() $encodee {
+    '%' ~ $encodee.ord.fmt('%02X')
+};
+--- expect
+a%20b%26c
+
+=== str-ord-in-range-chain
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:347
+license: Artistic-2.0
+feature: method ord
+--- code
+for 'A', "\x[7F]", 'é' {
+    say .ord, ' ', (0x20 <= .ord <= 0x7F);
+}
+--- expect
+65 True
+127 True
+233 False
+
+=== str-ord-constant
+from: Font::FreeType 0.5.16 lib/Font/FreeType/BitMap.rakumod:60
+license: Artistic-2.0
+feature: method ord
+--- code
+constant on  = '#'.ord;
+constant off = '.'.ord;
+say (on, off, on).map(*.chr).join;
+--- expect
+#.#
+
+=== str-ord-map-range
+from: HTML::Entity::Fast 0.0.5 lib/HTML/Entity/Fast.rakumod:532
+license: Artistic-2.0
+feature: method ord
+--- code
+my @dont-encode;
+@dont-encode[$_] = 1 for ("a".."e").map: *.ord;
+say @dont-encode.grep(*.defined, :k);
+--- expect
+(97 98 99 100 101)
+
+=== str-chr-printable-dump
+from: Cro::Core 0.8.10 lib/Cro/Message.rakumod:26
+license: Artistic-2.0
+feature: call chr
+--- code
+my @line = 72, 105, 0, 10, 126, 127;
+my $decode = @line.map({ 32 <= $_ <= 126 ?? chr($_) !! '.' }).join;
+say $decode;
+--- expect
+Hi..~.
+
+=== str-chr-radix-call
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Actions.rakumod:94
+license: Artistic-2.0
+feature: call chr
+--- code
+for '41', '263A' -> $hex-str {
+    my $char  = chr( :16($hex-str) );
+    say $char;
+}
+--- expect
+A
+☺
+
+=== str-chr-hyper-join
+from: Digest::SHA1::Native 1.0.1 lib/Digest/SHA1/Native.rakumod:21
+license: Artistic-2.0
+feature: method chr
+--- code
+my $hash = Blob.new(0x41, 0x42, 0x43);
+my $str = $hash.list».chr.join.lc;
+say $str;
+--- expect
+abc
+
+=== str-chr-parse-base-subst
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:420
+license: Artistic-2.0
+feature: method parse-base
+--- code
+my $text = 'a%20b%2Fc';
+say $text.subst: / '%' ( <xdigit> ** 2 ) /,
+    { $0.Str.parse-base(16).chr }, :g;
+--- expect
+a b/c
+
+=== str-ords-loop-validate
+from: MCP::Server 0.7.0 lib/MCP/Server/HTTP/Validation.rakumod:39
+license: Artistic-2.0
+feature: method ords
+--- code
+sub valid($value) {
+    for $value.ords -> $ord {
+        return False if $ord < 0x20 || $ord == 0x7F;
+    }
+    True
+}
+say valid('plain text');
+say valid("tab\there");
+--- expect
+True
+False
+
+=== str-ords-hex-escape
+from: ECMA262Regex 1.2 lib/ECMA262Regex.rakumod:229
+license: Artistic-2.0
+feature: method ords
+--- code
+say 'A-z'.ords.map({ "\\x" ~ .base(16) }).join;
+--- expect
+\x41\x2D\x7A
+
+=== str-ords-map-lookup-return-nil
+from: PDF 0.6.15 lib/PDF/COS/TextString.rakumod:87
+license: Artistic-2.0
+feature: method ords
+--- code
+my %pdfdoc-enc = 72 => 'H', 105 => 'i', 33 => '!';
+sub enc($str) { $str.ords.map({%pdfdoc-enc{$_} // return Nil}).join }
+say enc('Hi!');
+say enc('Ho') // 'Nil';
+--- expect
+Hi!
+Nil
+
+=== str-chrs-on-slice
+from: JSON::Tiny 1.0 lib/JSON/Tiny/Actions.pm:39
+license: Artistic-2.0
+feature: method chrs
+--- code
+my @chars = 0x5C, 0x263A, 0x41, 0x42;
+my $str = '!';
+$str = @chars[1..*].chrs ~ $str;
+say $str;
+--- expect
+☺AB!
+
+=== str-nfc-codes-half
+from: Email::Simple 2.1.4 lib/Email/Simple.rakumod:46
+license: CC0-1.0
+feature: method NFC
+--- code
+my $newlines = "\r\n\r\n";
+my $crlf := $newlines.NFC[^($newlines.codes / 2)]>>.chr.join;
+say $crlf.raku;
+say $newlines.codes, ' ', $newlines.chars;
+--- expect
+"\r\n"
+4 2
+
+=== str-nfc-loop-codepoints
+from: Terminal::WCWidth 0.1.5 lib/Terminal/WCWidth.rakumod:41
+license: MIT
+feature: method NFC
+--- code
+my $str = "e\x[301]x";
+say $str.chars;
+for $str.NFC {
+    print .fmt('%04X'), ' ';
+}
+say '';
+--- expect
+2
+00E9 0078 
+
+=== str-nfkc-str
+from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:49
+license: Artistic-2.0
+feature: method NFKC
+--- code
+my $username = "ｕｓｅｒ\x[2160]";
+$username = $username.NFKC.Str;
+say $username;
+say "e\x[301]".NFD.list.elems;
+--- expect
+userI
+2
+
+=== str-uniname-lc
+from: PDF::Font::Loader 0.8.15 lib/PDF/Font/Loader/Enc.rakumod:140
+license: Artistic-2.0
+feature: method uniname
+--- code
+my %glyphs = 'A' => 'A';
+for 'A', 'é', '→' -> $chr {
+    my $name = %glyphs{$chr} // $chr.uniname.lc;
+    say $name;
+}
+--- expect
+A
+latin small letter e with acute
+rightwards arrow
+
+=== str-uniname-match
+from: Unicode::PRECIS v0.5.2 lib/Unicode/PRECIS.pm6:221
+license: Artistic-2.0
+feature: method uniname
+--- code
+for 'Ａ', 'A', 'ｶ' -> $codepoint {
+    if $codepoint.uniname ~~ m/ 'FULLWIDTH' | 'HALFWIDTH' / {
+        say "$codepoint: wide/narrow form";
+    }
+    else {
+        say "$codepoint: {$codepoint.uniname}";
+    }
+}
+--- expect
+Ａ: wide/narrow form
+A: LATIN CAPITAL LETTER A
+ｶ: wide/narrow form
+
+=== str-named-char-escape
+from: PDF::Content 0.9.11 lib/PDF/Content/Font/Enc/Type1.rakumod:50
+license: Artistic-2.0
+feature: escape \c[]
+--- code
+my %from-unicode = 32 => 'space';
+%from-unicode{"\c[NO-BREAK SPACE]".ord} //= %from-unicode{' '.ord};
+say %from-unicode.keys.sort;
+say "\c[WARNING SIGN] done", ' ', "\c[LATIN SMALL LETTER E WITH ACUTE]".ord;
+--- expect
+(160 32)
+⚠ done 233
+
+=== str-uniprops-width
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:698
+license: MIT
+feature: method uniprops
+--- code
+for 'abc', '日本語x' {
+    my $left = 10;
+    $left -= .uniprops("W").grep(* eq "W").elems;
+    say $left;
+}
+--- expect
+10
+7
+
+=== str-base-sixteen-chunk
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/RequestSerializer.rakumod:32
+license: Artistic-2.0
+feature: method base
+--- code
+my $data = Blob.new(0 xx 300);
+my $header = ($data.elems.base(16) ~ "\r\n").encode('ascii');
+say $header.decode.raku;
+--- expect
+"12C\r\n"
+
+=== str-base-two-padded
+from: Graph 0.1.3 lib/Graph/Hypercube.rakumod:24
+license: Artistic-2.0
+feature: method base
+--- code
+my $n = 4;
+my ($f, $t) = 5.base(2, :$n), 13.base(2, :$n);
+say "$f $t";
+say 3.5.base(2), ' ', 255.base(36);
+--- expect
+101 1101
+11.1 73
+
+=== str-base-lc-hash-name
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/MySql.rakumod:79
+license: Artistic-2.0
+feature: method base
+--- code
+my $hash = 3735928559;
+say 'ar_' ~ $hash.base(16).lc;
+--- expect
+ar_deadbeef
+
+=== str-parse-base-hex-prefix
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Testing/Fixtures.rakumod:30
+license: Artistic-2.0
+feature: method parse-base
+--- code
+my $hex = 'deadbeefcafe';
+say $hex.substr(0, 8).parse-base(16) % 1_000_000_000 + 1;
+--- expect
+735928560
+
+=== str-parse-base-signed-radix
+from: PDF::Grammar 0.3.6 lib/PDF/Grammar/Function/Actions.rakumod:29
+license: Artistic-2.0
+feature: method parse-base
+--- code
+for (-1, 8, '17'), (1, 2, '1011'), (1, 36, 'zz') -> ($sign, $radix, $_) {
+    say $sign * .Str.parse-base($radix.abs);
+}
+--- expect
+-15
+11
+1295
+
+=== str-parse-base-whatever-comb
+from: Digest 1.1.0 lib/Digest/RIPEMD.rakumod:44
+license: Artistic-2.0
+feature: method parse-base
+--- code
+my &digits = *.comb».parse-base(16);
+say digits('0a7F');
+--- expect
+(0 10 7 15)
+
+=== str-radix-adverb-chr
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/EventStream.rakumod:149
+license: Artistic-2.0
+feature: call __radix
+--- code
+my $text = '00e9263a';
+my @pieces;
+for 0, 4 -> $from {
+    @pieces.push(chr(:16($text.substr($from, 4))));
+}
+say @pieces.join;
+--- expect
+é☺
+
+=== str-int-coercion-defined-or
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/CSS.pm6:405
+license: Artistic-2.0
+feature: method Int
+--- code
+for { offset => ' 3 ' }, { offset => Nil }, {} -> $match {
+    my $offset = ($match<offset>//'').Str.subst(/\s+/, '').Int // 0;
+    say $offset;
+}
+--- expect
+3
+0
+0
+
+=== str-int-or-failure-handler
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:357
+license: Artistic-2.0
+feature: method Int
+--- code
+sub unparseable($name, $value) { "bad $name: $value" }
+for '42', ' 7 ', 'x9' -> $value {
+    say ($value.Int // unparseable('age', $value));
+}
+--- expect
+42
+7
+bad age: x9
+
+=== str-match-str-int
+from: Intl::Number::Plural 0.5.4 lib/Intl/Number/Plural.pm6:69
+license: Artistic-2.0
+feature: method Int
+--- code
+if '12.50' ~~ / (\d+) '.' (\d) (\d) / {
+    my $i = $2.Str.Int;
+    say $i, ' ', $0.Str.Int + 1, ' ', $/.Str;
+}
+--- expect
+0 13 12.50
+
+=== str-numeric-truthiness
+from: Abbreviations 2.2.3 lib/Abbreviations.rakumod:235
+license: Artistic-2.0
+feature: method Numeric
+--- code
+for <12 0 3.5 1e3 0x1F> {
+    my $is-numeric = True;
+    $is-numeric = False unless $_.Numeric;
+    say "$_ -> {.Numeric} $is-numeric";
+}
+--- expect
+12 -> 12 True
+0 -> 0 False
+3.5 -> 3.5 True
+1e3 -> 1000 True
+0x1F -> 31 True
+
+=== str-numeric-try
+from: Data::ExampleDatasets 0.2.4 lib/Data/ExampleDatasets.rakumod:194
+license: Artistic-2.0
+feature: method Numeric
+--- code
+for '3.25', 'n/a', '-7' -> $term {
+    my $n = try { $term.Numeric };
+    say $n // 'not a number', ' ', $n.^name;
+}
+--- expect
+3.25 Rat
+not a number Any
+-7 Int
+
+=== str-val-allomorph
+from: TAP 0.3.15 lib/TAP.rakumod:974
+license: Artistic-2.0
+feature: call val
+--- code
+my %env-options = 'j9:c:fdebug'.split(':').grep(*.chars).map: { / ^ (.) (.*) $ /; ~$0 => val(~$1) };
+for %env-options.sort -> (:$key, :$value) {
+    say "$key: {$value.^name} {$value.raku}";
+}
+--- expect
+c: IntStr IntStr.new(0, "")
+f: Str "debug"
+j: IntStr IntStr.new(9, "9")
+
+=== str-coerce-param-str
+from: CSS::Writer 0.3.3 lib/CSS/Writer.rakumod:353
+license: Artistic-2.0
+feature: coercion Str()
+--- code
+sub write-string( Str() $str --> Str) {
+    "'" ~ $str ~ "'"
+}
+say write-string(42);
+say write-string(1/4);
+say write-string('x');
+--- expect
+'42'
+'0.25'
+'x'

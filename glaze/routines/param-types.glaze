@@ -1,0 +1,794 @@
+# Parameter types and traits as modules write them: coercion types, `:D`/`:U`
+# smileys, `::?CLASS` invocants, `where` clauses, type captures, sigilless
+# parameters, `is copy`/`is rw`/`is raw`, optional and anonymous parameters.
+
+=== sig-coerce-int-empty
+from: Email::Simple 2.1.4 lib/Email/Simple.rakumod:16
+license: CC0-1.0
+feature: param coercion Int()
+--- code
+my sub timezone(Int() $timezone) {
+    ($timezone < 0 ?? '-' !! '+') ~ $timezone.abs.fmt('%04d')
+}
+say timezone(200);
+say timezone('-0500');
+say timezone(1.9e2);
+--- expect
++0200
+-0500
++0190
+
+=== sig-coerce-str-empty-topic
+from: Air 0.1.32 lib/Air/Component.rakumod:220
+license: Artistic-2.0
+feature: param coercion Str()
+--- code
+sub to-kebab(Str() $_ ) {
+    lc S:g/(\w)<?before <[A..Z]>>/$0-/
+}
+say to-kebab('MyComponentName');
+say to-kebab(42);
+my class TodoItem { }
+say to-kebab(TodoItem.^name);
+--- expect
+my-component-name
+42
+todo-item
+
+=== sig-coerce-str-from-cool
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Message.rakumod:36
+license: Artistic-2.0
+feature: param coercion Str(Cool)
+--- code
+my class Message {
+    has @.headers;
+    multi method append-header(Str $name, Str(Cool) $value --> Nil) {
+        @!headers.push: "$name: $value";
+    }
+}
+my $m = Message.new;
+$m.append-header('Content-Length', 42);
+$m.append-header('X-Ratio', 0.5);
+say $m.headers.join(' | ');
+$m.append-header('X-List', [1, 2]);
+say $m.headers.tail;
+--- expect
+Content-Length: 42 | X-Ratio: 0.5
+X-List: 1 2
+
+=== sig-coerce-num-named-default
+from: CSS::Properties 0.10.9 lib/CSS/Box.rakumod:48
+license: Artistic-2.0
+feature: param coercion Num()
+--- code
+my class Box {
+    has Num $.left;
+    submethod BUILD(
+        Num() :$left = 0e0,
+    ) { $!left = $left }
+}
+say Box.new.left;
+say Box.new(left => 3).left;
+say Box.new(left => '2.5').left.^name;
+--- expect
+0
+3
+Num
+
+=== sig-coerce-str-mu
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:447
+license: MIT
+feature: param coercion Str(Mu)
+--- code
+sub sanitize(Str(Mu) $s) {
+    $s.subst(/<[\x00..\x1f]>/, '?', :g)
+}
+say sanitize("a\tb");
+say sanitize(12);
+say sanitize(3.5);
+--- expect
+a?b
+12
+3.5
+
+=== sig-coerce-str-definite
+from: Air 0.1.32 lib/Air/Functional.rakumod:96
+license: Artistic-2.0
+feature: param coercion Str:D()
+--- code
+sub escape(Str:D() $s --> Str) {
+    $s.trans(['<', '>', '&'] => ['&lt;', '&gt;', '&amp;'])
+}
+say escape('<b>&</b>');
+say escape(3.14);
+escape(Int);
+--- expect
+&lt;b&gt;&amp;&lt;/b&gt;
+3.14
+!! X::AdHoc
+
+=== sig-coerce-return-type
+from: Air 0.1.32 lib/Air/Component.rakumod:240
+license: Artistic-2.0
+feature: return -->
+--- code
+sub to-kebab(Str() $_) { lc S:g/(\w)<?before <[A..Z]>>/$0-/ }
+my class NavBar {
+    method url-name(--> Str()) { self.^shortname.&to-kebab }
+    method count(--> Str()) { 42 }
+}
+say NavBar.new.url-name;
+say NavBar.new.count.^name;
+--- expect
+nav-bar
+Str
+
+=== sig-coerce-attribute-int-from-str
+from: WWW::GCloud 0.0.8 lib/WWW/GCloud/R/Field.rakumod:14
+license: Artistic-2.0
+feature: param coercion Int(Str)
+--- code
+my class Field {
+    has Int(Str) $.oneof_index;
+}
+say Field.new(oneof_index => '3').oneof_index.^name;
+say Field.new(oneof_index => 7).oneof_index;
+say Field.new.oneof_index.raku;
+--- expect
+Int
+7
+Int
+
+=== sig-coerce-io-invocant-U
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Paths.rakumod:101
+license: Artistic-2.0
+feature: param coercion IO()
+--- code
+my class Paths {
+    method config-path-in(::?CLASS:U: IO() $path --> IO::Path:D) {
+        $path.add('racoco.ini')
+    }
+}
+say Paths.config-path-in('proj').Str;
+say Paths.config-path-in('proj'.IO).basename;
+Paths.new.config-path-in('x');
+--- expect
+proj/racoco.ini
+racoco.ini
+!! X::Parameter::InvalidConcreteness
+
+=== sig-smiley-D-rejects-type-object
+from: Array::Sorted::Util 0.0.11 lib/Array/Sorted/Util.rakumod:153
+license: Artistic-2.0
+feature: smiley :D
+--- code
+my sub insert-also(Int:D $i, @also) {
+    @also.map({ "$i:$_" }).join(',')
+}
+say insert-also(2, <a b>);
+insert-also(Int, <a b>);
+--- expect
+2:a,2:b
+!! X::Parameter::InvalidConcreteness
+
+=== sig-smiley-U-multi-type-object
+from: Config::TOML 0.1.3 lib/Config/TOML/Dumper.rakumod:212
+license: Unlicense
+feature: smiley :U
+--- code
+multi sub to-toml(Str:U $s)
+{
+    '""'
+}
+multi sub to-toml(Str:D $s)
+{
+    '"' ~ $s ~ '"'
+}
+say to-toml(Str);
+say to-toml('abc');
+--- expect
+""
+"abc"
+
+=== sig-smiley-mu-U-type-param
+from: DBIish 0.6.9 lib/DBDish.rakumod:42
+license: BSD-2-Clause
+feature: smiley :U
+--- code
+my class TypeConverter {
+    has %.conv = Int => { .Int }, Rat => { .Rat };
+    method convert (::?CLASS:D: Str $datum, Mu:U $type) {
+        my &f = %!conv{$type.^name} // { .Str };
+        f($datum)
+    }
+}
+my $c = TypeConverter.new;
+say $c.convert('42', Int).raku;
+say $c.convert('0.5', Rat).raku;
+say $c.convert('x', Str).raku;
+$c.convert('1', 1);
+--- expect
+42
+0.5
+"x"
+!! X::Parameter::InvalidConcreteness
+
+=== sig-invocant-smiley-multi-pair
+from: Font::AFM 1.24.10 lib/Font/AFM.rakumod:195
+license: Artistic-2.0
+feature: smiley :U
+--- code
+my %Glyphs = space => 32, A => 65;
+my class AFM {
+    has %!glyphs = A => 65;
+    multi method glyphs(::?CLASS:D:) is rw { %!glyphs }
+    multi method glyphs(::?CLASS:U:) { %Glyphs }
+}
+say AFM.glyphs.keys.sort;
+say AFM.new.glyphs.keys.sort;
+--- expect
+(A space)
+(A)
+
+=== sig-invocant-D-stringy
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Body.rakumod:86
+license: Artistic-2.0
+feature: smiley :D
+--- code
+my class Body {
+    has $.text = 'payload';
+    method Str() { $!text }
+    multi method Stringy(::?CLASS:D:) { self.Str }
+}
+my $b = Body.new;
+say ~$b;
+say $b ~ '!';
+--- expect
+payload
+payload!
+
+=== sig-invocant-U-delegates-to-new
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:97
+license: Artistic-2.0
+feature: smiley :U
+--- code
+my class Tiny {
+    has $.agent = 'tiny/1';
+    multi method mirror ( ::?CLASS:U: |c ) { self.new.mirror: |c }
+    multi method mirror ( ::?CLASS:D: $url, $file ) { "{$!agent} $url -> $file" }
+}
+say Tiny.mirror('http://a/x', 'x');
+say Tiny.new(agent => 'me').mirror('http://b/y', 'y');
+--- expect
+tiny/1 http://a/x -> x
+me http://b/y -> y
+
+=== sig-where-block-any-junction
+from: Bailador 0.0.19 lib/Bailador/CLI.pm:63
+license: MIT
+feature: param where
+--- code
+my multi sub bootup-file (Str $cmd where {$cmd ~~ any <easy tiny ogre>}, Str $app, Str $config?) {
+    "$cmd boots $app" ~ ($config ?? " with $config" !! '')
+}
+say bootup-file('tiny', 'app.raku');
+say bootup-file('ogre', 'app.raku', 'conf.yml');
+bootup-file('huge', 'app.raku');
+--- expect
+tiny boots app.raku
+ogre boots app.raku with conf.yml
+!! X::Multi::NoMatch
+
+=== sig-where-whatever-anon-param
+from: Crane 0.1.2 lib/Crane/Utils.rakumod:51
+license: Unlicense
+feature: param where
+--- code
+my subset Classifier of Str;
+multi sub gen-classifier(Int:D $ where * >= 0 --> Classifier:D)
+{
+    'index'
+}
+multi sub gen-classifier(Str:D $ --> Classifier:D)
+{
+    'key'
+}
+say gen-classifier(3);
+say gen-classifier('name');
+gen-classifier(-1);
+--- expect
+index
+key
+!! X::Multi::NoMatch
+
+=== sig-where-smartmatch-associative
+from: Data::Transformers 0.0.2 lib/Data/Transformers/Rescale.rakumod:81
+license: Artistic-2.0
+feature: param where
+--- code
+multi sub rescale(@x) {
+    my ($min, $max) = @x.min, @x.max;
+    @x.map({ ($_ - $min) / ($max - $min) }).List
+}
+multi sub rescale($x where * ~~ Associative:D, $domain is copy = Whatever, $codomain is copy = Whatever) {
+    my @k = $x.keys.sort;
+    (@k Z=> rescale($x{@k})).List
+}
+say rescale([2, 4, 6]);
+say rescale({ a => 10, b => 20, c => 15 });
+--- expect
+(0 0.5 1)
+(a => 0 b => 1 c => 0.5)
+
+=== sig-where-with-default
+from: Test::Async 0.1.17 lib/Test/Async/Base.rakumod:889
+license: Artistic-2.0
+feature: param where
+--- code
+my class Suite {
+    has $.planned = 0;
+    multi method test-flunks(Int:D $count where * > 0 = 1) {
+        $!planned += $count;
+    }
+}
+my $s = Suite.new;
+$s.test-flunks;
+$s.test-flunks(3);
+say $s.planned;
+$s.test-flunks(0);
+--- expect
+4
+!! X::Multi::NoMatch
+
+=== sig-where-against-attribute
+from: Text::FriBidi 0.0.7 lib/Text/FriBidi.rakumod:115
+license: Artistic-2.0
+feature: param where
+--- code
+my class Line {
+    has $.visual = <a b c>;
+    multi method AT-POS(UInt:D $i where * < $!visual.elems) {
+        $!visual[$i]
+    }
+}
+my $l = Line.new;
+say $l[2];
+say $l[0];
+say $l[3];
+--- expect
+c
+a
+!! X::OutOfRange
+
+=== sig-where-on-named-variable
+from: Statistics::Distributions 0.1.8 lib/Statistics/Distributions/Utilities.rakumod:204
+license: Artistic-2.0
+feature: param where
+--- code
+sub benford-dist(UInt:D $b where $b > 2, UInt:D $size = 1) {
+    (1 ..^ $b).map({ (log(1 + 1 / $_) / log($b)).round(0.001) }).head($size).List
+}
+say benford-dist(10, 3);
+say benford-dist(3);
+benford-dist(2);
+--- expect
+(0.301 0.176 0.125)
+(0.631)
+!! X::TypeCheck::Binding::Parameter
+
+=== sig-where-on-infix-definition
+from: Digest 1.1.0 lib/Digest/SHA2.rakumod:15
+license: Artistic-2.0
+feature: param where
+--- code
+sub infix:<√>( UInt $p where * >= 2, UInt $n --> FatRat ) {
+    my FatRat $x = $n.FatRat;
+    $x = (($p - 1) * $x + $n / $x ** ($p - 1)) / $p for ^8;
+    $x
+}
+say (2 √ 2).Num.round(1e-10);
+say (2 √ 49).round(0.001);
+say (2 √ 9).^name;
+--- expect
+1.4142135624
+7
+FatRat
+
+=== sig-where-all-type
+from: Data::Translators 0.1.18 lib/Data/Translators.rakumod:152
+license: Artistic-2.0
+feature: param where
+--- code
+multi sub to-html-table(@data where @data.all ~~ Pair:D, Str:D :$align = 'left') {
+    @data.map({ "<tr align=\"$align\"><td>{.key}</td><td>{.value}</td></tr>" }).join("\n")
+}
+multi sub to-html-table(@data, *%) { 'generic' }
+say to-html-table([a => 1, b => 2]);
+say to-html-table([a => 1, 'b'], :align<right>);
+--- expect
+<tr align="left"><td>a</td><td>1</td></tr>
+<tr align="left"><td>b</td><td>2</td></tr>
+generic
+
+=== sig-where-slurpy-bitmask
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:885
+license: Artistic-2.0
+feature: param where
+--- code
+my class Stream {
+    method set-channel-mask(*@channels where { @channels.elems <= 16 && all(@channels) ~~ ( 0 ..15 ) }) {
+        my int $mask = @channels.map(1 +< *).reduce(&[+|]);
+        $mask.base(2)
+    }
+}
+say Stream.new.set-channel-mask(0, 2, 3);
+say Stream.new.set-channel-mask(15);
+Stream.new.set-channel-mask(16);
+--- expect
+1101
+1000000000000000
+!! X::TypeCheck::Binding::Parameter
+
+=== sig-type-capture-param
+from: Definitely 2.1.4 lib/Definitely.rakumod:203
+license: MIT
+feature: param ::T
+--- code
+my class Some {
+    has $.value;
+    has $.type;
+    multi method new( ::T $value ) {
+        self.bless(:$value, type => T)
+    }
+}
+say Some.new(42).type.^name;
+say Some.new('x').type.^name;
+say Some.new(1.5).value;
+--- expect
+Int
+Str
+1.5
+
+=== sig-sigilless-param
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:6
+license: Artistic-2.0
+feature: param \sigilless
+--- code
+sub Frac(\x) {
+    x - x.floor
+}
+say Frac(3.25);
+say Frac(-1.75);
+say Frac(10);
+--- expect
+0.25
+0.25
+0
+
+=== sig-sigilless-is-container
+from: Array::Agnostic 0.0.18 lib/Array/Agnostic.rakumod:16
+license: Artistic-2.0
+feature: param \sigilless
+--- code
+sub is-container(\it) { it.VAR.^name ne it.^name }
+my $s = 5;
+my @a = 1, 2;
+say is-container($s);
+say is-container(5);
+say is-container(@a[0]);
+say is-container(@a);
+--- expect
+True
+False
+True
+False
+
+=== sig-sigilless-mu
+from: BDD::Behave 0.9.5 lib/BDD/Behave.rakumod:269
+license: Artistic-2.0
+feature: param \sigilless
+--- code
+sub allow(Mu \target) {
+    target.^name ~ (target.DEFINITE ?? ' instance' !! ' type')
+}
+say allow(Mu);
+say allow(Int);
+say allow(42);
+say allow(my class Thing { }.new);
+--- expect
+Mu type
+Int type
+Int instance
+Thing instance
+
+=== sig-sigilless-positional-type
+from: Crane 0.1.2 lib/Crane/Add.rakumod:139
+license: Unlicense
+feature: param \sigilless
+--- code
+multi sub add-to(
+    Positional \container,
+    Int:D $index,
+    $value
+) {
+    container.splice($index, 0, $value);
+    container
+}
+my @a = 1, 2, 3;
+say add-to(@a, 1, 'x');
+say @a.elems;
+--- expect
+[1 x 2 3]
+4
+
+=== sig-is-copy-positional
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:42
+license: Artistic-2.0
+feature: trait is copy
+--- code
+our sub _replaceNextLargerWith( @array, $aValue, $high is copy ) {
+    $high ||= +@array-1;
+    my $low = 0;
+    while $low <= $high {
+        my $index = ($high + $low) div 2;
+        if @array[$index] < $aValue { $low = $index + 1 } else { $high = $index - 1 }
+    }
+    @array[$low] = $aValue;
+    $low
+}
+my @t = 1, 4, 9;
+say _replaceNextLargerWith(@t, 5, 0);
+say @t;
+--- expect
+2
+[1 4 5]
+
+=== sig-is-copy-array-param
+from: CSS::Selector::To::XPath 0.0.9 lib/CSS/Selector/To/XPath.rakumod:203
+license: Artistic-2.0
+feature: trait is copy
+--- code
+my class XPath {
+    method xpath-selector(@spec is copy) {
+        my $first = @spec.shift;
+        @spec.unshift("//$first");
+        @spec.join('/')
+    }
+}
+my @spec = <div p a>;
+say XPath.new.xpath-selector(@spec);
+say @spec;
+--- expect
+//div/p/a
+[div p a]
+
+=== sig-is-copy-assign-readonly
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:25
+license: Artistic-2.0
+feature: trait is copy
+--- code
+sub dayfrac2hms($hours is copy --> List) {
+    my $h = $hours.Int;
+    $hours = ($hours - $h) * 60;
+    my $m = $hours.Int;
+    ($h, $m, (($hours - $m) * 60).round)
+}
+say dayfrac2hms(13.5125);
+my $t = 1.75;
+say dayfrac2hms($t);
+say $t;
+--- expect
+(13 30 45)
+(1 45 0)
+1.75
+
+=== sig-is-rw-param
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:408
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my sub _end($end, $xml, $current is rw) {
+    $current = $current<parent> while $current<parent> && $current<tag> ne $end;
+    $current = $current<parent> // $current;
+}
+my %root = tag => 'root';
+my %div = tag => 'div', parent => %root;
+my $cur = { tag => 'b', parent => %div };
+_end('div', False, $cur);
+say $cur<tag>;
+_end('x', False, 42);
+--- expect
+root
+!! X::Parameter::RW
+
+=== sig-is-rw-pointy-loop
+from: FastCGI 0.9.0 lib/FastCGI/Protocol.rakumod:230
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my ($klen, $vlen) = 5, 300;
+for $klen, $vlen -> $len is rw {
+    $len = $len < 128 ?? $len !! $len +| 0x80000000;
+}
+say $klen;
+say $vlen.base(16);
+--- expect
+5
+8000012C
+
+=== sig-doublepointy-loop
+from: Prettier::Table 1.1.3 lib/Prettier/Table.rakumod:1226
+license: MIT
+feature: pointy <->
+--- code
+my @lines = 'a  ', ' b', 'c';
+for @lines <-> $line {
+    $line = $line.trim ~ '|';
+}
+say @lines.join;
+--- expect
+a|b|c|
+
+=== sig-is-raw-param-container
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Mock/Allow.rakumod:9
+license: Artistic-2.0
+feature: trait is raw
+--- code
+my class Allow {
+    has $.value;
+    method and-return(Mu $value is raw) {
+        $!value := $value;
+        self
+    }
+}
+my $x = 1;
+my $a = Allow.new.and-return($x);
+$x = 2;
+say $a.value;
+say Allow.new.and-return(Int).value.^name;
+--- expect
+2
+Int
+
+=== sig-optional-is-copy
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:443
+license: Artistic-2.0
+feature: param $optional?
+--- code
+my class Diff {
+    has $.pos = 0;
+    method Next ($steps? is copy ) {
+        $steps = 1 if !defined $steps;
+        $!pos += $steps;
+        self
+    }
+}
+my $d = Diff.new;
+say $d.Next.Next(3).pos;
+say $d.Next(-2).pos;
+--- expect
+4
+2
+
+=== sig-optional-callable-block
+from: ORM::Factory 0.9.1 lib/ORM/Factory.rakumod:312
+license: Artistic-2.0
+feature: param &optional?
+--- code
+my class Factory {
+    has %.seq;
+    method sequence(Str:D $name, &block?, :$start = 1 --> Nil) {
+        %!seq{$name} = &block ?? block($start) !! $start;
+    }
+}
+my $f = Factory.new;
+say $f.sequence('id');
+$f.sequence('email', -> $n { "user$n\@x" }, :start(5));
+say $f.seq.sort.map(*.value).join(' ');
+--- expect
+Nil
+user5@x 1
+
+=== sig-callable-positional-param
+from: List::MoreUtils 0.0.10 lib/List/MoreUtils.rakumod:2
+license: Artistic-2.0
+feature: param &callable
+--- code
+our sub any(&code, @values --> Bool:D) {
+    for @values { return True if code($_) }
+    False
+}
+say any(* > 2, [1, 2, 3]);
+say any({ .starts-with('z') }, <a b>);
+--- expect
+True
+False
+
+=== sig-callable-D-param
+from: BDD::Behave 0.9.5 lib/BDD/Behave/SharedContexts.rakumod:6
+license: Artistic-2.0
+feature: smiley :D
+--- code
+my class Registry {
+    has %.blocks;
+    method register(Str:D $name, Callable:D $block) {
+        %!blocks{$name} = $block;
+    }
+}
+my $r = Registry.new;
+$r.register('setup', { 'set up' });
+say $r.blocks<setup>();
+$r.register('teardown', Callable);
+--- expect
+set up
+!! X::Parameter::InvalidConcreteness
+
+=== sig-anonymous-dollar-proto
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:7
+license: Artistic-2.0
+feature: param $ anonymous
+--- code
+proto sub is-junction($) {*}
+multi sub is-junction(Junction $) { True }
+multi sub is-junction(Mu $) { False }
+say is-junction(1 | 2);
+say is-junction(3);
+say &is-junction.signature.params.elems;
+--- expect
+True
+False
+1
+
+=== sig-topic-named-param-store
+from: CSS::Properties 0.10.9 lib/CSS/Properties.rakumod:334
+license: Artistic-2.0
+feature: param $_
+--- code
+multi sub STORE($, Any:U $_) {
+    'cleared'
+}
+multi sub STORE($, Any:D $_) {
+    "stored {.raku}"
+}
+say STORE('color', Any);
+say STORE('color', 'red');
+say STORE('width', 12);
+--- expect
+cleared
+stored "red"
+stored 12
+
+=== sig-default-then-nameds
+from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:335
+license: Artistic-2.0
+feature: param default
+--- code
+my class Eco {
+    method find-identities(
+      Any:D $needle = "", :$ver, :$auth, :$api, :$from, :$all, :$latest
+    ) {
+        "needle='$needle' ver={$ver // '-'} latest={so $latest}"
+    }
+}
+say Eco.new.find-identities;
+say Eco.new.find-identities('JSON', :ver<1.0>, :latest);
+Eco.new.find-identities(Str);
+--- expect
+needle='' ver=- latest=False
+needle='JSON' ver=1.0 latest=True
+!! X::Parameter::InvalidConcreteness
+
+=== sig-default-whatever-is-copy
+from: Clipboard 0.1.2 lib/Clipboard.rakumod:32
+license: Artistic-2.0
+feature: param default
+--- code
+multi sub copy-to-clipboard($payload, :$clipboard-command is copy = Whatever) {
+    $clipboard-command = 'pbcopy' if $clipboard-command ~~ Whatever;
+    "$clipboard-command <- $payload"
+}
+say copy-to-clipboard('hello');
+say copy-to-clipboard('hi', :clipboard-command<xclip>);
+--- expect
+pbcopy <- hello
+xclip <- hi

@@ -320,6 +320,7 @@ if $_ ~~ s/ \[ (.+?) \] \( (.+?) \) (.*) // {
 --- expect
 matched
 
+--- end
 
 === hk-attribute-with-regex-default
 from: BDD::Behave 0.9.5 lib/BDD/Behave/Watch/Watcher.rakumod:15

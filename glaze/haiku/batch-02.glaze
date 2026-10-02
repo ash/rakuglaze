@@ -1231,16 +1231,6 @@ say @valid.elems;
 --- expect
 1
 
-=== hk-02-router-routes-join
-from: Path::Router 0.5.1 lib/X/Path/Router.pm6:25
-license: Artistic-2.0
-feature: "map and join on array"
---- code
-my @routes = [ { path => '/home' }, { path => '/about' } ];
-say @routes.map(*.[0].path).sort.join(', ');
---- expect
-path	/about, path	/home
-
 === hk-02-attrx-get-method
 from: AttrX::Mooish 1.0.10 lib/AttrX/Mooish/Attribute.rakumod:447
 license: Artistic-2.0

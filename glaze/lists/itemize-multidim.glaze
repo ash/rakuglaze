@@ -286,6 +286,7 @@ aaa..mmm
 from: HarfBuzz 0.1.7 lib/HarfBuzz/Shaper.rakumod:123
 license: Artistic-2.0
 feature: decl shaped array
+ruled: Raku++ throws X::OutOfRange past a shaped array's bound; Rakudo throws X::AdHoc with the same message
 --- code
 my @scale = 2, 4;
 my $size = 12;
@@ -294,7 +295,7 @@ say @vec;
 my @three[2] = 1, 2, 3;
 --- expect
 [6 3]
-!! X::AdHoc
+!! X::OutOfRange
 
 === list-multidim-semicolon-index
 from: Dan 0.0.3 lib/Dan.rakumod:315

@@ -61,6 +61,9 @@ as html
   Rakudo carries `ruled:` with the reason, and `--oracle --refresh` leaves it
   alone.
 - Output must be deterministic: sort hash keys, no timings, no addresses.
+- Blank lines at the end of a block are read as the gap before the next
+  snippet. Output that really ends in an empty line is closed by a `--- end`
+  line, which `--oracle` writes when it is needed.
 - Use `my class` where the name does not matter. A global `class Foo` is
   fine — snippets declaring the same global name are run in different
   processes — but `my` keeps the packing tight. `alone: yes` gives a snippet

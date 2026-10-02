@@ -15,6 +15,11 @@ unit module Rakuglaze::Format;
 # Header lines are `key: value`. The `--- code` and `--- expect` blocks are
 # raw lines and run to the next line that starts with `=== ` or `--- `.
 # A missing `--- expect` block means the oracle has not been recorded yet.
+#
+# Blank lines at the end of a block are taken as the gap before the next
+# snippet. When a block really ENDS in an empty line (a program whose last
+# output line is empty), a `--- end` line closes it exactly; the writer adds
+# one only then.
 
 class Snippet is export {
     has Str $.id is required;
@@ -33,6 +38,9 @@ class Snippet is export {
             $s ~= "--- expect\n$_";
             $s ~= "\n" unless .ends-with("\n") || !.chars;
         }
+        # the last block ends in an empty line: say where it really stops
+        my $last = $!expect // $!code;
+        $s ~= "--- end\n" if $last.ends-with("\n\n") || $last eq "\n";
         $s
     }
 }
@@ -45,6 +53,7 @@ sub parse-glaze(Str $path --> List) is export {
     my $cur;
     my $block = '';
     my $n = 0;
+    my %exact;   # ids whose last block a `--- end` closed
     for $path.IO.lines -> $l {
         $n++;
         if $l.starts-with('=== ') {
@@ -53,8 +62,9 @@ sub parse-glaze(Str $path --> List) is export {
         }
         elsif $l.starts-with('--- ') && $cur {
             $block = $l.substr(4).trim;
-            die "$path:$n: unknown block '$block'" unless $block eq 'code' | 'expect';
+            die "$path:$n: unknown block '$block'" unless $block eq 'code' | 'expect' | 'end';
             $cur.expect = '' if $block eq 'expect';
+            %exact{$cur.id} = True if $block eq 'end';
         }
         elsif !$cur {
             next if $l.starts-with('#') || !$l.trim;
@@ -69,14 +79,17 @@ sub parse-glaze(Str $path --> List) is export {
         elsif $block eq 'code' {
             $cur.code ~= "$l\n";
         }
-        else {
+        elsif $block eq 'expect' {
             $cur.expect ~= "$l\n";
         }
+        # (after `--- end` only the blank gap before the next snippet)
     }
-    # a trailing blank line belongs to the file, not to the last block
+    # a trailing blank line belongs to the file, not to the last block —
+    # unless `--- end` said the block stops exactly where it does
     for @snippets {
-        .code = .code.subst(/\n\n+$/, "\n");
-        .expect = .expect.subst(/\n\n+$/, "\n") if .expect.defined;
+        my $exact = %exact{.id};
+        .code = .code.subst(/\n\n+$/, "\n") unless $exact && !.expect.defined;
+        .expect = .expect.subst(/\n\n+$/, "\n") if .expect.defined && !$exact;
     }
     @snippets.List
 }

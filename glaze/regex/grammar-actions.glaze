@@ -189,6 +189,7 @@ t: id nullable	False, name nullable	True, x True
 from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure/CommandParser.rakumod:25
 license: Artistic-2.0
 feature: decl rule
+ruled: Raku++ captures $<sym> where the token says <sym>; Rakudo 2026.09 leaves it unset
 --- code
 my grammar Cmd {
     rule TOP { ^ <command> $ }
@@ -203,10 +204,10 @@ for <q quit i inventory look jump> -> $in {
 }
 --- expect
 q -> q no sym capture
-quit -> quit no sym capture
+quit -> quit quit
 i -> i no sym capture
-inventory -> inventory no sym capture
-look -> look no sym capture
+inventory -> inventory inventory
+look -> look look
 jump -> ?
 
 === rx-proto-yada-regex

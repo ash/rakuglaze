@@ -279,14 +279,15 @@ no newlines
 from: File::Which 1.0.4 lib/File/Which/Win32.rakumod:38
 license: MIT
 feature: method match
+ruled: Raku++ applies a :i passed to .match(Regex); Rakudo 2026.09 ignores the adverb there
 --- code
 my @PATHEXT = '', '.EXE', '.BAT', '.CMD';
 for <setup.exe run.Bat notes.txt> -> $file {
     say $file, ': ', so @PATHEXT[1..@PATHEXT.elems - 1].grep({ $file.match(/ $_ $ /, :i) });
 }
 --- expect
-setup.exe: False
-run.Bat: False
+setup.exe: True
+run.Bat: True
 notes.txt: False
 
 === rx-inline-i-alternation-anchor

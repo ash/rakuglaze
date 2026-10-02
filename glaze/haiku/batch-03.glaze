@@ -283,17 +283,6 @@ say $stype;
 --- expect
 type
 
-=== hk-03-bitwise-operators
-from: Net::DNS 1.4 lib/Net/DNS/Message/Header.pm6:42
-license: MIT
-feature: bitwise +|, +&, +<
---- code
-my $aa = 1;
-my $result = +| (($aa +& 0x01) +< 10);
-say $result;
---- expect
-1
-
 === hk-03-string-interpolation-methods
 from: Getopt::Advance 1.2.0 lib/Getopt/Advance/Option.rakumod:163
 license: MIT

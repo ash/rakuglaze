@@ -417,6 +417,7 @@ X::Malformed
 from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:209
 license: Artistic-2.0
 feature: sub die
+ruled: Raku++ keeps a message passed to X::AdHoc.new; Rakudo ignores it and says "Unexplained error"
 --- code
 my @broken;
 sub break-all(Exception $e) { @broken.push: $e.message }
@@ -425,7 +426,7 @@ say @broken;
 my $e = X::AdHoc.new(payload => 'via payload');
 say $e.message;
 --- expect
-[Unexplained error]
+[Connection to server lost]
 via payload
 
 === ctl-fail-typed-handled-check

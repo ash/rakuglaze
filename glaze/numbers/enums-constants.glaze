@@ -251,6 +251,7 @@ say TRUE_ZERO + 5, ' ', TRUE_ZERO ~~ Int;
 from: Dan 0.0.3 lib/Dan.rakumod:12
 license: Artistic-2.0
 feature: decl constant
+ruled: Raku++ answers True for ('A'..∞).is-lazy as for 'A'..*; Rakudo 2026.09 answers False, yet its .elems fails as lazy and assignment stays lazy
 --- code
 my constant @alphi = 'A'..∞;
 say @alphi[^5];
@@ -259,7 +260,7 @@ say @alphi.is-lazy;
 --- expect
 (A B C D E)
 (Z AA AB AC)
-False
+True
 
 === num-constant-computed-flat
 from: Text::MiscUtils 0.0.13 lib/Text/MiscUtils/Layout.rakumod:14

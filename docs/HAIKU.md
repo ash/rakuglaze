@@ -43,7 +43,8 @@ what modules write: 1,154 snippets. Each batch's count above is measured
 against the suite before batch 06, and they overlap (`method build`,
 `call min`): together they bring about 30 constructs. The drafters ran the
 `--dry` loop until nothing was rejected, so drafts and admitted agree.
-Variants still find engine bugs coverage does not: Raku++ fails 8 of them.
+Variants still find engine bugs coverage does not: they turned up eight in
+Raku++.
 
 ---
 

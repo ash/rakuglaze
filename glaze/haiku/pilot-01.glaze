@@ -559,11 +559,14 @@ from: Pakku celastrina.6 lib/Pakku/Command/Build.rakumod:11
 license: Artistic-2.0
 feature: log function with keyword args
 --- code
-sub log($emoji, :$header, :$msg) { "$emoji $header $msg" }
-log('🧚', header => 'BLD', msg => 'build');
-say "logged";
+sub log($emoji, :$header, :$msg) { say "$emoji $header: $msg" }
+my $path = 'dist/Foo'.IO;
+log '🧚', header => 'BLD', msg => ~$path;
+log '🦋', header => 'DEP', msg => ~$_ for <Bar Baz>;
 --- expect
-logged
+🧚 BLD: dist/Foo
+🦋 DEP: Bar
+🦋 DEP: Baz
 
 === hk-ternary-repo-select
 from: Pakku celastrina.6 lib/Pakku/Command/Remove.rakumod:14
@@ -866,11 +869,23 @@ from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Mime.rakumod:73
 license: Artistic-2.0
 feature: function call with multiple args
 --- code
-sub register-mime($ext, $type) { "$ext: $type" }
-register-mime('css', 'text/css');
-say "registered";
+my %format-to-type;
+my %type-to-format;
+sub register-mime(Str:D $format, Str:D $type, :@aliases --> Nil) {
+    %format-to-type{$format} = $type;
+    %type-to-format{$type} //= $format;
+    %type-to-format{$_} //= $format for @aliases;
+}
+register-mime('xml',  'application/xml',      aliases => ['text/xml']);
+register-mime('css',  'text/css');
+register-mime('csv',  'text/csv');
+say %format-to-type<css>;
+say %type-to-format<text/xml>;
+say %type-to-format.keys.sort;
 --- expect
-registered
+text/css
+xml
+(application/xml text/css text/csv text/xml)
 
 === hk-build-token-lowercase
 from: CSS::Module 0.7.7 lib/CSS/Module/CSS3/MediaQueries.rakumod:94
@@ -943,11 +958,24 @@ from: Red 0.2.5 lib/Red/Driver/Pg.rakumod:181
 license: Artistic-2.0
 feature: multi method with where constraint
 --- code
-my class Update { }
-multi sub translate(Update $u, $context, :$gambi where !*.defined) { "translated" }
-say "ok";
+my class Select {}
+my class Update {}
+my class CommonSQL {
+    multi method translate(Select $_, $context?, :$gambi) { "select (gambi: {so $gambi})" }
+    multi method translate(Update $_, $context?, :$gambi) { "update (gambi: {so $gambi})" }
+}
+my class Pg is CommonSQL {
+    multi method translate(Update $_, $context?, :$gambi where !*.defined) {
+        'pg ' ~ self.CommonSQL::translate($_, $context, :gambi);
+    }
+}
+say Pg.new.translate(Update.new);
+say Pg.new.translate(Select.new);
+say Pg.new.translate(Update.new, :gambi);
 --- expect
-ok
+pg update (gambi: True)
+select (gambi: False)
+update (gambi: True)
 
 === hk-die-grab-values
 from: Map::Agnostic 0.0.14 lib/Map/Agnostic.rakumod:44
@@ -1131,12 +1159,23 @@ from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Matrix/UInt32.rakumod:143
 license: Artistic-2.0
 feature: method call to construct array
 --- code
-my $mv = [];
-my $size1 = 3;
-my $size2 = 3;
-say "array created";
+my class Matrix { has @.rows; method get($i, $j) { @!rows[$i][$j] } }
+my class View {
+    method array(@array, UInt $size1, UInt $size2 --> Matrix) {
+        Matrix.new(rows => @array.batch($size2).head($size1).map(*.Array))
+    }
+}
+sub uint32-array-mat(Block $bl, UInt $size1, UInt $size2, *@data) {
+    my @carray = @data».Int;
+    my View $mv .= new;
+    my $m = $mv.array(@carray, $size1, $size2);
+    $bl($m);
+}
+say uint32-array-mat({ .get(1, 2) }, 2, 3, 1..6);
+say uint32-array-mat({ .rows }, 2, 3, <1 2 3 4 5 6>);
 --- expect
-array created
+6
+[[1 2 3] [4 5 6]]
 
 === hk-grammar-parse-rule
 from: TAP::Harness 0.0.4 lib/TAP.pm:326
@@ -1210,10 +1249,22 @@ from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/English/CommonSpeechParts.rakumod:
 license: Artistic-2.0
 feature: proto token definition
 --- code
-my grammar Test { proto token from-preposition {*} }
-say "proto defined";
+my grammar Speech {
+    rule TOP { <frame-noun> <from-preposition> <name> }
+    proto token frame-noun {*}
+    token frame-noun:sym<English> { :i 'frame' }
+    proto token from-preposition {*}
+    token from-preposition:sym<English> { :i 'from' }
+    token name { \w+ }
+}
+my $m = Speech.parse('Frame FROM data');
+say ~$m<from-preposition>;
+say ~$m<name>;
+say so Speech.parse('frame of data');
 --- expect
-proto defined
+FROM
+data
+False
 
 === hk-eat-cookie-env
 from: Web::App 0.9.2 lib/Web/Request.rakumod:165
@@ -1243,12 +1294,16 @@ from: Math::Libgsl::LinearAlgebra 0.0.4 lib/Math/Libgsl/LinearAlgebra.rakumod:46
 license: Artistic-2.0
 feature: method call chaining new
 --- code
-my class Vector { method new($size) { self } }
-my $LU = (matrix => Vector.new(3));
-my $work = Vector.new($LU<matrix>.elems);
-say "ok";
+my class Vector { has $.size; method new($size) { self.bless(:$size) } }
+my class Matrix { has $.size1; has $.size2 }
+my class LU { has Matrix $.matrix }
+my $LU = LU.new(matrix => Matrix.new(size1 => 3, size2 => 3));
+my Vector $work .= new($LU.matrix.size1);
+say $work.size;
+say $work.^name;
 --- expect
-ok
+3
+Vector
 
 === hk-rgb-channels-push-xx
 from: PDF::Content 0.9.11 lib/PDF/Content/Image/PNG.rakumod:296
@@ -1297,15 +1352,6 @@ $offset += $bytes.codes + 1;
 say $offset;
 --- expect
 5
-
-=== hk-glyph-image-return-doc
-from: Font::FreeType 0.5.16 lib/Font/FreeType/Glyph.rakumod:130
-license: Artistic-2.0
-feature: pod documentation
---- code
-say "Glyph documentation";
---- expect
-Glyph documentation
 
 === hk-keep-trailing-newline
 from: Template::Jinja2 0.3.0 lib/Template/Jinja2.rakumod:215
@@ -1418,11 +1464,16 @@ from: Template::HAML 0.9.6 lib/Template/HAML/DirectCodegen.rakumod:722
 license: Artistic-2.0
 feature: ternary in do block
 --- code
-my $expr = 'code';
-my $result = !! 'do { ' ~ $expr ~ ' }';
-say "ok";
+sub value-expr($expr, $compile-err) {
+    $compile-err.defined
+        ?? 'Nil'
+        !! 'do { ' ~ $expr ~ ' }';
+}
+say value-expr('$x + 1', Nil);
+say value-expr('$x +', 'syntax error');
 --- expect
-ok
+do { $x + 1 }
+Nil
 
 === hk-attr-autoclose-rw
 from: Template::HAML 0.9.6 lib/Template/HAML/Config.rakumod:54

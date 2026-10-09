@@ -65,12 +65,19 @@ from: Selkie 0.16.0 lib/Selkie/ScreenManager.rakumod:114
 license: Artistic-2.0
 feature: "fail statement with unless"
 --- code
-my %screens = ( main => 'screen' );
-my $name = 'other';
-try { fail "Screen '$name' does not exist" unless %screens{$name}:exists };
-say 'done';
+my class ScreenManager {
+    has %!screens = main => 'main-screen', editor => 'editor-screen';
+    method remove-screen(Str:D $name) {
+        fail "Screen '$name' does not exist" unless %!screens{$name}:exists;
+        %!screens{$name}:delete
+    }
+}
+my $sm = ScreenManager.new;
+say $sm.remove-screen('editor');
+with $sm.remove-screen('other') { say "removed $_" } else { say .exception.message }
 --- expect
-done
+editor-screen
+Screen 'other' does not exist
 
 === hk-02-array-push-assign
 from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Job.rakumod:63
@@ -132,19 +139,6 @@ $set.add-include([], 'item', name-prefix => 'test');
 --- expect
 added
 
-=== hk-02-mkdir-condition
-from: zef 1.1.4 lib/Zef/Service/Shell/curl.rakumod:102
-license: Artistic-2.0
-feature: "unless condition with mkdir"
---- code
-my $path = 'test-dir';
-unless "$path".IO.parent.d || mkdir($path) {
-  say 'mkdir failed';
-}
-say 'done';
---- expect
-done
-
 === hk-02-string-interpolation-quote
 from: Air 0.1.32 lib/Air/Form.rakumod:366
 license: Artistic-2.0
@@ -162,15 +156,23 @@ from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Border.rakumod:286
 license: Artistic-2.0
 feature: "method call with defined check and assignment"
 --- code
+my class Native { has Int $.top is rw = 0 }
 my class Border {
-  has Int $!top = 0;
-  method set-top($value) { $!top = $value if $value.defined; }
+    has Native $!native = Native.new;
+    method _get-native-object { $!native }
+    method top(Int $value? --> Int) {
+        self._get-native-object.top = $value if $value.defined;
+        self._get-native-object.top
+    }
 }
 my $b = Border.new;
-$b.set-top(5);
-say 'done';
+say $b.top;
+say $b.top(5);
+say $b.top;
 --- expect
-done
+0
+5
+5
 
 === hk-02-array-grep-map
 from: BDD::Behave 0.9.5 lib/BDD/Behave/DryRun.rakumod:69
@@ -326,13 +328,17 @@ from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Queue.rakumod:210
 license: Artistic-2.0
 feature: "CATCH with default"
 --- code
-try {
-  CATCH { default { note "Error: {.message}" } }
-  die "test error";
-};
-say 'done';
+my @workers = 'w0', 'w1';
+for ^2 -> $i {
+    try {
+        die "pipe closed" if $i == 1;
+        say "sent bucket to @workers[$i]";
+        CATCH { default { say "Queue worker $i: failed to send bucket: {.message}" } }
+    }
+}
 --- expect
-done
+sent bucket to w0
+Queue worker 1: failed to send bucket: pipe closed
 
 === hk-02-ansi-escape-print
 from: Terminal::ANSI 0.0.25 lib/Terminal/ANSI.rakumod:33
@@ -385,12 +391,19 @@ from: CSS::Module 0.7.7 lib/CSS/Module/CSS1/Gen/Grammar.rakumod:26
 license: Artistic-2.0
 feature: "rule with :i case-insensitive adverb"
 --- code
-my class CSS::Grammar {
-  rule decl:sym<font> { :i (font) ":" <val> }
+my grammar CSS1 {
+    rule TOP { <decl> }
+    proto rule decl {*}
+    rule decl:sym<font> { :i (font) ":" <val> }
+    rule decl:sym<font-size> { :i ("font-size") ":" <val> }
+    token val { \w+ }
 }
-say 'ok';
+my $m = CSS1.parse('FONT: bold');
+say ~$m<decl>[0], ' = ', ~$m<decl><val>;
+say ~CSS1.parse('Font-Size : large')<decl>[0];
 --- expect
-ok
+FONT = bold
+Font-Size
 
 === hk-02-for-hash-values
 from: Selkie 0.16.0 lib/Selkie/Widget/Axis.rakumod:231
@@ -502,18 +515,6 @@ say @names.sort.join(',');
 --- expect
 app,tool
 
-=== hk-02-gsl-matrix-attr
-from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Matrix/UInt32.rakumod:33
-license: Artistic-2.0
-feature: "native type attribute"
---- code
-my class Matrix {
-  has $!matrix;
-}
-say 'declared';
---- expect
-declared
-
 === hk-02-log-timeline-queued
 from: Log::Timeline 0.5.2 lib/Log/Timeline/Raku/Setup.rakumod:188
 license: Artistic-2.0
@@ -525,18 +526,6 @@ my $queued-task = Task.start($start-task);
 say $queued-task;
 --- expect
 started
-
-=== hk-02-coord-attr
-from: Terminal-API 1.0.5 lib/Terminal/API.rakumod:118
-license: Artistic-2.0
-feature: "HAS attribute declaration"
---- code
-my class Terminal {
-  HAS Num $.dwMaximumWindowSize;
-}
-say 'ok';
---- expect
-ok
 
 === hk-02-request-annotations
 from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Middleware.rakumod:11
@@ -581,24 +570,39 @@ from: Font::FreeType 0.5.16 lib/Font/FreeType/Raw/TT_Sfnt.rakumod:146
 license: Artistic-2.0
 feature: "FT_Short type attribute"
 --- code
-my class Sfnt {
-  has $!ySuperscriptXOffset;
+my constant FT_Short = int16;
+my class TT_OS2 {
+    has FT_Short $.ySuperscriptXSize;
+    has FT_Short $.ySuperscriptXOffset;
 }
-say 'ok';
+my $os2 = TT_OS2.new(ySuperscriptXSize => 650, ySuperscriptXOffset => -12);
+say $os2.ySuperscriptXSize + $os2.ySuperscriptXOffset;
+say TT_OS2.new.ySuperscriptXOffset;
+say TT_OS2.^attributes.map(*.type.^name);
 --- expect
-ok
+638
+0
+(int16 int16)
 
 === hk-02-get-native-object
 from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Window.rakumod:2299
 license: Artistic-2.0
 feature: "class instance check with ~~"
 --- code
-my class GObject { }
-my $geometry_widget = GObject.new;
-$geometry_widget .= class-name unless $geometry_widget ~~ GObject;
-say 'ok';
+my class N-GObject { has $.id }
+my class Widget {
+    has N-GObject $!native = N-GObject.new(id => 42);
+    method _get-native-object-no-reffing { $!native }
+}
+sub set-geometry-hints($geometry_widget is copy) {
+    $geometry_widget .= _get-native-object-no-reffing unless $geometry_widget ~~ N-GObject;
+    $geometry_widget.id
+}
+say set-geometry-hints(Widget.new);
+say set-geometry-hints(N-GObject.new(id => 7));
 --- expect
-ok
+42
+7
 
 === hk-02-copy-tree-method
 from: PDF::Tags 0.2.8 lib/PDF/Tags/Elem.rakumod:231
@@ -619,12 +623,25 @@ from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/
 license: Artistic-2.0
 feature: "method matching pattern"
 --- code
-my class Actions {
-  method pivot-wider-command($/) { say 'pivoting'; }
+my grammar Query {
+    rule TOP { <pivot-wider-command> }
+    rule pivot-wider-command { pivot wider <pivot-wider-arguments-list> }
+    rule pivot-wider-arguments-list { <pivot-wider-argument>+ % ',' }
+    token pivot-wider-argument { \w+ }
 }
-say 'ok';
+my class Actions {
+    method TOP($/) { make $<pivot-wider-command>.made }
+    method pivot-wider-command($/) {
+        make 'tidyr::pivot_wider(' ~ $<pivot-wider-arguments-list>.made ~ ' )';
+    }
+    method pivot-wider-arguments-list($/) {
+        make $<pivot-wider-argument>>>.made.join(', ');
+    }
+    method pivot-wider-argument($/) { make "names_from = $/" }
+}
+say Query.parse('pivot wider year, month', actions => Actions).made;
 --- expect
-ok
+tidyr::pivot_wider(names_from = year, names_from = month )
 
 === hk-02-append-inner-outer
 from: cro 0.8.10 lib/Cro/Tools/Link/Editor.rakumod:118
@@ -866,11 +883,18 @@ from: Red 0.2.5 lib/Red/ResultSeq/Iterator.rakumod:16
 license: Artistic-2.0
 feature: "map call on array"
 --- code
-my @handlers = [ { method execute { 'ok' } } ];
-@handlers>>.execute unless True;
-say 'done';
+my class Handler { has $.sql; has $.ran = 0; method execute { $!ran++; $!sql.chars } }
+my @st-handler = <a bb ccc>.map({ Handler.new(sql => $_) });
+my $*RED-DRY-RUN = True;
+@st-handler>>.execute unless $*RED-DRY-RUN;
+say @st-handler».ran;
+$*RED-DRY-RUN = False;
+say @st-handler>>.execute unless $*RED-DRY-RUN;
+say @st-handler».ran;
 --- expect
-done
+[0 0 0]
+[1 2 3]
+[1 1 1]
 
 === hk-02-game-setup-layout
 from: MUGS::Games 0.1.4 lib/MUGS/Server/Genre/BoardGame.rakumod:55
@@ -903,10 +927,33 @@ from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:213
 license: Artistic-2.0
 feature: "alternative with panic"
 --- code
-my $grammar = '{ expr }';
-say 'parsed';
+my grammar Template {
+    token TOP { '<?' <condition> '>' }
+    token condition {
+        | '.' <deref>
+        | '$' <identifier> ['.' <deref>]?
+        | '{' <expression> [ '}' || <.panic('malformed expression')> ]
+        || <.malformed: 'condition tag'>
+    }
+    token deref { \w+ }
+    token identifier { \w+ }
+    token expression { <-[}>]>+ }
+    method panic($reason) { die "$reason at {self.pos}" }
+    method malformed($what) { self.panic("malformed $what") }
+}
+say ~Template.parse('<?.name>')<condition><deref>;
+say ~Template.parse('<?$user.name>')<condition><identifier>;
+say Template.parse('<?{ 1 + 2 }>')<condition><expression>.Str.raku;
+try Template.parse('<?{ 1 + 2 >');
+say $!.message;
+try Template.parse('<?@x>');
+say $!.message;
 --- expect
-parsed
+name
+user
+" 1 + 2 "
+malformed expression at 10
+malformed condition tag at 2
 
 === hk-02-graph-edge-add
 from: Graph 0.1.3 lib/Graph/Wheel.rakumod:16
@@ -944,13 +991,21 @@ license: MIT
 feature: "start async with named arg"
 --- code
 my class UI {
-  method alert($msg, :$center) { 'alert' }
+    method help-text { 'q: quit' }
+    method alert($msg, :$center = True) { "alert: $msg (center: $center)" }
+    method call(Str $action) {
+        if $action eq 'help' {
+            my $p = start self.alert(self.help-text, :!center);
+            return $p;
+        }
+    }
 }
-my $ui = UI.new;
-my $p = start $ui.alert('help', :!center);
-say 'started';
+my $p = UI.new.call('help');
+say $p.^name;
+say await $p;
 --- expect
-started
+Promise
+alert: q: quit (center: False)
 
 === hk-02-sandbox-count-increment
 from: Text::CodeProcessing 0.6.0 lib/Text/CodeProcessing.rakumod:412
@@ -984,20 +1039,41 @@ license: Artistic-2.0
 feature: "multi method definition"
 --- code
 my class Model {
-  multi method create(%attrs) { 'created'; }
+    has $.id;
+    has %.record;
+    method is-valid { %!record<attrs><name>:exists }
+    method save { $!id = 1 }
+    multi method create(%attrs) {
+        my %record = 'attrs' => %attrs;
+        my $obj = self.new(:id(0), :%record);
+        $obj.save if $obj.is-valid;
+        $obj;
+    }
+    multi method create { self.create({}) }
 }
-say 'ok';
+my $m = Model.create({ name => 'ann' });
+say $m.id, ' ', $m.record<attrs><name>;
+say Model.create.id;
 --- expect
-ok
+1 ann
+0
 
 === hk-02-css-identifiers
 from: CSS::Specification 0.5.3 lib/CSS/Specification/Base/Grammar.rakumod:29
 license: Artistic-2.0
 feature: "grammar rule"
 --- code
-say 'grammar-rules-work';
+my grammar Spec {
+    rule TOP { <identifiers> }
+    token identifier { <nmstrt> <nmchar>* }
+    token nmstrt { <[a..z]> }
+    token nmchar { <[a..z0..9-]> }
+    rule identifiers {[ <identifier> ]+}
+}
+my $m = Spec.parse('sans-serif  bold italic');
+say $m<identifiers><identifier>».Str;
 --- expect
-grammar-rules-work
+[sans-serif bold italic]
 
 === hk-02-mysql-str-numeric
 from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/MySql.rakumod:655
@@ -1014,9 +1090,25 @@ from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/
 license: Artistic-2.0
 feature: "method action"
 --- code
-say 'dsl-ok';
+my grammar Query {
+    rule TOP { <separate-column-command> }
+    rule separate-column-command { separate <col> into <into> }
+    token col { \w+ }
+    token into { <colname>+ % [',' \s*] }
+    token colname { '"'? \w+ '"'? }
+}
+my class Actions {
+    method TOP($/) { make $<separate-column-command>.made }
+    method separate-column-command($/) {
+        my $intocols = map( { '"' ~ $_.subst(:g, '"', '') ~ '"' }, $<into>.made.split(', ') ).join(', ');
+        make 'dividir los valores de la columna de cadena ' ~ $<col>.made ~ ' en las columnas ' ~ $intocols;
+    }
+    method col($/) { make ~$/ }
+    method into($/) { make $<colname>».Str.join(', ') }
+}
+say Query.parse('separate name into "first", last', actions => Actions).made;
 --- expect
-dsl-ok
+dividir los valores de la columna de cadena name en las columnas "first", "last"
 
 === hk-02-controller-pairs
 from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Controller.rakumod:301
@@ -1073,11 +1165,24 @@ license: Artistic-2.0
 feature: "method overloading for type"
 --- code
 my class Dumper {
-  method Mu( Mu $ds --> Str) { q/Mu/ }
+    method Str ( Str:D $ds --> Str) { $ds.raku }
+    method Nil ( Nil   $ds --> Str) { q/Nil/ }
+    method Any ( Any   $ds --> Str) { q/Any/ }
+    method Mu  ( Mu    $ds --> Str) { q/Mu/  }
+    method dump(Mu $ds, Int:D :$depth = 0 --> Str) {
+        self.can($ds.^name) ?? self."$ds.^name()"($ds, :$depth) !! 'unhandled'
+    }
 }
-say 'dump-ok';
+my $d = Dumper.new;
+say $d.dump('a"b');
+say $d.dump(Mu);
+say $d.dump(Any);
+say $d.dump(Nil);
 --- expect
-dump-ok
+"a\"b"
+Mu
+Any
+Nil
 
 === hk-02-trace-lane
 from: Selkie 0.16.0 lib/Selkie/Trace.rakumod:236
@@ -1214,11 +1319,22 @@ from: CSS::Specification 0.5.3 lib/CSS/Specification/Actions.rakumod:122
 license: Artistic-2.0
 feature: "die with string interpolation"
 --- code
-my $var = 'test';
-die "Unexpected input: $var" if False;
-say 'ok';
+my grammar Props {
+    token TOP { <id>+ % ';' [ $ || <unexpected> ] }
+    token id { \w+ }
+    token unexpected { .+ }
+}
+my class Actions {
+    method unexpected($/) is hidden-from-backtrace {
+        die "Unexpected input: " ~$/;
+    }
+}
+say Props.parse('color;margin', actions => Actions)<id>».Str;
+try Props.parse('color;margin!?', actions => Actions);
+say $!.message;
 --- expect
-ok
+[color margin]
+Unexpected input: !?
 
 === hk-02-crane-steps-where
 from: Crane 0.1.2 lib/Crane/In.rakumod:141
@@ -1271,26 +1387,46 @@ license: Artistic-2.0
 feature: "append array to attribute"
 --- code
 my class Coverage {
-  has @!exclude-paths = [];
-  method add-exclude(@paths) { @!exclude-paths.append: @paths.map(*.Str); }
+    has @!include-paths;
+    has @!exclude-paths;
+    method include-path(*@paths) { @!include-paths.append: @paths.map(*.Str); self }
+    method exclude-path(*@paths) { @!exclude-paths.append: @paths.map(*.Str); self }
+    method excluded { @!exclude-paths }
 }
-my $c = Coverage.new;
-$c.add-exclude(['path']);
-say 'ok';
+my $c = Coverage.new.exclude-path('t', 'xt'.IO).exclude-path(42);
+say $c.excluded;
+say $c.excluded.map(*.^name);
 --- expect
-ok
+[t xt 42]
+(Str Str Str)
 
 === hk-02-xml-actions-parse-parts
 from: XML::Actions 0.5.2 lib/XML/Actions/Stream.rakumod:152
 license: Artistic-2.0
 feature: "parse-parts method call"
 --- code
-my class Parser {
-  method parse-parts($channel) { say 'parsing'; }
+my class Stream {
+    has @.seen;
+    method process(@lines) {
+        my $parseble-lines-channel = Channel.new;
+        $parseble-lines-channel.send($_) for @lines;
+        $parseble-lines-channel.send('<<__:FINISHED:__>>');
+        self.parse-parts($parseble-lines-channel);
+    }
+    method parse-parts(Channel $parseble-lines-channel) {
+        while $parseble-lines-channel.receive -> $line {
+            last if $line eq '<<__:FINISHED:__>>';
+            @!seen.push: $line.trim;
+        }
+        +@!seen
+    }
 }
-say 'ok';
+my $s = Stream.new;
+say $s.process(['<a>', ' <b/> ', '</a>']);
+say $s.seen;
 --- expect
-ok
+3
+[<a> <b/> </a>]
 
 === hk-02-terminal-color-state
 from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Input/Text.rakumod:132
@@ -1322,7 +1458,26 @@ from: Ecosystem 0.0.34 lib/Ecosystem.rakumod:309
 license: Artistic-2.0
 feature: "sub assignment with lambda"
 --- code
-my &ver-matches = { .ver($_) eq "*" };
-say 'ok';
+sub ver($id) { $id ~~ / ':ver<' (<-[>]>+) '>' / ?? ~$0 !! '*' }
+sub version($id) { ver($id).Version }
+my @ids = 'Foo:ver<1.2>', 'Foo', 'Foo:ver<2.0>';
+sub matching($ver) {
+    my &ver-matches;
+    if $ver eq '*' {
+        &ver-matches = { ver($_) eq "*" }
+    }
+    else {
+        my $version := $ver.Version;
+        &ver-matches = $version.plus || $version.whatever
+          ?? { version($_) ~~ $version }
+          !! { version($_) == $version }
+    }
+    @ids.grep(&ver-matches)
+}
+say matching('*');
+say matching('1.2');
+say matching('2.0');
 --- expect
-ok
+(Foo)
+(Foo:ver<1.2>)
+(Foo:ver<2.0>)

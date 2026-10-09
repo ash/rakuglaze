@@ -60,11 +60,29 @@ from: Geo::Geometry 0.1.3 lib/Geo/Geometry.rakumod:287
 license: Artistic-2.0
 feature: buf write-int32 method
 --- code
-my $buf = buf8.allocate(4);
-$buf.write-int32(0, 42);
-say "written"
+my @points = (1.5, 2.5), (3.0, -1.0);
+sub tobuf($endian) {
+    my $b = Buf.allocate(4 + 16 × @points);
+    $b.write-int32(0, +@points, $endian);
+    my $offset = 4;
+    for @points -> ($x, $y) {
+        $b.write-num64($offset, $x.Num, $endian); $offset += 8;
+        $b.write-num64($offset, $y.Num, $endian); $offset += 8;
+    }
+    $b;
+}
+my $le = tobuf(LittleEndian);
+say $le.elems;
+say $le.subbuf(0, 4);
+say tobuf(BigEndian).subbuf(0, 4);
+say $le.read-num64(4, LittleEndian);
+say tobuf(BigEndian).read-num64(28, BigEndian);
 --- expect
-written
+36
+Buf:0x<02 00 00 00>
+Buf:0x<00 00 00 02>
+1.5
+-1
 
 === hk-05-share-supply
 from: cro 0.8.10 lib/Cro/Tools/Template/ZeroMQWorkSinkService.rakumod:27
@@ -508,11 +526,19 @@ from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:443
 license: Artistic-2.0
 feature: Supply watch and share
 --- code
-my $s = supply { emit 1; emit 2 };
-my $shared = $s.share;
-say "shared"
+my $events = Supplier.new;
+sub watch-recursive($dir) { $events.Supply.map({ "$dir/$_" }) }
+my $precomp-supply = watch-recursive('precomp').share;
+my (@early, @late);
+$precomp-supply.tap({ @early.push: $_ });
+$events.emit('A');
+$precomp-supply.tap({ @late.push: $_ });
+$events.emit('B');
+say @early;
+say @late;
 --- expect
-shared
+[precomp/A precomp/B]
+[precomp/B]
 
 === hk-05-compose-keys
 from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Header.rakumod:8
@@ -585,12 +611,19 @@ from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/NumberFormat.rakumod:28
 license: Artistic-2.0
 feature: subbuf-rw method with default
 --- code
-my $buf = buf8.new(1, 2, 3, 4, 5);
-my $pattern;
-$buf.subbuf-rw(0, 0) = ($pattern // "default").encode;
-say "assigned"
+sub encode($pattern, $type --> buf8) {
+    with buf8.new {
+        .reallocate(8);
+        .subbuf-rw(0, 0) = ($pattern // '').encode;
+        .write-uint64(2, +$type, LittleEndian);
+        .return
+    }
+}
+say encode('#,##0', 3);
+say encode(Str, 1);
 --- expect
-assigned
+Buf[uint8]:0x<23 2C 03 00 00 00 00 00 00 00 00 00 00>
+Buf[uint8]:0x<00 00 01 00 00 00 00 00 00 00>
 
 === hk-05-nodemap-hash
 from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/DOK.rakumod:470

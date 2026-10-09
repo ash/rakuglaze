@@ -227,14 +227,27 @@ from: Cro::Core 0.8.10 lib/Cro/BodySerializerSelector.rakumod:33
 license: Artistic-2.0
 feature: return if condition
 --- code
-my sub check-applicable {
-    .return if True;
-    say "not reached"
+my class Serializer {
+    has $.type;
+    method is-applicable($message, $body) { $body ~~ $!type }
 }
-check-applicable;
-say "after"
+my class Selector {
+    has @.serializers;
+    method select($message, $body) {
+        for @!serializers {
+            .return if .is-applicable($message, $body);
+        }
+        "none applicable for {$body.^name}"
+    }
+}
+my $s = Selector.new(serializers => (Serializer.new(type => Str), Serializer.new(type => Int)));
+say $s.select('msg', 42).type.^name;
+say $s.select('msg', 'text').type.^name;
+say $s.select('msg', 1.5);
 --- expect
-after
+Int
+Str
+none applicable for Rat
 
 === hk-04-int64-read
 from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/DecimalFormatSystem.rakumod:72
@@ -397,12 +410,27 @@ from: Cro::Core 0.8.10 lib/Cro/Iri.rakumod:114
 license: Artistic-2.0
 feature: die with custom exception
 --- code
-my class MyError { }
-try { die MyError.new }
-CATCH { say "caught" }
-say "after"
+my class ParseError is Exception {
+    has $.iri-string;
+    has $.reason;
+    method message { "Unable to parse IRI '$!iri-string': $!reason" }
+}
+my grammar Iri {
+    token TOP { <scheme> ':' [ <rest> || <.panic('missing body')> ] }
+    token scheme { <[a..z]>+ }
+    token rest { \S+ }
+    method panic($reason) {
+        die ParseError.new(iri-string => self.orig, :$reason)
+    }
+}
+say ~Iri.parse('http://example.com')<scheme>;
+try Iri.parse('http:');
+say $!.^name;
+say $!.message;
 --- expect
-after
+http
+ParseError
+Unable to parse IRI 'http:': missing body
 
 === hk-04-serialize-serialize
 from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/Cache.rakumod:39
@@ -487,12 +515,18 @@ from: Cro::WebSocket 0.8.10 lib/Cro/WebSocket/MessageSerializer.rakumod:55
 license: Artistic-2.0
 feature: break promise with error
 --- code
-my $p = Promise.new;
-my $e = "error";
-$p.break($e);
-say "broken"
+my class Message { has $.serialization-outcome }
+sub serialization-error($current, Exception $error --> Nil) {
+    .break($error) with $current.serialization-outcome;
+}
+my $current = Message.new(serialization-outcome => Promise.new);
+serialization-error(Message.new, X::AdHoc.new(payload => 'skipped'));
+serialization-error($current, X::AdHoc.new(payload => 'bad frame'));
+say $current.serialization-outcome.status;
+say $current.serialization-outcome.cause.message;
 --- expect
-broken
+Broken
+bad frame
 
 === hk-04-write-slice
 from: PDF::Content 0.9.11 lib/PDF/Content/Image/GIF.rakumod:91
@@ -682,11 +716,30 @@ from: XML 0.3.6 lib/XML/Element.rakumod:67
 license: Artistic-2.0
 feature: after method
 --- code
-my class Node { method after($new) { } }
-my $n = Node.new;
-say "ok"
+my class Node { has $.name }
+my class Element is Node {
+    has @.nodes;
+    method index-of($find) { @!nodes.first($find, :k) }
+    multi method before(Node $existing, Node $new, :$offset = 0) {
+        my $pos = self.index-of(* === $existing) + $offset;
+        @!nodes.splice($pos, 0, $new);
+    }
+    multi method after(Node $existing, Node $new, :$offset = 0) {
+        self.before($existing, $new, :offset($offset + 1))
+    }
+    method insertAfter(Node $new, Node $existing) {
+        self.after($existing, $new);
+        $new
+    }
+}
+my ($a, $b) = Node.new(name => 'a'), Node.new(name => 'b');
+my $e = Element.new(nodes => [$a, $b]);
+say $e.insertAfter(Node.new(name => 'x'), $a).name;
+$e.insertAfter(Node.new(name => 'y'), $b);
+say $e.nodes».name;
 --- expect
-ok
+x
+[a x b y]
 
 === hk-04-thing-container
 from: RPG::Base 0.0.11 lib/RPG/Base/ThingContainer.pm6:56
@@ -705,11 +758,23 @@ from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:194
 license: Artistic-2.0
 feature: watch recursive supply
 --- code
-my $dir = $*SPEC.tmpdir;
-my $supply = do { True };
-say "watching"
+my $taps = 0;
+my $events = Supplier.new;
+sub watch-recursive($dir) {
+    supply { $taps++; whenever $events.Supply { emit "$dir/$_" } }
+}
+my $precomp-supply = watch-recursive('precomp').share;
+my (@a, @b);
+$precomp-supply.tap({ @a.push: $_ });
+$precomp-supply.tap({ @b.push: $_ });
+$events.emit('A.moarvm');
+say $taps;
+say @a;
+say @b;
 --- expect
-watching
+1
+[precomp/A.moarvm]
+[precomp/A.moarvm]
 
 === hk-04-remove-path
 from: Crane 0.1.2 lib/Crane/Move.rakumod:106
@@ -802,23 +867,57 @@ from: Text::CSV 0.022 lib/Text/IO/String.rakumod:25
 license: Artistic-2.0
 feature: nl-out property
 --- code
-my %init = ( nl-out => "\r\n" );
-my $obj = Hash.new;
-$obj<nl-out> = %init<nl-out> if %init<nl-out>:exists;
-say "set"
+my class IOString {
+    has $.nl-in is rw;
+    has $.nl-out is rw;
+    has $.ro is rw;
+    multi method new(Str $str!, *%init) {
+        my \obj = self.bless;
+        obj.nl-in  = $*OUT.nl-out;
+        obj.nl-out = $*OUT.nl-out;
+        obj.ro     = %init<ro>     if %init<ro>:exists;
+        obj.nl-in  = %init<nl-in>  if %init<nl-in>:exists;
+        obj.nl-out = %init<nl-out> if %init<nl-out>:exists;
+        obj;
+    }
+}
+say IOString.new('a,b', nl-out => "\r\n").nl-out.raku;
+say IOString.new('a,b').nl-out.raku;
+say IOString.new('a,b', :ro).ro;
 --- expect
-set
+"\r\n"
+"\n"
+True
 
 === hk-04-migrate-db
 from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/DbTasks.rakumod:78
 license: Artistic-2.0
 feature: migrate down steps
 --- code
-my $migrate = Hash.new;
-my $step = 1;
-say "migrate down"
+my class Migrate {
+    has @.log;
+    method check-migrations-table { @!log.push: 'check' }
+    method migrate(@args) { @!log.push: @args.join(' ') }
+}
+my class DbTasks {
+    has %.connections = main => Migrate.new, logs => Migrate.new;
+    method !each-connection(&code) {
+        code(.key, .value) for %!connections.sort(*.key);
+    }
+    method rollback(Int:D :$step = 1) {
+        self!each-connection(-> $conn, $migrate {
+            $migrate.check-migrations-table;
+            $migrate.migrate(['down', $step]);
+        });
+    }
+}
+my $t = DbTasks.new;
+$t.rollback(step => 2);
+$t.rollback;
+say "{.key}: {.value.log.join(', ')}" for $t.connections.sort(*.key);
 --- expect
-migrate down
+logs: check, down 2, check, down 1
+main: check, down 2, check, down 1
 
 === hk-04-cli-option-int
 from: Crust 0.0.1 lib/Crust/Runner.pm6:37
@@ -860,11 +959,31 @@ from: Cro::Core 0.8.10 lib/Cro/MessageWithBody.rakumod:29
 license: Artistic-2.0
 feature: body-serializer-selector
 --- code
-my $body = "test";
-my $serializer = $body;
-say "ok"
+my class Serializer { method serialize($message, $body) { "serialized:$body" } }
+my class Selector { method select($message, $body) { Serializer.new } }
+my class Message {
+    has $.body;
+    has $.body-byte-stream;
+    method body-serializer-selector { Selector.new }
+    method body-byte-stream {
+        with $!body-byte-stream {
+            $_
+        }
+        orwith $!body {
+            self.body-serializer-selector.select(self, $_).serialize(self, $_)
+        }
+        else {
+            'empty'
+        }
+    }
+}
+say Message.new(body => 'hello').body-byte-stream;
+say Message.new(body-byte-stream => 'raw').body-byte-stream;
+say Message.new.body-byte-stream;
 --- expect
-ok
+serialized:hello
+raw
+empty
 
 === hk-04-default-ui
 from: MUGS::Core 0.1.4 lib/MUGS/App/LocalUI.rakumod:92
@@ -924,12 +1043,18 @@ license: Artistic-2.0
 feature: selector with pseudo
 --- code
 my grammar G {
-    token simple-selector { 'a' }
-    token selector { <simple-selector> +% <.ws> <pseudo>? }
+    token TOP { <selector> }
+    token selector {<simple-selector> +% <.ws> <pseudo>?}
+    token simple-selector { <[a..z]>+ <class>? }
+    token class { '.' <[a..z]>+ }
+    token pseudo { ':' <[a..z]>+ }
 }
-say "ok"
+my $m = G.parse('div p.note:first');
+say $m<selector><simple-selector>».Str;
+say ~$m<selector><pseudo>;
 --- expect
-ok
+[div p.note]
+:first
 
 === hk-04-email-pattern
 from: Email::Valid 1.0.7 lib/Email/Valid.rakumod:71
@@ -941,16 +1066,6 @@ my $match = $email ~~ / \w+ '@' \w+ /;
 say $match.so
 --- expect
 True
-
-=== hk-04-menu-class
-from: Air 0.1.32 lib/Air/Base.rakumod:546
-license: Artistic-2.0
-feature: javascript menu class
---- code
-my $menu = Hash.new;
-say "ok"
---- expect
-ok
 
 === hk-04-lib-trait
 from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/WrappableBuffer.rakumod:330
@@ -979,12 +1094,25 @@ from: DBIish 0.6.9 lib/DBDish/StatementHandle.rakumod:42
 license: BSD-2-Clause
 feature: fail unless equal
 --- code
-my $got = 1;
-my $expect = 1;
-$got.fail unless $got == $expect;
-say "ok"
+my class ExecuteError is Exception { has $.code; has $.why; method message { $!why } }
+my class StatementHandle {
+    method !set-err($code, $why) { ExecuteError.new(:$code, :$why) }
+    method !enter-execute(int $got = 0, int $expect = 0) {
+        self!set-err( -1,
+            "Wrong number of arguments to method execute: got $got, expected $expect"
+        ).fail unless $got == $expect;
+    }
+    method execute(*@params) {
+        my $r = self!enter-execute(+@params, 2);
+        $r ~~ Failure ?? $r !! 'executed'
+    }
+}
+my $sth = StatementHandle.new;
+say $sth.execute(1, 2);
+with $sth.execute(1) { say $_ } else { say .exception.message }
 --- expect
-ok
+executed
+Wrong number of arguments to method execute: got 1, expected 2
 
 === hk-04-case-insensitive
 from: IRC::Log 0.0.26 lib/IRC/Log.rakumod:481

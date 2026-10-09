@@ -2,6 +2,11 @@
 # pick.raku — choose corpus lines for a model to reduce into snippets.
 #
 #   rakupp tools/pick.raku --n=250 --out=tmp/haiku/batch-02.tsv
+#   rakupp tools/pick.raku --random --n=250 --out=tmp/haiku/batch-07.tsv
+#
+# By default the rows that call what the suite has least of come first;
+# --random hands rows out in corpus order shuffled, so a batch samples what
+# modules write most rather than what the suite lacks.
 #
 # Each picked line has a call SHAPE (identifiers, strings and numbers
 # normalised) that no snippet in the suite has yet, no two come from the same
@@ -23,7 +28,7 @@ sub shape($l) {
 
 sub row-key($row) { $row.split("\t", 6)[^4].join("\t") }
 
-sub MAIN(Int :$n = 250, Str :$out!) {
+sub MAIN(Int :$n = 250, Str :$out!, Bool :$random) {
     my %used;           # dist:file:line already quoted by a snippet
     my %have;           # shapes the suite already has
     for glaze-files(~$root.add('glaze')).map({ |parse-glaze($_) }) -> $s {
@@ -51,8 +56,9 @@ sub MAIN(Int :$n = 250, Str :$out!) {
         my @m = $code.comb(/ '.' <( <[a..z]> [\w|'-']* /).grep({ %core{$_} });
         @m ?? @m.map({ %count{$_} // 0 }).min !! 1000      # rows with no core method last
     }
-    my @rows = $root.add('corpus/code.tsv').lines.pick(*)       # random order spreads the dists…
-        .map({ $_ => score(.split("\t", 6)[5]) }).sort(*.value).map(*.key);   # …within a score
+    my @rows = $root.add('corpus/code.tsv').lines.pick(*);      # random order spreads the dists…
+    @rows = @rows.map({ $_ => score(.split("\t", 6)[5]) }).sort(*.value).map(*.key)   # …within a score
+        unless $random;
 
     my (%seen-shape, %seen-file, @out);
     for @rows -> $row {

@@ -15,6 +15,8 @@
 #   - another snippet already took that row, or the suite has the same code
 #   - it reads the clock, randomness or the environment
 #   - Rakudo leaves it unrecorded (dead or unstable), or it prints nothing
+#   - all it prints is fixed text (`say 'done'` at the top level): that only
+#     says the code ran, not what the construct produced
 #   - it throws where its row does not: that records the drafter's mistake
 #   - its expectation is a compile-time error: the module line compiled in
 #     its module, so a snippet that does not compile tests the model's mistake
@@ -52,6 +54,15 @@ sub construct-tokens($l, Set $core) {
     @t.unique
 }
 
+# Output that is nothing but literals printed at the top level is the same
+# whatever the construct did. A literal printed inside a block (a branch, a
+# multi candidate, a CATCH) is chosen by the construct, so it does not count.
+sub fixed-text($code, $out) {
+    my @out = $out.lines».trim.grep(*.chars);
+    my @fixed = $code.lines.map({ ~$0 if / ^ [say|put|print] \s* <['"]> (<-['"$@%&{]>*) <['"]> \s* ';'? \s* $ / });
+    @out && @fixed && @out.all ∈ @fixed
+}
+
 sub MAIN(Str $draft, Str :$batch!, Str :$name, Bool :$dry) {
     die "--name is required unless --dry\n" unless $name || $dry;
     my %row;
@@ -73,8 +84,10 @@ sub MAIN(Str $draft, Str :$batch!, Str :$name, Bool :$dry) {
         if ($s.meta<license> // '') ne $r<lic>    { reject($s, "license is not the row's ($r<lic>)"); next }
         if %taken{$s.meta<from>}++                { reject($s, 'a second snippet for the same row'); next }
         if %existing{norm($s.code)}               { reject($s, 'the suite already has this code'); next }
-        # two runs a second apart agree, two runs a day apart do not
-        if $s.code ~~ / « [now|today|rand|srand|time] » | '.' [pick|roll] » | '%*ENV' | '$*PID' / {
+        # two runs a second apart agree, two runs a day apart do not; `$time`
+        # and `token time-spec` are names, not reads
+        if $s.code ~~ / <!after <[$@%&-]>> « [now|today|rand|srand|time] » <!before '-'>
+                      | '.' [pick|roll] » | '%*ENV' | '$*PID' / {
             reject($s, 'reads the clock, randomness or the environment'); next
         }
         my @t = construct-tokens($r<code>, $core);
@@ -98,6 +111,7 @@ sub MAIN(Str $draft, Str :$batch!, Str :$name, Bool :$dry) {
             if $st ne 'ran'                      { "Rakudo: $st" }
             elsif %b{$s.id}[1] ne $out           { 'output differs between two runs' }
             elsif !$out.trim                     { 'prints nothing' }
+            elsif fixed-text($s.code, $out)      { 'prints only fixed text: print what the construct produced' }
             elsif $out.lines.first(*.starts-with('=== ' | '--- ')) { 'prints a line the .glaze format would read as a header' }
             elsif $out ~~ / '!! X::' [Syntax|Comp|Undeclared|Redeclaration|Obsolete|Placeholder|Parameter::Default] / {
                 "its expectation is a compile error ({$out.lines.first(*.starts-with('!! '))})"

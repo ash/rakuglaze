@@ -1,0 +1,3093 @@
+=== hk-08-mugs-request-from-struct
+from: MUGS::Core 0.1.4 lib/MUGS/Server/Connection/Supplier.rakumod:35
+license: Artistic-2.0
+feature: infix ?? !!
+--- code
+my class Request {
+    method from-struct($struct) { "request {$struct<op>}" }
+}
+my %struct = op => 'ping';
+my $msg = %struct.elems == 0 ?? 'empty' !! Request.from-struct(%struct);
+say $msg;
+--- expect
+request ping
+
+=== hk-08-graph-degrees-map
+from: Graph 0.1.3 lib/Graph.rakumod:421
+license: Artistic-2.0
+feature: method map
+--- code
+my class Graph {
+    has @.vertices = <a bb ccc>;
+    method vertex-list { @!vertices }
+    method vertex-in-degree($v) { $v.chars }
+    method degrees { self.vertex-list.map({ self.vertex-in-degree($_) }) }
+}
+say Graph.new.degrees.join(' ');
+--- expect
+1 2 3
+
+=== hk-08-pi-token-markup
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny/HTML.pm6:16
+license: Artistic-2.0
+feature: token markup:sym<pi>
+--- code
+my grammar Markup {
+    proto token markup {*}
+    token markup:sym<pi> { '<?' $<pi> = [ .*? ] '?>' }
+    token TOP { <markup> }
+}
+my $m = Markup.parse('<?xml version?>');
+say $m<markup><pi>;
+--- expect
+｢xml version｣
+
+=== hk-08-cutoff-chars-subtract
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Form.rakumod:529
+license: Artistic-2.0
+feature: method chars
+--- code
+my $ts = 'tweeted';
+my $cutoff = 3;
+my $i = $ts.chars - $cutoff;
+say $i;
+say $ts.substr($i);
+--- expect
+4
+ted
+
+=== hk-08-position-ordinal-action
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/RakuObject/ListManagementCommand.rakumod:121
+license: Artistic-2.0
+feature: method made values
+--- code
+my grammar Position {
+    token TOP { <ordinal> }
+    token ordinal { \d+ }
+}
+my class PositionActions {
+    method ordinal($/) { make $/.Str }
+    method TOP($/) { make $/.values[0].made.Int }
+}
+say Position.parse('42', actions => PositionActions.new).made + 1;
+--- expect
+43
+
+=== hk-08-elsif-exists-options
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/Box.rakumod:162
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %options = name => 'box';
+if %options<name>:exists { say 'named' }
+elsif %options<build-id>:exists { }
+say 'done';
+--- expect
+named
+done
+
+=== hk-08-sqlite-version-ternary
+from: DBIish 0.6.9 lib/DBDish/SQLCipher.rakumod:58
+license: BSD-2-Clause
+feature: infix ?? !!
+--- code
+my $library-resolved = True;
+my $version = $library-resolved ?? Version.new('3.42.0') !! Nil;
+say $version.Str;
+--- expect
+3.42.0
+
+=== hk-08-set-char-width-rule
+from: PDF::Grammar 0.3.6 lib/PDF/Grammar/Content.rakumod:69
+license: Artistic-2.0
+feature: quantifier <number>**6
+--- code
+my grammar Content {
+    token TOP { <op> }
+    proto token op {*}
+    token number { \d }
+    token op:sym<SetCharWidthBBox> { <number>**6 (d1) }
+}
+say so Content.parse('123456d1');
+say so Content.parse('12345d1');
+--- expect
+True
+False
+
+=== hk-08-watch-command-method
+from: Bailador 0.0.19 lib/Bailador/Command/watch.pm:14
+license: MIT
+feature: method call
+--- code
+my class Config {
+    method watch-command { 'watch --interval 2' }
+}
+my $config = Config.new;
+my $watch-command = $config.watch-command;
+say $watch-command;
+--- expect
+watch --interval 2
+
+=== hk-08-nonzero-exit-throw
+from: App::RaCoCo 2.0.1 lib/App/Racoco/CoveredLinesCollector.rakumod:39
+license: Artistic-2.0
+feature: method throw
+--- code
+my class X::NonZeroExitCode is Exception {
+    has $.exitcode;
+    method message { "exit code $!exitcode" }
+}
+say 'running';
+X::NonZeroExitCode.new(exitcode => 3).throw;
+--- expect
+running
+!! X::NonZeroExitCode
+
+=== hk-08-milli-constant
+from: TimeUnit 1.3.1 lib/TimeUnit.rakumod:5
+license: Artistic-2.0
+feature: my constant
+--- code
+my constant micro = 1000;
+my constant milli = micro * 1000;
+say milli;
+--- expect
+1000000
+
+=== hk-08-normalize-tools-hash
+from: WWW::Ollama 0.0.7 lib/WWW/Ollama/RequestNormalizer.rakumod:87
+license: Artistic-2.0
+feature: hash element assign
+--- code
+my class Normalizer {
+    method normalize-tools(@tools) { @tools.map(*.uc).List }
+    method normalize(%payload) {
+        %payload<tools> = self.normalize-tools(%payload<tools>);
+        %payload
+    }
+}
+my %payload = tools => <search fetch>;
+my %out = Normalizer.new.normalize(%payload);
+say %out<tools>;
+--- expect
+(SEARCH FETCH)
+
+=== hk-08-subst-underscore-global
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Lexer.rakumod:161
+license: Artistic-2.0
+feature: method subst
+--- code
+'token_value_here' ~~ /\w+/;
+my $s = (~$/).subst('_', '', :g);
+say $s;
+--- expect
+tokenvaluehere
+
+=== hk-08-method-not-found-throw
+from: JSON::RPC 1.0.6 lib/JSON/RPC/Server.rakumod:221
+license: Artistic-2.0
+feature: statement modifier unless
+--- code
+my class X::MethodNotFound is Exception {
+    method message { 'method not found' }
+}
+my $method = '';
+say 'before';
+X::MethodNotFound.new.throw( ) unless $method;
+say 'after';
+--- expect
+before
+!! X::MethodNotFound
+
+=== hk-08-xml-name-match
+from: XML::Actions 0.5.2 lib/XML/Actions/Stream.rakumod:252
+license: Artistic-2.0
+feature: my Str
+--- code
+my $m = 'xml-name=1' ~~ /$<xml-name>=(\w+ '-' \w+)/;
+my Str $name = ~$m<xml-name>;
+say $name;
+--- expect
+xml-name
+
+=== hk-08-prefix-increment-attr
+from: TAP 0.3.15 lib/TAP.rakumod:715
+license: Artistic-2.0
+feature: prefix ++
+--- code
+my class Runner {
+    has $!tests-run = 0;
+    method next-number { my $expected-number = ++$!tests-run; $expected-number }
+}
+my $r = Runner.new;
+say $r.next-number;
+say $r.next-number;
+--- expect
+1
+2
+
+=== hk-08-does-parametric-role
+from: Inline::Perl5 0.62 lib/Inline/Perl5/ClassHOW/ThreadSafe.pm6:25
+license: Artistic-2.0
+feature: infix does
+--- code
+my role Interpreter[$name] { method interp-name { $name } }
+my class Holder { has $.orig-p5 = 'p5'; }
+my $thread = Holder.new;
+$thread does Interpreter[$thread.orig-p5];
+say $thread.interp-name;
+--- expect
+p5
+
+=== hk-08-when-pair-return
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Model.rakumod:863
+license: Artistic-2.0
+feature: when Pair return
+--- code
+sub label($v) {
+    given $v {
+        when Pair { return ~$v.key }
+        default { return ~$v }
+    }
+}
+say label('a' => 1);
+say label(42);
+--- expect
+a
+42
+
+=== hk-08-record-error-named
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Validations/Validators.rakumod:440
+license: Artistic-2.0
+feature: named arguments
+--- code
+my class Validator {
+    method record-error(:$obj, :$field, :$message, :$strict, :$type, :$options) {
+        "$field $type {$options.key}={$options.value} $message"
+    }
+    method check($op, $label) {
+        my %type-for = '>' => 'greater', '<' => 'less';
+        self.record-error(:obj(1), :field('age'), :message('bad'), :strict(True), :type(%type-for{$op}), :options(:count($label)));
+    }
+}
+say Validator.new.check('>', 5);
+--- expect
+age greater count=5 bad
+
+=== hk-08-plan-hash-sum
+from: Red 0.2.5 lib/Red/Driver/Mock.rakumod:127
+license: Artistic-2.0
+feature: infix + on hashes
+--- code
+my sub plan($n) { say "1..$n" }
+my %when-str = a => 1, b => 2;
+my %when-re = c => 3;
+plan %when-str + %when-re;
+--- expect
+1..3
+
+=== hk-08-or-groups-join
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Relation/Query/Aggregations.rakumod:56
+license: Artistic-2.0
+feature: method my array
+--- code
+my class Relation {
+    method or-groups-payload { ['a=1', 'b=2'] }
+    method groups {
+        my @or-groups = self.or-groups-payload;
+        @or-groups.join(' OR ')
+    }
+}
+say Relation.new.groups;
+--- expect
+a=1 OR b=2
+
+=== hk-08-buffer-index-postfix
+from: Image::PNG::Portable 0.3.2 lib/Image/PNG/Portable.rakumod:65
+license: Artistic-2.0
+feature: postfix ++ in subscript
+--- code
+my $buffer = [10, 20, 30];
+my $index = 0;
+my $b = $buffer[$index++];
+say $b;
+say $index;
+--- expect
+10
+1
+
+=== hk-08-css-subst-global-var
+from: Air 0.1.32 lib/Air/Base.rakumod:969
+license: Artistic-2.0
+feature: s:g substitution
+--- code
+my $bold-color = 'red';
+my $css = 'a { color: %BOLD_COLOR%; } b { color: %BOLD_COLOR%; }';
+$css ~~ s:g/'%BOLD_COLOR%'/$bold-color/;
+say $css;
+--- expect
+a { color: red; } b { color: red; }
+
+=== hk-08-xpath-step-new
+from: XML::XPath 0.9.3 lib/XML/XPath/Actions.pm6:250
+license: Artistic-2.0
+feature: named argument :$axis
+--- code
+my class Step {
+    has $.axis;
+}
+my $axis = 'child';
+my $step = Step.new(:$axis);
+say $step.axis;
+--- expect
+child
+
+=== hk-08-alt-malformed-die
+from: Cro::WebApp 0.10.1 lib/Cro/WebApp/Template/Parser.rakumod:79
+license: Artistic-2.0
+feature: infix || in regex
+--- code
+my grammar Tag {
+    token TOP { 'x' [ 'y' || <.malformed: 'variable tag'> ] }
+    method malformed($what) { die "malformed $what" }
+}
+say so Tag.parse('xy');
+--- expect
+True
+
+=== hk-08-uint16-binding-enum
+from: MoarVM::Bytecode 0.0.27 lib/MoarVM/Bytecode.rakumod:460
+license: Artistic-2.0
+feature: infix :=
+--- code
+enum Endian <LE BE>;
+my class Bytecode {
+    method read-uint16($offset, $endian) { $offset * 256 + $endian.value }
+}
+my $bc = Bytecode.new;
+my $offset = 10;
+my $num-names := $bc.read-uint16($offset + 50, LE);
+say $num-names;
+--- expect
+15360
+
+=== hk-08-fuzzy-token-sym
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/English/CommonSpeechParts.rakumod:285
+license: Artistic-2.0
+feature: token :i with <?{ }>
+--- code
+my sub is-fuzzy-match($word, $target, $max) { abs($word.chars - $target.chars) <= $max }
+my grammar Speech {
+    token TOP { <difference> }
+    proto token difference {*}
+    token difference:sym<English> { :i 'difference' | ([\w]+) <?{ is-fuzzy-match($0.Str, 'difference', 2) }> }
+}
+say so Speech.parse('difference');
+say so Speech.parse('xy');
+--- expect
+True
+False
+
+=== hk-08-change-cell-method
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/ScrollBar.rakumod:352
+license: Artistic-2.0
+feature: method call with infix -
+--- code
+my class Grid {
+    has @.cells;
+    method change-cell($x, $y, $v) { @!cells[$y][$x] = $v }
+}
+my $g = Grid.new(cells => [[0, 0], [0, 0]]);
+my $x = 1;
+my $y1 = 2;
+my $g-up = 'U';
+$g.change-cell($x, $y1 - 1, $g-up);
+say $g.cells.raku;
+--- expect
+[[0, 0], [0, "U"]]
+
+=== hk-08-if-modifier-any-arg
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/TreeModel.rakumod:1105
+license: Artistic-2.0
+feature: statement modifier if
+--- code
+my class Model {
+    method iter-n-children($iter) { $iter.defined ?? 0 !! 2 }
+    method show { say 'has children' if self.iter-n-children(Any) }
+}
+Model.new.show;
+--- expect
+has children
+
+=== hk-08-session-dirty-return
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Session.rakumod:93
+license: Artistic-2.0
+feature: return unless
+--- code
+my class Session { has Bool $.dirty = False; }
+sub flush($session) {
+    return unless $session.dirty;
+    'flushed'
+}
+say flush(Session.new) // 'clean';
+say flush(Session.new(dirty => True));
+--- expect
+clean
+flushed
+
+=== hk-08-quit-cause-concat
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Matcher/Async.rakumod:372
+license: Artistic-2.0
+feature: infix ~ with interpolated .^name
+--- code
+my class Cause is Exception {
+    method message { 'timed out' }
+}
+my $quit-cause = Cause.new;
+my $s = 'quit' ~ " ({$quit-cause.^name}: {$quit-cause.message})";
+say $s;
+--- expect
+quit (Cause: timed out)
+
+=== hk-08-bio-buf-bytes
+from: OpenSSL 0.2.9 lib/OpenSSL.rakumod:152
+license: MIT
+feature: method bytes
+--- code
+my $read;
+my $bio-read-buf = Buf.new(1, 2, 3);
+$read = $bio-read-buf.bytes;
+say $read;
+--- expect
+3
+
+=== hk-08-pair-value-key-topic
+from: Red 0.2.5 lib/Red/Driver/Pg.rakumod:161
+license: Artistic-2.0
+feature: method key on topic
+--- code
+my @items = 'a' => ('k' => 1), 'b' => ('j' => 2);
+for @items {
+    my $json-item = .value.key;
+    say $json-item;
+}
+--- expect
+k
+j
+
+=== hk-08-callable-call-named
+from: Terminal::Table 0.1.1 lib/Terminal/Table/Generator.rakumod:535
+license: MIT
+feature: callable .() with named args
+--- code
+my class Gen {
+    method hide($width, :$v, :$replace-with-space) { "$width $v $replace-with-space" }
+    method run($wc, $max, $v, $replace-with-space) {
+        self.hide($wc.($max * 2 + 1), :$v, :$replace-with-space)
+    }
+}
+say Gen.new.run(-> $n { $n * 10 }, 3, 'x', True);
+--- expect
+70 x True
+
+=== hk-08-json-pointer-subst
+from: JSON::Pointer 1.0 lib/JSON/Pointer.pm6:36
+license: Artistic-2.0
+feature: method subst
+--- code
+my $token = 'a~1b~1c';
+my $res = $token.subst('~1', '/', :g);
+say $res;
+--- expect
+a/b/c
+
+=== hk-08-return-type-literal
+from: DateTime::TimeZone 0.10.2 lib/DateTime/TimeZone/Zone/Asia/Jerusalem.rakumod:24
+license: Artistic-2.0
+feature: method return type literal
+--- code
+my class Zone {
+    method name(--> 'Asia/Tel_Aviv') { 'Asia/Tel_Aviv' }
+}
+say Zone.new.name;
+--- expect
+Asia/Tel_Aviv
+
+=== hk-08-action-match-relation
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Bulgarian/Predicate.rakumod:45
+license: Artistic-2.0
+feature: method make
+--- code
+my grammar Relation {
+    token TOP { <match-relation> }
+    token match-relation { 'match' }
+}
+my class RelationActions {
+    method match-relation($/) { make 'matches' }
+    method TOP($/) { make $<match-relation>.made }
+}
+say Relation.parse('match', actions => RelationActions.new).made;
+--- expect
+matches
+
+=== hk-08-rw-attr-config-false
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Configuration.rakumod:257
+license: Artistic-2.0
+feature: trait is rw
+--- code
+my class Config { has Bool $.aggregate-failures is rw = True; }
+my $c = Config.new;
+$c.aggregate-failures = False;
+say $c.aggregate-failures;
+--- expect
+False
+
+=== hk-08-capture-named-args-node
+from: PDF::Tags 0.2.8 lib/PDF/Tags/Node.rakumod:49
+license: Artistic-2.0
+feature: named arguments |c capture
+--- code
+my class Node {
+    has $.cos;
+    has $.Pg;
+    has $.Stm;
+    has $.kind;
+}
+sub node-class($ref) { Node }
+my $cos = 'cos1';
+my $Pg = 'pg';
+my $Stm = 'stm';
+my $ref = 1;
+my \c = \(kind => 'tag');
+my $n = node-class($ref).new(:$cos, :$Pg, :$Stm, |c);
+say $n.kind;
+--- expect
+tag
+
+=== hk-08-action-summarize-command
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/SQL/Standard.rakumod:207
+license: Artistic-2.0
+feature: method make values[0]
+--- code
+my grammar Summary {
+    token TOP { <summarize-command> }
+    token summarize-command { <word> }
+    token word { \w+ }
+}
+my class SummaryActions {
+    method word($/) { make $/.Str.uc }
+    method summarize-command($/) { make $/.values[0].made }
+    method TOP($/) { make $<summarize-command>.made }
+}
+say Summary.parse('count', actions => SummaryActions.new).made;
+--- expect
+COUNT
+
+=== hk-08-min-infix-uint
+from: Selkie 0.16.0 lib/Selkie/Widget/RadioGroup.rakumod:192
+license: Artistic-2.0
+feature: infix min
+--- code
+my class RadioGroup {
+    has @!items = <a b c>;
+    method visible($vh) {
+        my UInt $visible = $vh min @!items.elems;
+        $visible
+    }
+}
+say RadioGroup.new.visible(10);
+say RadioGroup.new.visible(2);
+--- expect
+3
+2
+
+=== hk-08-lang-tokens-substr-rw
+from: Rainbow 0.4.4 lib/Rainbow/RakuGrammarActions.rakumod:434
+license: Artistic-2.0
+feature: method substr colon-call
+--- code
+my class Token { has $.text is rw; }
+my @lang-tokens = Token.new(text => 'hello world');
+my $split-pos = 5;
+@lang-tokens[0].text = @lang-tokens[0].text.substr: $split-pos;
+say @lang-tokens[0].text;
+--- expect
+ world
+
+=== hk-08-encode-if-str
+from: FastCGI 0.9.0 lib/FastCGI/Connection.rakumod:107
+license: Artistic-2.0
+feature: .= method on a Str
+--- code
+my $http_message = 'HTTP/1.1 200 OK';
+$http_message .= encode if $http_message ~~ Str;
+say $http_message.bytes;
+--- expect
+15
+
+=== hk-08-proto-action-msg-type
+from: LogP6 1.6.4 lib/LogP6/WriterConf/Pattern.rakumod:368
+license: Artistic-2.0
+feature: method make type object
+--- code
+my class XMsg { }
+my grammar Param {
+    token TOP { <x-param> }
+    proto token x-param {*}
+    token x-param:sym<msg> { 'msg' }
+}
+my class ParamActions {
+    method x-param:sym<msg>($/) { make XMsg }
+    method TOP($/) { make $<x-param>.made }
+}
+say Param.parse('msg', actions => ParamActions.new).made.^name;
+--- expect
+XMsg
+
+=== hk-08-haml-dq-content
+from: Template::HAML 0.9.6 lib/Template/HAML/Grammar.rakumod:45
+license: Artistic-2.0
+feature: char class <-[ ]> with escapes
+--- code
+my grammar DQ {
+    token TOP { '"' <dq-content> '"' }
+    token dq-content { [ \\ . | <-[\\ "]> ]* }
+}
+say DQ.parse('"ab\\"c"').Str;
+--- expect
+"ab\"c"
+
+=== hk-08-odd-ternary-sub
+from: Text::Utils 4.0.2 lib/Text/Utils/Subs.rakumod:72
+license: Artistic-2.0
+feature: infix % and ??
+--- code
+sub is-odd($num) { $num % 2 == 1 ?? True !! False }
+say is-odd(7);
+say is-odd(8);
+--- expect
+True
+False
+
+=== hk-08-before-middleware-dyn
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Router.rakumod:1264
+license: Artistic-2.0
+feature: dynamic variable $*
+--- code
+my class BeforeMiddleTransform {
+    has &.block;
+    has $.route-set;
+}
+my &middleware = -> $req { 'ok' };
+my $*CRO-ROUTE-SET = 'main';
+my $conditional = BeforeMiddleTransform.new(block => &middleware, route-set => $*CRO-ROUTE-SET);
+say $conditional.route-set;
+say $conditional.block.(1);
+--- expect
+main
+ok
+
+=== hk-08-warnings-push-topic
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Render.rakumod:203
+license: Artistic-2.0
+feature: method push with topic
+--- code
+my class Node { has @.warnings; }
+my class Renderer {
+    has $!current = Node.new;
+    method check(@items) {
+        for @items { $!current.warnings.push( 'In ToC: ' ~ $_ ) }
+        $!current.warnings
+    }
+}
+say Renderer.new.check(<a b>);
+--- expect
+[In ToC: a In ToC: b]
+
+=== hk-08-echo-text-action
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/WL/PipelineCommand.rakumod:63
+license: Artistic-2.0
+feature: method make Str
+--- code
+my grammar Echo {
+    token TOP { <echo-text> }
+    token echo-text { \w+ }
+}
+my class EchoActions {
+    method echo-text($/) { make $/.Str }
+    method TOP($/) { make $<echo-text>.made }
+}
+say Echo.parse('hello', actions => EchoActions.new).made;
+--- expect
+hello
+
+=== hk-08-gather-take-subbuf
+from: Digest 1.1.0 lib/Digest/SHA3.rakumod:127
+license: Artistic-2.0
+feature: take in gather
+--- code
+my $state = Buf.new: 1, 2, 3, 4, 5, 6, 7, 8;
+my $rateInBytes = 4;
+my @out = gather { take $state.subbuf: 0, $rateInBytes; };
+say @out.elems;
+say @out[0].list;
+--- expect
+1
+(1 2 3 4)
+
+=== hk-08-edit-distance-args
+from: Math::DistanceFunctions::Edit 0.1.3 lib/Math/DistanceFunctions/Edit.rakumod:28
+license: Artistic-2.0
+feature: method chars as arguments
+--- code
+sub EditDistanceArray($a, $n, $b, $m) { "$a$n|$b$m" }
+sub edit-distance($s1, $s2) {
+    my $carray1 = 'x';
+    my $carray2 = 'y';
+    return EditDistanceArray($carray1, $s1.chars, $carray2, $s2.chars);
+}
+say edit-distance('kitten', 'sit');
+--- expect
+x6|y3
+
+=== hk-08-typed-expr-colon-call
+from: LibXML 0.11.3 lib/LibXML/XPath/Context.rakumod:408
+license: Artistic-2.0
+feature: typed my with :D and colon call
+--- code
+my class Expression { has $.expr; }
+my class Context {
+    method create($type, :$expr) { $type.new(:$expr) }
+    method run(@exprs) {
+        for @exprs {
+            my Expression:D $expr = self.create: Expression, :expr($_);
+            say $expr.expr;
+        }
+    }
+}
+Context.new.run(<a b>);
+--- expect
+a
+b
+
+=== hk-08-item-hash-border
+from: Selkie 0.16.0 lib/Selkie/Widget/ViewportedCardList.rakumod:664
+license: Artistic-2.0
+feature: hash element <>
+--- code
+my %item = border => 'solid', width => 2;
+my $border = %item<border>;
+say $border;
+--- expect
+solid
+
+=== hk-08-animated-time-diff
+from: Terminal::Print 0.978 lib/Terminal/Print/Animated.pm6:28
+license: Artistic-2.0
+feature: named argument with infix -
+--- code
+my class Clock { has $.tick; method elapsed(:$tick) { $tick } }
+my $cur = Clock.new(tick => 10);
+my $start = Clock.new(tick => 4);
+say $cur.elapsed(:tick($cur.tick - $start.tick));
+--- expect
+6
+
+=== hk-08-playwright-block-adverb
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/CLI.rakumod:1018
+license: Artistic-2.0
+feature: adverb :artifacts<tmp>
+--- code
+my class Server { method base-url { 'http://x' } }
+my $server = Server.new;
+my sub playwright-page(:$artifacts, :&base-url) { "$artifacts " ~ base-url() }
+say playwright-page(:artifacts<tmp>, base-url => { $server.base-url });
+--- expect
+tmp http://x
+
+=== hk-08-registry-exists-moniker
+from: MUGS::Core 0.1.4 lib/MUGS/Util/ImplementationRegistry.rakumod:17
+license: Artistic-2.0
+feature: adverb :exists
+--- code
+my %implementation = 'json' => 'JSON::Fast';
+my $moniker = 'json';
+say %implementation{$moniker}:exists;
+--- expect
+True
+
+=== hk-08-unexpected-pair-action
+from: PDF::Grammar 0.3.6 lib/PDF/Grammar/Function/Actions.rakumod:16
+license: Artistic-2.0
+feature: method make pair
+--- code
+my grammar Fn {
+    token TOP { <statement> }
+    proto token statement {*}
+    token statement:sym<unexpected> { $<unexpected>=<word> }
+    token word { \w+ }
+}
+my class FnActions {
+    method word($/) { make $/.Str.uc }
+    method statement:sym<unexpected>($/) { make ('??' => $<unexpected>.ast) }
+    method TOP($/) { make $<statement>.made }
+}
+say Fn.parse('foo', actions => FnActions.new).made;
+--- expect
+?? => FOO
+
+=== hk-08-range-token-named
+from: Roaring::Tags 0.2.3 lib/Roaring/Tags/Query.rakumod:234
+license: Artistic-2.0
+feature: named captures in token
+--- code
+my grammar Q {
+    token TOP { <range> }
+    token range { $<min>=[\d+] '..' $<max>=[\d+] }
+}
+my $m = Q.parse('3..9');
+say "{$m<range><min>} to {$m<range><max>}";
+--- expect
+3 to 9
+
+=== hk-08-diffs-push-named-pair
+from: Test::Async 0.1.17 lib/Test/Async/Base.rakumod:541
+license: Artistic-2.0
+feature: push of list with named pair
+--- code
+my @diffs;
+my %v1 = a => 1;
+my $key = 'a';
+my $exp-sfx = 'x';
+@diffs.push: (%v1{$key}, 'no key', :$exp-sfx);
+say @diffs[0];
+--- expect
+(1 no key exp-sfx => x)
+
+=== hk-08-cookie-invalid-die
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Client.rakumod:1054
+license: Artistic-2.0
+feature: die with exception object
+--- code
+my class X::InvalidCookie is Exception {
+    has $.bad;
+    method message { "bad cookie: $.bad" }
+}
+for 'sid=1', 'junk' {
+    die X::InvalidCookie.new(bad => $_) unless /'='/;
+    say "ok $_";
+}
+--- expect
+ok sid=1
+!! X::InvalidCookie
+
+=== hk-08-tail-command-action
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Python/ListManagementCommand-pandas.rakumod:38
+license: Artistic-2.0
+feature: infix ~ in make
+--- code
+my grammar Tail {
+    token TOP { <tail-command> }
+    token tail-command { <n> }
+    token n { \d+ }
+}
+my class TailActions {
+    method n($/) { make $/.Str }
+    method tail-command($/) { make 'obj = obj.tail(' ~ $/.values[0].made ~ ')' }
+    method TOP($/) { make $<tail-command>.made }
+}
+say Tail.parse('5', actions => TailActions.new).made;
+--- expect
+obj = obj.tail(5)
+
+=== hk-08-dashed-line-regex
+from: Terminal::Width 1.001002 lib/Terminal/Width.pm6:12
+license: Artistic-2.0
+feature: regex \s*\n
+--- code
+my $text = "----------------------   \nrest";
+say so $text ~~ / '----------------------' \s*\n /;
+--- expect
+True
+
+=== hk-08-asset-path-starts
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Helpers/Asset.rakumod:8
+license: Artistic-2.0
+feature: statement modifier if with ||
+--- code
+sub asset-path($source) {
+    return $source if $source.starts-with('/') || $source.contains('://');
+    '/assets/' ~ $source
+}
+say asset-path('/logo.png');
+say asset-path('app.css');
+--- expect
+/logo.png
+/assets/app.css
+
+=== hk-08-strencode-fallback
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/DateTimeFormat.rakumod:41
+license: Artistic-2.0
+feature: infix ~=
+--- code
+my sub fallback($x) { "fb:$x" }
+my class StrEncode { our sub get($v) { "<$v>" } }
+my $result = 'x';
+$result ~= StrEncode::get( fallback 'pattern');
+say $result;
+--- expect
+x<fb:pattern>
+
+=== hk-08-diff-bitand-topic
+from: Algorithm::Diff 0.0.5 lib/Algorithm/Diff.rakumod:549
+license: Artistic-2.0
+feature: infix +& and !=
+--- code
+my class Pos { has $.same; has $.pos; }
+for Pos.new(same => 1, pos => 1), Pos.new(same => 3, pos => 2) {
+    say $_.same != ( 1 +& $_.pos );
+}
+--- expect
+False
+True
+
+=== hk-08-enc-height-numeric
+from: PDF::Font::Loader 0.8.15 lib/PDF/Font/Loader/Enc.rakumod:338
+license: Artistic-2.0
+feature: my Numeric with ?? !!
+--- code
+my class Face { has $.ascender = 7; }
+my class Box { has $.y-max = 9; }
+sub height($hanging, $face, $bbox) {
+    my Numeric $height = $hanging ?? $face.ascender !! $bbox.y-max;
+    $height
+}
+say height(True, Face.new, Box.new);
+say height(False, Face.new, Box.new);
+--- expect
+7
+9
+
+=== hk-08-dump-bad-value-die
+from: Config::TOML 0.1.3 lib/Config/TOML/Dumper.rakumod:283
+license: Unlicense
+feature: die with named exception
+--- code
+my class X::BadValue is Exception {
+    has $.value;
+    method message { "bad value: {$!value.raku}" }
+}
+sub dump-value($value) {
+    die(X::BadValue.new(:$value)) unless $value ~~ Str|Int;
+    $value
+}
+say dump-value(5);
+say dump-value(1.5);
+--- expect
+5
+!! X::BadValue
+
+=== hk-08-theme-label-style
+from: Selkie 0.16.0 lib/Selkie/Widget/BarChart.rakumod:413
+license: Artistic-2.0
+feature: method chain on attribute
+--- code
+my class Theme { method graph-axis-label { 'bold' } }
+my class BarChart {
+    has $.theme = Theme.new;
+    method label-style {
+        my $label-style = self.theme.graph-axis-label;
+        $label-style
+    }
+}
+say BarChart.new.label-style;
+--- expect
+bold
+
+=== hk-08-want-dump-structure
+from: Test::Differences 1.0.3 lib/Test/Differences.pm6:15
+license: Artistic-2.0
+feature: smartmatch !~~ with statement modifier
+--- code
+my sub dump($s, $o) { "dump({$s.raku}, {$o.raku})" }
+my $want-structure = [1, 2];
+my $dump-overrides = 'x';
+my $want-dump;
+$want-dump = dump($want-structure, $dump-overrides) if $want-structure !~~ Str;
+say $want-dump;
+--- expect
+dump($[1, 2], "x")
+
+=== hk-08-proxy-fetch-store
+from: LibXML 0.11.3 lib/LibXML/Node.rakumod:181
+license: Artistic-2.0
+feature: Proxy with :&FETCH :&STORE
+--- code
+my $value = 1;
+my &FETCH = -> $c { $value };
+my &STORE = -> $c, $v { $value = $v * 10 };
+my $p := Proxy.new: :&FETCH, :&STORE;
+$p = 4;
+say $p;
+--- expect
+40
+
+=== hk-08-nnz-check-smartmatch
+from: Math::SparseMatrix::Native 0.0.9 lib/Math/SparseMatrix/Native.rakumod:104
+license: Artistic-2.0
+feature: infix ≥ with ~~ Int:D
+--- code
+sub check-nnz($nnz) {
+    return 'bad' unless $nnz ~~ Int:D && $nnz ≥ 0;
+    'ok'
+}
+say check-nnz(3);
+say check-nnz(-1);
+--- expect
+ok
+bad
+
+=== hk-08-sgid-verifier
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/ActionText.rakumod:53
+license: Artistic-2.0
+feature: named argument purpose =>
+--- code
+my class Verifier { method generate($id, :$purpose) { "$purpose-$id" } }
+my $storage-verifier = Verifier.new;
+my class Upload { has $.id = 7; }
+my $blob = Upload.new;
+my $sgid = $storage-verifier.generate($blob.id, purpose => 'blob');
+say $sgid;
+--- expect
+blob-7
+
+=== hk-08-find-method-meta
+from: Net::Ethereum 0.0.185 lib/Net/Ethereum.rakumod:115
+license: Artistic-2.0
+feature: meta method ^find_method
+--- code
+my class UA { method store_connection { 1 } }
+my $ua = UA.new;
+my $ok = $ua.^find_method('store_connection').defined && True;
+say $ok;
+--- expect
+True
+
+=== hk-08-api-matcher-meta
+from: zef 1.1.4 lib/Zef.rakumod:163
+license: Artistic-2.0
+feature: || do block with ^name
+--- code
+my class Identity { has $.api; }
+my class Zef { }
+my $identity = Identity.new(api => Nil);
+my $plugin-is-core = True;
+my $api-matcher = $identity.api || do { $plugin-is-core ?? Zef.^name !! True };
+say $api-matcher;
+--- expect
+Zef
+
+=== hk-08-write-comment-method
+from: PDF 0.6.15 lib/PDF/IO/Writer.rakumod:103
+license: Artistic-2.0
+feature: $. method call
+--- code
+my class Writer {
+    method write-comment($c) { "% $c" }
+    method emit { my $comment = 'hi'; $.write-comment($comment) }
+}
+say Writer.new.emit;
+--- expect
+% hi
+
+=== hk-08-ind-obj-bless-slurpy
+from: PDF 0.6.15 lib/PDF/IO/Reader.rakumod:526
+license: Artistic-2.0
+feature: typed .= new with |%slurpy
+--- code
+my class IndObj { has $.id; has $.gen; has $.input; has $.reader; }
+my class Reader {
+    method read-ind(%ast, $xref) {
+        my IndObj $ind-obj .= new( |%ast, :input($xref), :reader(self) );
+        $ind-obj
+    }
+}
+my $obj = Reader.new.read-ind(%(id => 3, gen => 0), 'xref');
+say "{$obj.id} {$obj.gen} {$obj.input}";
+--- expect
+3 0 xref
+
+=== hk-08-die-named-exception-message
+from: Gnome::Gtk3 0.49.1 lib/Gnome/Gtk3/IconView.rakumod:187
+license: Artistic-2.0
+feature: die with exception object
+--- code
+my class X::Gnome is Exception {
+    has $.message;
+}
+my class IconView {
+    method check { die X::Gnome.new(:message('No options specified ' ~ self.^name)) }
+}
+say 'start';
+IconView.new.check;
+--- expect
+start
+!! X::Gnome
+
+=== hk-08-current-color-method
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Input/Text.rakumod:131
+license: Artistic-2.0
+feature: method call with my
+--- code
+my class Text {
+    method current-color($states) { $states.Str.uc }
+    method render($states) {
+        my $color = self.current-color($states);
+        $color
+    }
+}
+say Text.new.render('focus');
+--- expect
+FOCUS
+
+=== hk-08-yaml-newline-append
+from: YAMLish 0.1.3 lib/YAMLish.rakumod:629
+license: Artistic-2.0
+feature: infix ~= with if
+--- code
+my $value = 'text';
+my $indented = True;
+$value ~= "\n" if $indented;
+say $value.chars;
+--- expect
+5
+
+=== hk-08-trie-words-sep
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies.rakumod:453
+license: Artistic-2.0
+feature: return with named argument
+--- code
+my class Trie {
+    method words($sw, :$sep) { $sw.join($sep) }
+}
+sub collect($tr, $sw, $sep) {
+    return $tr.words($sw, :$sep);
+}
+say collect(Trie.new, <a b c>, '-');
+--- expect
+a-b-c
+
+=== hk-08-console-header-method
+from: Sparrow6 0.0.96 lib/Sparrow6/Task/Runner/Helpers/Common.rakumod:198
+license: Artistic-2.0
+feature: method call with string argument
+--- code
+my class Helper {
+    method console-header($text) { "== $text ==" }
+    method show { self.console-header("task stderr") }
+}
+say Helper.new.show;
+--- expect
+== task stderr ==
+
+=== hk-08-field-value-method
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Helpers/Form.rakumod:302
+license: Artistic-2.0
+feature: method call with my
+--- code
+my class Form {
+    method field-value($attribute) { $attribute.uc }
+    method render($attribute) {
+        my $value = self.field-value($attribute);
+        "value=$value"
+    }
+}
+say Form.new.render('name');
+--- expect
+value=NAME
+
+=== hk-08-tag-return-str
+from: DOM::Tiny 0.5.2 lib/DOM/Tiny.pm6:932
+license: Artistic-2.0
+feature: return unless with ~~
+--- code
+my class Tag { }
+my class Doc {
+    has $.tree;
+    method text {
+        return Str unless $!tree ~~ Tag;
+        'tag'
+    }
+}
+say Doc.new(tree => 'x').text.raku;
+--- expect
+Str
+
+=== hk-08-rindex-filename
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Storage.rakumod:48
+license: Artistic-2.0
+feature: method rindex with //
+--- code
+my class Storage {
+    has $.filename;
+    method dot { my $dot = ($!filename // '').rindex('.'); $dot }
+}
+say Storage.new(filename => 'photo.tar.gz').dot;
+--- expect
+9
+
+=== hk-08-whichobj-valueobjat
+from: Intl::LanguageTag 0.12.7 lib/Intl/LanguageTag/BCP47.rakumod:336
+license: Artistic-2.0
+feature: method WHICH override
+--- code
+my class Tag {
+    has $.str;
+    method Str { $!str }
+    method WHICH { ValueObjAt.new: "Tag|{self.Str}" }
+}
+my $t = Tag.new(str => 'en-US');
+say $t.WHICH;
+--- expect
+Tag|en-US
+
+=== hk-08-log-named-pairs
+from: Pakku celastrina.6 lib/Pakku/Command/Add.rakumod:308
+license: Artistic-2.0
+feature: named pairs with ~$spec
+--- code
+my sub log(*@args, *%opts) { say "{@args.join} {%opts<header>} {%opts<msg>} {%opts<comment>}" }
+my $spec = 'pkg';
+log '*', header => 'ADD', msg => ~$spec, comment => 'already added!';
+--- expect
+* ADD pkg already added!
+
+=== hk-08-message-interpolate-attr
+from: Config::TOML 0.1.3 lib/X/Config/TOML.rakumod:103
+license: Unlicense
+feature: attribute interpolation in string
+--- code
+my class X::Dup is Exception {
+    has $.aoh-header-text;
+    method message { "Sorry, arraytable 「$.aoh-header-text」 has been declared previously" }
+}
+say X::Dup.new(aoh-header-text => 'users').message;
+--- expect
+Sorry, arraytable 「users」 has been declared previously
+
+=== hk-08-trace-handle-return
+from: Selkie 0.16.0 lib/Selkie/Trace.rakumod:364
+license: Artistic-2.0
+feature: return unless with .defined
+--- code
+sub trace($trace-handle) {
+    return unless $trace-handle.defined;
+    'traced'
+}
+say trace(Any) // 'none';
+say trace('h');
+--- expect
+none
+traced
+
+=== hk-08-attachment-push
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Mail.rakumod:115
+license: Artistic-2.0
+feature: method push colon-call
+--- code
+my class Attachment { method encoded-content { 'AAA' } }
+my @lines;
+my $attachment = Attachment.new;
+@lines.push: $attachment.encoded-content;
+say @lines;
+--- expect
+[AAA]
+
+=== hk-08-predicate-term-action
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/WL/PredicateSpecification.rakumod:15
+license: Artistic-2.0
+feature: method make values[0]
+--- code
+my grammar Pred {
+    token TOP { <predicate-term> }
+    token predicate-term { <word> }
+    token word { \w+ }
+}
+my class PredActions {
+    method word($/) { make $/.Str.lc }
+    method predicate-term($/) { make $/.values[0].made }
+    method TOP($/) { make $<predicate-term>.made }
+}
+say Pred.parse('IS', actions => PredActions.new).made;
+--- expect
+is
+
+=== hk-08-proto-name-of-8
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/Roles/WordedNumberSpec.rakumod:95
+license: Artistic-2.0
+feature: proto token
+--- code
+my grammar Spec {
+    token TOP { <name_of_8> }
+    proto token name_of_8 {*}
+    token name_of_8:sym<English> { 'eight' }
+}
+say so Spec.parse('eight');
+say so Spec.parse('nine');
+--- expect
+True
+False
+
+=== hk-08-describe-defined-raku
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Diff.rakumod:189
+license: Artistic-2.0
+feature: ?? !! with .raku
+--- code
+sub describe($v) { $v.defined ?? $v.raku !! $v.^name }
+say describe(42);
+say describe(Any);
+--- expect
+42
+Any
+
+=== hk-08-supply-emit-subbuf
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/RawBodyParser.rakumod:30
+license: Artistic-2.0
+feature: emit in supply block
+--- code
+my $blob = Buf.new: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
+my $expected = 4;
+my $s = supply { emit $blob.subbuf(0, $expected) };
+$s.tap({ say $_.list });
+--- expect
+(1 2 3 4)
+
+=== hk-08-candidates-slurpy
+from: zef 1.1.4 lib/Zef/Client.rakumod:1015
+license: Artistic-2.0
+feature: ?$ prefix with @_
+--- code
+my class Client {
+    method build(@c) { @c.map({ $_ ~ '+built' }).List }
+    method candidates($build, *@_) {
+        my @built-candidates = ?$build ?? self.build(@_) !! @_;
+        @built-candidates
+    }
+}
+say Client.new.candidates(True, 'a', 'b');
+say Client.new.candidates(False, 'a', 'b');
+--- expect
+[a+built b+built]
+[a b]
+
+=== hk-08-list-management-r-action
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/English/R/ListManagementCommand.rakumod:21
+license: Artistic-2.0
+feature: infix ~ in make
+--- code
+my grammar Index {
+    token TOP { <index-cmd> }
+    token index-cmd { <n> }
+    token n { \d+ }
+}
+my class IndexActions {
+    method n($/) { make $/.Str }
+    method index-cmd($/) { make 'obj <- obj[' ~ $/.values[0].made ~ ']' }
+    method TOP($/) { make $<index-cmd>.made }
+}
+say Index.parse('2', actions => IndexActions.new).made;
+--- expect
+obj <- obj[2]
+
+=== hk-08-proc-exists-footprint
+from: Sparrow6 0.0.96 lib/Sparrow6/DSL/Assert.rakumod:29
+license: Artistic-2.0
+feature: hash constructor %( )
+--- code
+my sub proc-exists($proc, %opts) { "$proc {%opts<footprint>}" }
+my $proc = 'nginx';
+my $fp = 'abc';
+say proc-exists($proc, %( footprint => $fp ));
+--- expect
+nginx abc
+
+=== hk-08-join-command-action
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Python/pandas.rakumod:270
+license: Artistic-2.0
+feature: method make values[0]
+--- code
+my grammar Join {
+    token TOP { <join-command> }
+    token join-command { <word> }
+    token word { \w+ }
+}
+my class JoinActions {
+    method word($/) { make $/.Str.lc }
+    method join-command($/) { make $/.values[0].made }
+    method TOP($/) { make $<join-command>.made }
+}
+say Join.parse('MERGE', actions => JoinActions.new).made;
+--- expect
+merge
+
+=== hk-08-pane-abort-chain
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Pane.rakumod:190
+license: MIT
+feature: unless with chained <=
+--- code
+my sub abort($msg) { die $msg }
+my class Pane {
+    has $.first-visible = 2;
+    has $.current-line = 5;
+    method last-visible { 9 }
+    method check($str) {
+        abort("failed $str") unless $!first-visible <= $!current-line <= self.last-visible;
+        'ok'
+    }
+}
+say Pane.new.check('x');
+--- expect
+ok
+
+=== hk-08-plot-parts-hash
+from: Text::Plot 0.1.4 lib/Text/Plot.rakumod:153
+license: Artistic-2.0
+feature: hash constructor with colonpairs
+--- code
+sub plot-parts {
+    my @tickTextLine = 'a', 'b';
+    my @xticksMarks = 1, 2, 3;
+    return %(:@tickTextLine, :@xticksMarks)
+}
+my %p = plot-parts();
+say %p<xticksMarks>.elems;
+--- expect
+3
+
+=== hk-08-validation-throw
+from: MUGS::Core 0.1.4 lib/MUGS/Util/StructureValidator.rakumod:44
+license: Artistic-2.0
+feature: throw with named error
+--- code
+my class X::Validation is Exception {
+    has $.error;
+    method message { $!error }
+}
+sub check($v) {
+    X::Validation.new(:error('must be Associative')).throw unless $v ~~ Associative;
+    'ok'
+}
+say check(%( a => 1 ));
+say check(5);
+--- expect
+ok
+!! X::Validation
+
+=== hk-08-cost-return-int
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Parallel/Distribution.rakumod:15
+license: Artistic-2.0
+feature: return type constraint -->
+--- code
+my class Distribution {
+    has @!examples = <a b c>;
+    method cost(--> Int) { @!examples.elems }
+}
+say Distribution.new.cost;
+--- expect
+3
+
+=== hk-08-decimal-token
+from: FatRatStr 0.0.14 lib/FatRatStr.rakumod:8
+license: Artistic-2.0
+feature: token \d+
+--- code
+my grammar Dec {
+    token TOP { <decimal> }
+    token decimal { \d+ }
+}
+my $m = Dec.parse('2024');
+say $m<decimal>.Str;
+--- expect
+2024
+
+=== hk-08-csv-analysed-or
+from: Text::CSV 0.022 lib/Text/CSV.rakumod:316
+license: Artistic-2.0
+feature: infix or with attribute
+--- code
+my class CSV {
+    has $!analysed = False;
+    method analyse { $!analysed = True; 'analysed' }
+    method parse-once { $!analysed or self.analyse; $!analysed }
+}
+my $csv = CSV.new;
+say $csv.parse-once;
+say $csv.parse-once;
+--- expect
+True
+True
+
+=== hk-08-sprintf-capture-print
+from: SCGI 2.6 lib/SCGI/Errors.rakumod:19
+license: Artistic-2.0
+feature: sprintf with |capture
+--- code
+my class Errors {
+    method print($text) { say $text }
+    method report($message, @params) { self.print(sprintf($message, |@params)) }
+}
+Errors.new.report('%s has %d items', ['cart', 3]);
+--- expect
+cart has 3 items
+
+=== hk-08-headers-first-block
+from: HTTP::Tiny 0.2.6 lib/HTTP/Tiny.rakumod:237
+license: Artistic-2.0
+feature: method first with colon-call and m:i
+--- code
+my %headers = 'Host' => 'example.com', 'Accept' => '*/*';
+if %headers.keys.first: { .defined && m:i/ ^ host $ / } {
+    say 'has host';
+}
+--- expect
+has host
+
+=== hk-08-secp-ctx-named
+from: Bitcoin::Core::Secp256k1 0.0.28 lib/Bitcoin/Core/Secp256k1.rakumod:116
+license: Artistic-2.0
+feature: named argument :type()
+--- code
+my class Secp {
+    method ctx(:$type) { "ctx:$type" }
+    method run { my $ctx = self.ctx(:type('sign')); $ctx }
+}
+say Secp.new.run;
+--- expect
+ctx:sign
+
+=== hk-08-supexpr-ternary-any
+from: LaTeX::Grammar 0.0.5 lib/LaTeX/Actions/MathJSON.rakumod:366
+license: Artistic-2.0
+feature: ?? !! on a capture
+--- code
+my grammar Sup {
+    token TOP { <base> [ '^' <supexpr> ]? }
+    token base { \w }
+    token supexpr { \d+ }
+}
+my class SupActions {
+    method supexpr($/) { make $/.Str.Int }
+    method TOP($/) {
+        my $upper = $<supexpr> ?? $<supexpr>.made !! Any;
+        make $upper
+    }
+}
+say Sup.parse('x^2', actions => SupActions.new).made;
+say Sup.parse('x', actions => SupActions.new).made.raku;
+--- expect
+2
+Any
+
+=== hk-08-hex-codes-uint8
+from: PDF::Grammar 0.3.6 lib/PDF/Grammar/Actions.rakumod:40
+license: Artistic-2.0
+feature: my uint8 with .comb.map
+--- code
+my $xdigits = '4142';
+my uint8 @hex-codes = $xdigits.comb.map: -> $a, $b = '0' { :16($a ~ $b) };
+say @hex-codes;
+--- expect
+[65 66]
+
+=== hk-08-debugger-exit-point
+from: Grammar::Debugger 1.0.3 lib/Grammar/Debugger.rakumod:88
+license: Artistic-2.0
+feature: infix == && eq any()
+--- code
+enum Point <EnterRule ExitRule>;
+my %state = 'cond-breakpoints' => %('cat' => 1, 'dog' => 2);
+my $point = ExitRule;
+my $name = 'dog';
+say so $point == ExitRule && $name eq any(%state{'cond-breakpoints'}.keys);
+--- expect
+True
+
+=== hk-08-variants-exists
+from: ORM::Factory 0.9.1 lib/ORM/Factory.rakumod:386
+license: Artistic-2.0
+feature: return if with :exists
+--- code
+my class Factory { has %.variants = small => 1; }
+sub has-variant($cur, $name) {
+    return True if $cur.variants{$name}:exists;
+    False
+}
+say has-variant(Factory.new, 'small');
+say has-variant(Factory.new, 'large');
+--- expect
+True
+False
+
+=== hk-08-port-env-pair
+from: cro 0.8.10 lib/Cro/Tools/LinkTemplate.rakumod:56
+license: Artistic-2.0
+feature: pair with method call value
+--- code
+my class Endpoint { method port-env { 'PORT' } }
+my $endpoint = Endpoint.new;
+my %env = port-env => $endpoint.port-env;
+say %env<port-env>;
+--- expect
+PORT
+
+=== hk-08-name-of-30-action
+from: Lingua::NumericWordForms 0.6.2 lib/Lingua/NumericWordForms/Actions/Armenian/WordedNumberSpec.rakumod:41
+license: Artistic-2.0
+feature: action method with :sym<>
+--- code
+my grammar Words {
+    token TOP { <name_of_30> }
+    proto token name_of_30 {*}
+    token name_of_30:sym<Armenian> { 'thirty' }
+}
+my class WordsActions {
+    method name_of_30:sym<Armenian>($/) { make 30 }
+    method TOP($/) { make $<name_of_30>.made }
+}
+say Words.parse('thirty', actions => WordsActions.new).made;
+--- expect
+30
+
+=== hk-08-query-shift-binding
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/RawTerminalInput.rakumod:491
+license: Artistic-2.0
+feature: binding := with shift
+--- code
+my class Input {
+    has @!active-queries = 'q1', 'q2';
+    method next-query { my $query := @!active-queries.shift; $query }
+}
+say Input.new.next-query;
+--- expect
+q1
+
+=== hk-08-jsonevents-message-defined
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/JsonEvents.rakumod:162
+license: Artistic-2.0
+feature: .? method with //
+--- code
+my class Event { method message { 'boom' } }
+for Event.new, 42 {
+    my $defined = ($_.?message // Str).defined;
+    say $defined;
+}
+--- expect
+True
+False
+
+=== hk-08-class-ranges-action
+from: ECMA262Regex 1.2 lib/ECMA262Regex.rakumod:317
+license: Artistic-2.0
+feature: infix ~= on made value
+--- code
+my grammar Cls {
+    token TOP { '[' <ranges> ']' }
+    token ranges { <[a..z]>+ }
+}
+my class ClsActions {
+    method ranges($/) { make $/.Str.uc }
+    method TOP($/) { my $class = '['; $class ~= $<ranges>.made; make $class ~ ']' }
+}
+say Cls.parse('[abc]', actions => ClsActions.new).made;
+--- expect
+[ABC]
+
+=== hk-08-red-db-formatter-dynamic
+from: Red 0.2.5 lib/Red/Formatter.rakumod:11
+license: Artistic-2.0
+feature: dynamic variable method colon-call
+--- code
+my class DB { method table-name-formatter($d) { $d.lc } }
+my $*RED-DB = DB.new;
+my $data = 'Users';
+my $name = $*RED-DB.table-name-formatter: $data;
+say $name;
+--- expect
+users
+
+=== hk-08-span-spec-named-subrule
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Roles/CommonStructures.rakumod:108
+license: Artistic-2.0
+feature: rule with named subrule capture
+--- code
+my grammar Span {
+    rule TOP { <span-spec> }
+    rule span-spec { <from=.range-spec-from> <to=.range-spec-to> }
+    token range-spec-from { \d+ }
+    token range-spec-to { \d+ }
+}
+my $m = Span.parse('3 9');
+say "{$m<span-spec><from>} {$m<span-spec><to>}";
+--- expect
+3 9
+
+=== hk-08-smbus-io-throw
+from: RPi::Device::SMBus 0.0.7 lib/RPi/Device/SMBus.pm:276
+license: Artistic-2.0
+feature: throw with message named
+--- code
+my class X::SMBus::IO is Exception {
+    has $.message;
+}
+say 'reading';
+X::SMBus::IO.new(message => "'read_block_data' failed").throw;
+--- expect
+reading
+!! X::SMBus::IO
+
+=== hk-08-debug-debug-interp
+from: Getopt::Advance 1.2.0 lib/Getopt/Advance/Parser.rakumod:471
+license: MIT
+feature: qualified sub call with interpolation
+--- code
+my class Debug { our sub debug($msg) { say $msg } }
+my $arg = 'abc';
+Debug::debug("** Broadcast a bsd style option [{$arg.comb.join("|")}]");
+--- expect
+** Broadcast a bsd style option [a|b|c]
+
+=== hk-08-section-tree-named
+from: Markdown::Grammar 0.6.4 lib/Markdown/Actions/Raku.rakumod:74
+license: Artistic-2.0
+feature: return with named args
+--- code
+my class Actions {
+    method section-tree(@blocks, $level, :$max-level, :$modifier) {
+        "$level/$max-level/$modifier " ~ @blocks.join(',')
+    }
+    method render(@blocks, :$max-level, :$modifier) {
+        return self.section-tree(@blocks, 1, :$max-level, :$modifier);
+    }
+}
+say Actions.new.render(<a b>, max-level => 2, modifier => 'x');
+--- expect
+1/2/x a,b
+
+=== hk-08-splice-itemized-array
+from: Crane 0.1.2 lib/Crane/Replace.rakumod:404
+license: Unlicense
+feature: splice with $@ item
+--- code
+my @root = <a b c>;
+my $step = 1;
+my @value = <X Y>;
+@root.splice($step, 1, $@value);
+say @root;
+--- expect
+[a X Y c]
+
+=== hk-08-yes-action
+from: CSS::Specification 0.5.3 lib/CSS/Specification/Actions.rakumod:109
+license: Artistic-2.0
+feature: method make True
+--- code
+my grammar Yes {
+    token TOP { <yes> }
+    token yes { 'yes' }
+}
+my class YesActions {
+    method yes($/) { make True }
+    method TOP($/) { make $<yes>.made }
+}
+say Yes.parse('yes', actions => YesActions.new).made;
+--- expect
+True
+
+=== hk-08-next-node-ternary
+from: Template::HAML 0.9.6 lib/Template/HAML/TagTransformers.rakumod:62
+license: Artistic-2.0
+feature: ?? !! with &&
+--- code
+my class Node { }
+sub pick($r, $child) {
+    my $next = ($r.defined && $r ~~ Node) ?? $r !! $child;
+    $next
+}
+say pick(Node.new, 'child').^name;
+say pick(Any, 'child');
+--- expect
+Node
+child
+
+=== hk-08-csr-row-result
+from: Math::SparseMatrix 0.0.15 lib/Math/SparseMatrix/CSR.rakumod:712
+license: Artistic-2.0
+feature: hash element assign with infix +
+--- code
+my class CSR {
+    has $!implicit-value = 0;
+    method add(%row-b, $col) {
+        my %row-result;
+        %row-result{$col} = $!implicit-value + %row-b{$col};
+        %row-result
+    }
+}
+my %row-b = 2 => 5, 3 => 7;
+say CSR.new.add(%row-b, 3);
+--- expect
+{3 => 7}
+
+=== hk-08-coverage-backslash-count
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Coverage.rakumod:310
+license: Artistic-2.0
+feature: if chain with eq
+--- code
+my $i = 0;
+for 'a\\b\\c'.comb -> $c {
+    if    $c eq '\\' { $i++ }
+    else { }
+}
+say $i;
+--- expect
+2
+
+=== hk-08-dbus-flags-shift
+from: Gnome::Gio 0.11.1 lib/Gnome/Gio/Enums.rakumod:1416
+license: Artistic-2.0
+feature: infix +< and pairs
+--- code
+my %flags = 'PRESERVE_SERIAL' => (1 +< 0), 'OTHER' => (1 +< 3);
+say %flags.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+OTHER=8 PRESERVE_SERIAL=1
+
+=== hk-08-release-statement-dispose
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Sql/Exec.rakumod:39
+license: Artistic-2.0
+feature: method dispose
+--- code
+my class Query { method dispose { 'disposed' } }
+my class Exec {
+    method release-statement($query) { $query.dispose }
+}
+say Exec.new.release-statement(Query.new);
+--- expect
+disposed
+
+=== hk-08-path-hyper-values
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/Raku/SQL/Builder.rakumod:24
+license: Artistic-2.0
+feature: hyper >>.made
+--- code
+my grammar Path {
+    token TOP { <part> '.' <part> '.' <part> }
+    token part { \w+ }
+}
+my class PathActions {
+    method part($/) { make $/.Str.uc }
+    method TOP($/) { make $/.values>>.made.join('.') }
+}
+say Path.parse('a.b.c', actions => PathActions.new).made;
+--- expect
+A.B.C
+
+=== hk-08-listpattern-fallback-hash
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/ListPatternWidth.rakumod:42
+license: Artistic-2.0
+feature: infix // on a call subscript
+--- code
+my sub fallback { %( start => 'S' ) }
+my class StrEncode { our sub get-str($v) { "<$v>" } }
+my $result = 'x';
+$result ~= StrEncode::get-str( fallback()<start> // '' );
+say $result;
+--- expect
+x<S>
+
+=== hk-08-empty-object-return
+from: LLM::Chat 0.10.0 lib/LLM/Chat/Template/DeepSeekV4.rakumod:99
+license: Artistic-2.0
+feature: if with return in block
+--- code
+my class OrderedObject { has @.storage; }
+my class Parser {
+    has $!source = '}x';
+    has $!pos = 0;
+    method object {
+        if $!source.substr($!pos, 1) eq '}' { $!pos++; return OrderedObject.new(storage => []) }
+        'other'
+    }
+}
+say Parser.new.object.storage.elems;
+--- expect
+0
+
+=== hk-08-attr-quote-push
+from: Template::HAML 0.9.6 lib/Template/HAML/Codegen.rakumod:69
+license: Artistic-2.0
+feature: infix ~ inside push colon-call
+--- code
+my class Config { has $.attr-quote = '"'; }
+sub raku-str($s) { "'$s'" }
+my @parts;
+my $c = Config.new;
+@parts.push: ':attr-quote(' ~ raku-str($c.attr-quote) ~ ')';
+say @parts;
+--- expect
+[:attr-quote('"')]
+
+=== hk-08-content-type-setter
+from: Web::App 0.9.2 lib/Web/App/Dispatch.rakumod:66
+license: Artistic-2.0
+feature: method call with hash element argument
+--- code
+my class Response {
+    has $.type is rw;
+    method content-type($t) { $!type = $t; self }
+}
+my %rules = mime => 'text/html';
+my $res = Response.new;
+$res.content-type(%rules<mime>);
+say $res.type;
+--- expect
+text/html
+
+=== hk-08-set-expanded
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Viewer/Tree.rakumod:357
+license: Artistic-2.0
+feature: method call with True
+--- code
+my class Node { has $.expanded = False; method set-expanded($v) { $!expanded = $v } }
+my $parent = Node.new;
+$parent.set-expanded(True);
+say $parent.expanded;
+--- expect
+True
+
+=== hk-08-gemini-messages-literal
+from: LLM::Functions 0.5.10 lib/LLM/Functions/TooledGemini.rakumod:75
+license: Artistic-2.0
+feature: nested hash literal in array
+--- code
+my $prompt = 'hello';
+my @messages = [%( role => 'user', parts => [ %( text => $prompt ), ] ), ];
+say @messages[0]<parts>[0]<text>;
+--- expect
+hello
+
+=== hk-08-keyword-name-action
+from: DSL::Shared 0.2.11 lib/DSL/Shared/Actions/CommonStructures.rakumod:54
+license: Artistic-2.0
+feature: method make Str
+--- code
+my grammar Kw {
+    token TOP { <keyword-variable-name> }
+    token keyword-variable-name { \w+ }
+}
+my class KwActions {
+    method keyword-variable-name($/) { make $/.Str }
+    method TOP($/) { make $<keyword-variable-name>.made }
+}
+say Kw.parse('total', actions => KwActions.new).made;
+--- expect
+total
+
+=== hk-08-row-filter-map-sink
+from: DB::Xoos 0.1.1 lib/DB/Xoos/Row.pm6:122
+license: Artistic-2.0
+feature: map in sink context with //
+--- code
+my class Row {
+    has %!field-changes = a => 'x';
+    has %!field-data = a => 'old', b => 'y';
+    method filter(@keys) {
+        my %filter;
+        @keys.map({ my $value = %!field-changes{$_.key}//%!field-data{$_.key}; %filter{$_.key} = $value if $value; });
+        %filter.sort.map({ "{.key}={.value}" }).join(' ')
+    }
+}
+say Row.new.filter(('a' => 1, 'b' => 2));
+--- expect
+a=x b=y
+
+=== hk-08-base64-regex-var
+from: WWW::XAI 0.1.3 lib/WWW/XAI.rakumod:135
+license: Artistic-2.0
+feature: regex held in a variable
+--- code
+my $re-base64-start = /^ [ 'data:image/' <[a..zA..Z0..9.+-]>+ ';base64,' ] /;
+say so 'data:image/png;base64,AAA' ~~ $re-base64-start;
+say so 'text' ~~ $re-base64-start;
+--- expect
+True
+False
+
+=== hk-08-args-dynamic-push
+from: Gnome::N 0.1.54 lib/Gnome/N/GnomeRoutineCaller.rakumod:95
+license: Artistic-2.0
+feature: dynamic @*ARGS push
+--- code
+my $argv = [[<x y z>], [<p q r>]];
+my $i = 1;
+my @*ARGS;
+@*ARGS.push: $argv[0][$i];
+say @*ARGS;
+--- expect
+[y]
+
+=== hk-08-strip-wrapper-named
+from: XML::Class 0.0.11 lib/XML/Class.rakumod:1557
+license: Artistic-2.0
+feature: named argument :$namespace
+--- code
+my class Element { method strip-wrapper($attr, :$namespace) { "$attr/$namespace" } }
+my $element = Element.new;
+my $attribute = 'id';
+my $namespace = 'ns';
+my $e = $element.strip-wrapper($attribute, :$namespace);
+say $e;
+--- expect
+id/ns
+
+=== hk-08-datapart-lines
+from: App::RaCoCo 2.0.1 lib/App/Racoco/Report/DataPart.rakumod:135
+license: Artistic-2.0
+feature: grep chars over mapped list
+--- code
+my class DataPart {
+    has %!data = a => 1, b => 2;
+    has %!purple-lines = c => 3;
+    method lines { (%!data, %!purple-lines).map(*.sort.map({(.key, .value)}).Str).grep(*.chars) }
+}
+say DataPart.new.lines;
+--- expect
+(a 1 b 2 c 3)
+
+=== hk-08-insert-cursor-move
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/EditableBuffer.rakumod:410
+license: Artistic-2.0
+feature: method call on $. accessor
+--- code
+my class Cursor { has $.pos = 5; method move-to($p) { $!pos = $p; self } }
+my class Buffer {
+    has $.insert-cursor = Cursor.new;
+    method home { $.insert-cursor.move-to(0); $.insert-cursor.pos }
+}
+say Buffer.new.home;
+--- expect
+0
+
+=== hk-08-join-across-xx
+from: Data::Reshapers 0.3.8 lib/Data/Reshapers/JoinAcross.rakumod:145
+license: Artistic-2.0
+feature: Z=> with xx
+--- code
+my $missing-value = 0;
+my $allKeys = set <a b c>;
+my %default = $allKeys.keys Z=> ($missing-value xx $allKeys);
+say %default.sort.map({ "{.key}={.value}" }).join(' ');
+--- expect
+a=0 b=0 c=0
+
+=== hk-08-set-children-method
+from: ML::TriesWithFrequencies 0.6.8 lib/ML/TriesWithFrequencies/Trie.rakumod:944
+license: Artistic-2.0
+feature: method call chain
+--- code
+my class Trie {
+    has %!children;
+    method setChildren(%c) { %!children = %c; self }
+    method count { %!children.elems }
+}
+my %children = a => 1, b => 2;
+say Trie.new.setChildren(%children).count;
+--- expect
+2
+
+=== hk-08-pakku-callback-not
+from: Pakku celastrina.6 lib/Pakku/HTTP.rakumod:510
+license: Artistic-2.0
+feature: prefix ! on &variable
+--- code
+my &data-callback;
+my $response-body = Buf.new(1, 2, 3);
+if !&data-callback && $response-body.bytes { say 'no callback' }
+--- expect
+no callback
+
+=== hk-08-rast-sign-push
+from: Intl::Format::Number 0.4.0 lib/Intl/Format/Number.rakumod:393
+license: Artistic-2.0
+feature: statement modifier if with &&
+--- code
+my sub rast-sign($symbols, $show) { "{$symbols}{$show ?? '+' !! ''}" }
+my @strs;
+my $symbols = '-';
+my $show-sign = True;
+my $auto-negative = True;
+my $standard-sign = True;
+@strs.push: rast-sign($symbols, $show-sign) if $auto-negative && $standard-sign;
+say @strs;
+--- expect
+[-+]
+
+=== hk-08-flatten-typed-hash-list-key
+from: Crane 0.1.2 lib/Crane.rakumod:195
+license: Unlicense
+feature: typed hash with List:D keys
+--- code
+my class Flatten { method flatten($container, :@path) { (@path => $container) } }
+my Any:D %tree{List:D} = Flatten.flatten('x', :path(1, 2));
+say %tree.values;
+--- expect
+(x)
+
+=== hk-08-create-persona-named
+from: MUGS::Core 0.1.4 lib/MUGS/Server.rakumod:710
+license: Artistic-2.0
+feature: named argument :$screen-name
+--- code
+my class Server { method create-persona(:$creator, :$screen-name) { "$creator to $screen-name" } }
+my $server = Server.new;
+my $user = 'ann';
+my $screen-name = 'Annie';
+say $server.create-persona(:creator($user), :$screen-name);
+--- expect
+ann to Annie
+
+=== hk-08-duospace-last-pos
+from: Terminal::LineEditor 0.0.23 lib/Terminal/LineEditor/DuospaceInput.rakumod:130
+license: Artistic-2.0
+feature: method call on $. accessor
+--- code
+my class Cursor { has $.pos = 4; }
+my class Input {
+    has $.insert-cursor = Cursor.new;
+    method last-pos { my $last = $.insert-cursor.pos; $last }
+}
+say Input.new.last-pos;
+--- expect
+4
+
+=== hk-08-kd-tree-pair-slice
+from: Algorithm::KDimensionalTree 0.1.2 lib/Algorithm/KDimensionalTree.rakumod:129
+license: Artistic-2.0
+feature: range slice .. * in a pair
+--- code
+my class Tree {
+    method build-tree-rec(@points, $depth) { @points.elems ~ '@' ~ $depth }
+    method build(@points, $median, $depth) {
+        %( right => self.build-tree-rec(@points[$median + 1 .. *], $depth + 1) )
+    }
+}
+say Tree.new.build(<a b c d e>, 1, 0);
+--- expect
+{right => 3@1}
+
+=== hk-08-ioPath-candidates
+from: Template::HAML 0.9.6 lib/Template/HAML.rakumod:259
+license: Artistic-2.0
+feature: method add on IO::Path
+--- code
+my @candidates;
+my $name = 'page.haml';
+my $b = 'views'.IO;
+@candidates.push: ($b.add($name)).Str;
+say @candidates;
+--- expect
+[views/page.haml]
+
+=== hk-08-mcp-prop-description
+from: MCP::Server 0.7.0 lib/MCP/Server/Tool.rakumod:39
+license: Artistic-2.0
+feature: hash element assign with if
+--- code
+my %spec = description => 'Adds numbers';
+my %prop;
+%prop<description> = %spec<description> if %spec<description>.defined;
+say %prop<description>;
+--- expect
+Adds numbers
+
+=== hk-08-pre-rows-slip
+from: Term::Choose 2.0.6 lib/Term/Choose.rakumod:964
+license: Artistic-2.0
+feature: | flattening with push and if
+--- code
+my class Choose {
+    has @!pre_rows;
+    has $!temp = %( info-rows => ('a', 'b') );
+    method run { @!pre_rows.push: |$!temp<info-rows> if $!temp<info-rows>; @!pre_rows }
+}
+say Choose.new.run;
+--- expect
+[a b]
+
+=== hk-08-adventure-or-throw
+from: MUGS::Games 0.1.4 lib/MUGS/Server/Game/Adventure.rakumod:213
+license: Artistic-2.0
+feature: infix or with throw
+--- code
+my class X::Request::AdHoc is Exception {
+    has $.message;
+}
+sub parse($input) {
+    $input eq 'look' or X::Request::AdHoc.new(:message('Could not parse your input')).throw;
+    'parsed'
+}
+say parse('look');
+say parse('xyzzy');
+--- expect
+parsed
+!! X::Request::AdHoc
+
+=== hk-08-write-prevented-message
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Errors/X.rakumod:74
+license: Artistic-2.0
+feature: infix ~ with ?? !!
+--- code
+sub write-prevented($head) {
+    "Write query attempted while writes are prevented" ~ ($head ?? ": $head" !! '');
+}
+say write-prevented('INSERT');
+say write-prevented('');
+--- expect
+Write query attempted while writes are prevented: INSERT
+Write query attempted while writes are prevented
+
+=== hk-08-proto-splitter-noun
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Grammar/DataQueryPhrases.rakumod:160
+license: Artistic-2.0
+feature: proto token declaration
+--- code
+my grammar Splitter {
+    token TOP { <splitter-noun> }
+    proto token splitter-noun {*}
+    token splitter-noun:sym<comma> { ',' }
+}
+say so Splitter.parse(',');
+say so Splitter.parse(';');
+--- expect
+True
+False
+
+=== hk-08-heredoc-unless
+from: Collection 0.18.0 lib/Collection/TestPlugin.rakumod:136
+license: Artistic-2.0
+feature: qq:to heredoc with unless
+--- code
+sub check(%config, $component) {
+    return qq:to/ERROR/ unless %config{$component} ~~ Empty;
+        component $component has no config
+        ERROR
+    'ok'
+}
+say check(%(db => 1), 'db');
+say check(%(db => Empty), 'db');
+--- expect
+component db has no config
+
+ok
+
+=== hk-08-attr-name-substr
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Core.rakumod:70
+license: Artistic-2.0
+feature: binding := with typed my Str
+--- code
+my class Core { has $.label; }
+my $attr = Core.^attributes[0];
+my Str $name := $attr.name.substr(2);
+say $name;
+--- expect
+label
+
+=== hk-08-begin-term-map
+from: DateTime::TimeZone 0.10.2 lib/DateTime/TimeZone/Zone/Indian/Reunion.rakumod:12
+license: Artistic-2.0
+feature: BEGIN as a term
+--- code
+my @zones = BEGIN Map.new((:baseoffset("3:41:52"), :until(-1848873600))), Map.new((:baseoffset("4:00")));
+say @zones.map(*<baseoffset>).join(' ');
+--- expect
+3:41:52 4:00
+
+=== hk-08-cache-exists-key
+from: WWW::GCloud 0.0.8 lib/WWW/GCloud/Utils.rakumod:31
+license: Artistic-2.0
+feature: EXISTS-KEY with return if
+--- code
+my $cache = %( Foo => 'cached' );
+sub lookup($pkg) {
+    return $cache{$pkg} if $cache.EXISTS-KEY($pkg);
+    'miss'
+}
+say lookup('Foo');
+say lookup('Bar');
+--- expect
+cached
+miss
+
+=== hk-08-set-size-width
+from: Terminal::UI 0.1.14 lib/Terminal/UI/Frame.rakumod:298
+license: MIT
+feature: method call with infix + and -
+--- code
+my class Box {
+    has $.width = 10;
+    has $.height = 3;
+    method set-size($w, $h) { $!width = $w; $!height = $h; self }
+}
+my $b = Box.new;
+my ($to-width, $from-width, $h) = 20, 15, 5;
+$b.set-size( $b.width + ($to-width - $from-width) , $h );
+say $b.width;
+--- expect
+15
+
+=== hk-08-current-entry-nil
+from: BDD::Behave 0.9.5 lib/BDD/Behave/SpecRegistry.rakumod:122
+license: Artistic-2.0
+feature: ?? !! with Nil assignment
+--- code
+my class Entry { has @.stack; }
+my class Registry {
+    has $!current-entry;
+    method set-current($entry) {
+        $!current-entry = $entry.stack.elems ?? $entry !! Nil;
+        $!current-entry
+    }
+}
+say Registry.new.set-current(Entry.new).defined;
+say Registry.new.set-current(Entry.new(stack => [1])).stack;
+--- expect
+False
+[1]
+
+=== hk-08-skip-mu-any
+from: ORM::Factory 0.9.1 lib/ORM/Factory/Persistence/Generic.rakumod:16
+license: Artistic-2.0
+feature: return if with ||
+--- code
+my sub skip($class) {
+    return 'skip' if $class.^name eq 'Mu' || $class.^name eq 'Any';
+    'keep'
+}
+say skip(Any);
+say skip(Int);
+--- expect
+skip
+keep
+
+=== hk-08-libarchive-fail
+from: Archive::Libarchive 0.0.17 lib/Archive/Libarchive.rakumod:564
+license: Artistic-2.0
+feature: fail with exception object
+--- code
+my class X::Libarchive is Exception {
+    has $.errno;
+    has $.error;
+    method message { "errno $!errno: $!error" }
+}
+sub extract($wres) {
+    fail X::Libarchive.new: errno => $wres, error => 'bad archive' if $wres != 0;
+    'ok'
+}
+say extract(0);
+say extract(-30).defined;
+--- expect
+ok
+False
+
+=== hk-08-polynomial-num
+from: Astro::Utils 0.0.3 lib/Astro/Utils.rakumod:441
+license: Artistic-2.0
+feature: infix ** on Num
+--- code
+my $t = 2.5;
+my $dt = 63.86 + 0.3345 * $t - 0.060374 * $t**2 + 0.0017275 * $t**3 + 0.000651814 * $t**4;
+say $dt;
+--- expect
+64.371366172
+
+=== hk-08-wkb-concat-reduce
+from: Geo::Geometry 0.1.3 lib/Geo/Geometry.rakumod:729
+license: Artistic-2.0
+feature: reduction [~] with infix ~
+--- code
+my class Point {
+    has $.x;
+    method wkb($order) { "p$.x$order" }
+}
+my class Geo {
+    has @!points = Point.new(x => 1), Point.new(x => 2);
+    method wkb($byteorder) {
+        my $b = 'HDR';
+        $b ~ [~] @!points.map({.wkb($byteorder)})
+    }
+}
+say Geo.new.wkb('LE');
+--- expect
+HDRp1LEp2LE
+
+=== hk-08-with-else-content
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/ActionText/RichTextable.rakumod:35
+license: Artistic-2.0
+feature: with ... else
+--- code
+my class Row { has $.body = 'hello'; }
+my class Content { }
+my class Text {
+    has $.row;
+    method content {
+        with self.row -> $row { $row.body } else { Content }
+    }
+}
+say Text.new(row => Row.new).content;
+say Text.new.content.^name;
+--- expect
+hello
+Content
+
+=== hk-08-warnings-hyper-method
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/Test.rakumod:59
+license: Artistic-2.0
+feature: hyper method call »
+--- code
+my class Warning { method message { 'careful' } }
+my class Actions { has @.warnings = Warning.new, Warning.new; }
+my $actions = Actions.new;
+my @warnings = $actions.warnings».message;
+say @warnings;
+--- expect
+[careful careful]
+
+=== hk-08-multi-new-bless
+from: Math::Libgsl::Matrix 0.6.1 lib/Math/Libgsl/Vector.rakumod:34
+license: Artistic-2.0
+feature: multi method new with bless
+--- code
+my class Vec {
+    has Int $.size;
+    multi method new(Int :$size!) { self.bless(:$size) }
+}
+say Vec.new(size => 3).size;
+--- expect
+3
+
+=== hk-08-second-destroy
+from: Selkie 0.16.0 lib/Selkie/Layout/Split.rakumod:280
+license: Artistic-2.0
+feature: statement modifier if on attribute
+--- code
+my class Pane { method destroy { say 'destroyed' } }
+my class Split {
+    has $!second = Pane.new;
+    method close { $!second.destroy if $!second; say 'closed' }
+}
+Split.new.close;
+--- expect
+destroyed
+closed
+
+=== hk-08-sanitize-undefined
+from: Text::Table::Simple 0.1.0 lib/Text/Table/Simple.rakumod:124
+license: Artistic-2.0
+feature: method map colon-call with //
+--- code
+my @cells = 'a', Any, 'c';
+my @sanitized_cells = @cells.map: { $_ // '' };
+say @sanitized_cells;
+--- expect
+[a  c]
+
+=== hk-08-transforms-rotate
+from: Air 0.1.32 lib/Air/Base/Elements.rakumod:1023
+license: Artistic-2.0
+feature: $@ item with push and if
+--- code
+my class Elem {
+    has $.rotate = 45;
+    method css {
+        my @transforms;
+        $@transforms.push: "rotate({$.rotate}deg)" if $!rotate;
+        @transforms.join(' ')
+    }
+}
+say Elem.new.css;
+--- expect
+rotate(45deg)
+
+=== hk-08-sigma0-rotr
+from: Digest 1.1.0 lib/Digest/SHA2.rakumod:44
+license: Artistic-2.0
+feature: infix +^ and +>
+--- code
+my sub rotr($v, $n) { (($v +> $n) +| ($v +< (32 - $n))) +& 0xFFFFFFFF }
+sub σ0($x) { rotr($x, 7) +^ rotr($x, 18) +^ $x +> 3 }
+say σ0(0x12345678);
+--- expect
+3892111086
+
+=== hk-08-failures-list-elems
+from: BDD::Behave 0.9.5 lib/BDD/Behave/Formatter/TAP.rakumod:81
+license: Artistic-2.0
+feature: method list and elems
+--- code
+my class Failures {
+    method list { <x y> }
+}
+my $count = Failures.list.elems;
+say $count;
+--- expect
+2
+
+=== hk-08-config-dash-lookup
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/DB.rakumod:246
+license: Artistic-2.0
+feature: infix // on hash lookups
+--- code
+my %config = 'slow-query-threshold' => 500;
+my $slow = %config<slow_query_threshold> // %config<slow-query-threshold>;
+say $slow;
+--- expect
+500
+
+=== hk-08-fatal-range-die
+from: AlgorithmsIT 0.0.4 lib/AlgorithmsIT/Classes.rakumod:41
+license: Artistic-2.0
+feature: die with interpolated attributes
+--- code
+my class Span {
+    has $.R-start;
+    has $.R-end;
+    method check {
+        die "FATAL: range end [{$!R-end}] is NOT greater than range start [{$!R-start}] " if $!R-end <= $!R-start;
+        'ok'
+    }
+}
+say Span.new(R-start => 1, R-end => 3).check;
+say Span.new(R-start => 5, R-end => 3).check;
+--- expect
+ok
+!! X::AdHoc
+
+=== hk-08-chr-last-index
+from: Anolis 1.0.0 lib/Anolis.rakumod:193
+license: Artistic-2.0
+feature: chr with *-1 index
+--- code
+my class Token { has @.sequence = 72, 105; }
+my $token = Token.new;
+my $command = chr($token.sequence[*-1]);
+say $command;
+--- expect
+i
+
+=== hk-08-ok-desc
+from: DBIish 0.6.9 lib/DBIish/CommonTesting.rakumod:258
+license: BSD-2-Clause
+feature: sub call with method result
+--- code
+my sub ok($cond, $desc) { say $cond ?? "ok - $desc" !! "not ok - $desc" }
+my class Sth { method finish { True } }
+my $sth = Sth.new;
+ok $sth.finish, 'No more rows needed';
+--- expect
+ok - No more rows needed
+
+=== hk-08-translate-destructure
+from: Red 0.2.5 lib/Red/Driver/CommonSQL.rakumod:646
+license: Artistic-2.0
+feature: do given with := destructuring
+--- code
+my class Sql {
+    method translate($sel, $ctx) { 'select' => ['a', 'b'] }
+    method build($sel) {
+        my ($str, @bind) := do given self.translate: $sel, "" { .key, .value };
+        "$str {@bind.join(' ')}"
+    }
+}
+say Sql.new.build('x');
+--- expect
+select a b
+
+=== hk-08-install-named-false
+from: Pakku celastrina.6 lib/Pakku/Command/Test.rakumod:125
+license: Artistic-2.0
+feature: named boolean :!name
+--- code
+my class Stage {
+    method install($dist, :$precompile = True) { "$dist precompile=$precompile" }
+}
+my $stage = Stage.new;
+my $dist = 'pkg';
+say $stage.install: $dist, :!precompile;
+--- expect
+pkg precompile=False
+
+=== hk-08-safe-delimiter
+from: Template6 0.16.0 lib/Template6/Parser.rakumod:218
+license: Artistic-2.0
+feature: method call with ?? !!
+--- code
+my class Parser {
+    method get-safe-delimiter($segment) { $segment.contains('X') ?? 'Y' !! 'X' }
+    method run($segment) {
+        my $safe-delimiter = self.get-safe-delimiter($segment);
+        $safe-delimiter
+    }
+}
+say Parser.new.run('abc');
+say Parser.new.run('Xyz');
+--- expect
+X
+Y
+
+=== hk-08-field-setter-pair
+from: HTTP::UserAgent 1.2.0 lib/HTTP/UserAgent.rakumod:21
+license: MIT
+feature: unless with method call
+--- code
+my class Request {
+    has %!headers;
+    multi method field(Str $name) { %!headers{$name} }
+    multi method field(*%pairs) { %!headers{$_} = %pairs{$_} for %pairs.keys; self }
+}
+my $request = Request.new;
+$request.field(Connection => 'close') unless $request.field('Connection');
+say $request.field('Connection');
+--- expect
+close
+
+=== hk-08-context-hash-push
+from: Sparrow6 0.0.96 lib/Sparrow6/Task/Check/Context.rakumod:85
+license: Artistic-2.0
+feature: push with hash constructor
+--- code
+my @new-context;
+my $data = 'd';
+my $stream-id = 7;
+my $next = 2;
+push @new-context, %( data => $data, next => Nil, stream-id => $stream-id, index => $next );
+say @new-context[0]<stream-id>;
+--- expect
+7
+
+=== hk-08-flash-keys-sort
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/Flash.rakumod:10
+license: Artistic-2.0
+feature: method sort and List
+--- code
+my %flash-types = notice => 1, alert => 2, error => 3;
+say %flash-types.keys.sort.List;
+--- expect
+(alert error notice)
+
+=== hk-08-with-topic-target
+from: IRC::Log 0.0.26 lib/IRC/Log.rakumod:408
+license: Artistic-2.0
+feature: statement modifier with
+--- code
+my class Log {
+    method target-index($target) { $target eq 'x' ?? 3 !! Nil }
+    method check(@targets) {
+        for @targets { say $_ with self.target-index($_) }
+    }
+}
+Log.new.check(<x y x>);
+--- expect
+3
+3
+
+=== hk-08-subst-separator-class
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Schema/Generator.rakumod:22
+license: Artistic-2.0
+feature: method subst with regex and :g
+--- code
+my $name = 'user_profile name';
+say $name.subst(/<[_\s]>+/, '-', :g);
+--- expect
+user-profile-name
+
+=== hk-08-ne-cast-constructor
+from: Red 0.2.5 lib/Red/Operators.rakumod:474
+license: Artistic-2.0
+feature: colon-call constructor with named cast
+--- code
+my class Ne {
+    has $.left;
+    has $.right;
+    has $.cast;
+    method new($left, $right, :$cast) { self.bless(:left($left), :right($right), :cast($cast)) }
+}
+sub ast-value($v) { "ast($v)" }
+my $a = 'x';
+my $b = 'y';
+my $n = Ne.new: $a, ast-value($b), :cast<datetime>;
+say $n.right, ' ', $n.cast;
+--- expect
+ast(y) datetime
+
+=== hk-08-chained-assign-new
+from: Trap 0.0.5 lib/Trap.rakumod:53
+license: Artistic-2.0
+feature: chained assignment
+--- code
+my class Trap {
+    has $.tee;
+    method make(:$tee) {
+        my ($one, $two);
+        $one = $two = self.new(:$tee);
+        $one
+    }
+}
+say Trap.make(tee => 'T').tee;
+--- expect
+T
+
+=== hk-08-ris-given-when
+from: Rakuast::RakuDoc::Render 1.1.4 lib/RakuDoc/Citations.rakumod:223
+license: Artistic-2.0
+feature: when with regex in do given
+--- code
+for 'TY  - JOUR', 'AU  - Smith' -> $line {
+    my $format = do given $line {
+        when / ^ 'TY  -' / { 'RIS' }
+        default { 'unknown' }
+    };
+    say $format;
+}
+--- expect
+RIS
+unknown
+
+=== hk-08-shape-response
+from: WWW::Ollama 0.0.7 lib/WWW/Ollama/Client.rakumod:89
+license: Artistic-2.0
+feature: method call with hash argument
+--- code
+my class Client {
+    method shape-response($kind, %res) { "$kind: {%res<name>}" }
+    method model-info(%res) { self.shape-response('model-info', %res) }
+}
+say Client.new.model-info(%( name => 'llama' ));
+--- expect
+model-info: llama
+
+=== hk-08-grep-cookie-name
+from: Cro::HTTP 0.8.13 lib/Cro/HTTP/Request.rakumod:233
+license: Artistic-2.0
+feature: grep with not eq
+--- code
+my class Cookie { has $.name; }
+my @cookies = Cookie.new(name => 'a'), Cookie.new(name => 'b');
+my $name = 'a';
+my @res = @cookies.grep({ not $_.name eq $name });
+say @res.map(*.name).join(',');
+--- expect
+b
+
+=== hk-08-pairs-sort-key
+from: Hash::Agnostic 0.0.20 lib/Hash/Agnostic.rakumod:192
+license: Artistic-2.0
+feature: method sort with WhateverCode key
+--- code
+my class Agnostic {
+    has %!data = b => 2, a => 1;
+    method pairs-str { self.pairs.sort( *.key ).join(" ") }
+    method pairs { %!data.pairs }
+}
+say Agnostic.new.pairs-str;
+--- expect
+a	1 b	2
+
+=== hk-08-filled-shape-push
+from: Data::Transformers 0.0.2 lib/Data/Transformers/Arrays.rakumod:252
+license: Artistic-2.0
+feature: method push with call and infix +
+--- code
+sub filled-shape($shape, $depth, $padding) { "{$shape}/{$depth}:$padding" }
+my @result;
+my $shape = 3;
+my $padding = 0;
+my $depth = 1;
+@result.push(filled-shape($shape, $depth + 1, $padding));
+say @result;
+--- expect
+[3/2:0]
+
+=== hk-08-angle-proto-deg
+from: CSS::Grammar 0.4.3 lib/CSS/Grammar/CSS21.rakumod:57
+license: Artistic-2.0
+feature: proto token
+--- code
+my grammar Angle {
+    token TOP { <angle> }
+    proto token angle {*}
+    token angle:sym<deg> { \d+ 'deg' }
+}
+say so Angle.parse('90deg');
+say so Angle.parse('90rad');
+--- expect
+True
+False
+
+=== hk-08-field-map-type
+from: ORM::ActiveRecord 0.9.4 lib/ORM/ActiveRecord/Adapter/Pg.rakumod:216
+license: Artistic-2.0
+feature: method map with named args
+--- code
+my class Field {
+    has $.name;
+    has $.type;
+}
+my $type = 'text';
+my @fields = <column_name data_type is_nullable column_default>.map({ Field.new(:name($_), :$type) });
+say @fields.map(*.name).join(' ');
+--- expect
+column_name data_type is_nullable column_default
+
+=== hk-08-remaining-slice
+from: Template::Jinja2 0.3.0 lib/Template/Jinja2/Parser.rakumod:196
+license: Artistic-2.0
+feature: slice ..^ with elems
+--- code
+my @remaining = <a b c d>;
+@remaining = @remaining[0 ..^ @remaining.elems - 1];
+say @remaining;
+--- expect
+[a b c]
+
+=== hk-08-max-infix-slices
+from: Terminal::Widgets 0.3.2 lib/Terminal/Widgets/Viz/SmokeChart.rakumod:199
+license: Artistic-2.0
+feature: infix max
+--- code
+my class Chart {
+    has $!num-slices;
+    has $!left = 5;
+    has $!right = 9;
+    method set { $!num-slices = 0 max ($!right - $!left + 1); $!num-slices }
+}
+say Chart.new.set;
+--- expect
+5
+
+=== hk-08-trim-trailing-rows
+from: Selkie 0.16.0 lib/Selkie/Test/Snapshot.rakumod:558
+license: Artistic-2.0
+feature: method trim-trailing
+--- code
+my @glyph-rows = 'ab  ', 'cd   ';
+my $i = 1;
+my $trimmed = @glyph-rows[$i].trim-trailing;
+say "[$trimmed]";
+--- expect
+[cd]
+
+=== hk-08-py-str-bytes
+from: Inline::Python 0.5 lib/Inline/Python.pm6:281
+license: Artistic-2.0
+feature: method encode with bytes
+--- code
+my sub py_str_to_py($len, $value) { "$len:$value" }
+my $value = 'héllo';
+say py_str_to_py($value.encode('UTF-8').bytes, $value);
+--- expect
+6:héllo
+
+=== hk-08-chomp-buf-ternary
+from: Net::HTTP 0.1.0 lib/Net/HTTP/Utils.rakumod:27
+license: Artistic-2.0
+feature: ?$ prefix with ?? !!
+--- code
+my $CRLF-BYTES = 2;
+sub chomp-buf($buf, $chomp) {
+    return ?$chomp ?? $buf.subbuf(0, $buf.bytes - $CRLF-BYTES) !! $buf;
+}
+say chomp-buf(Buf.new(104, 105, 13, 10), True).decode;
+say chomp-buf(Buf.new(104, 105), False).decode;
+--- expect
+hi
+hi
+
+=== hk-08-full-selector-die-with
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/PercentFormatSystem.rakumod:57
+license: Artistic-2.0
+feature: die with and named :3length
+--- code
+my class Selector {
+    has $.count;
+    has $.length;
+    has $.parent;
+}
+my class Percent {
+    has $!length;
+    has $!count = 4;
+    has $!parent = 'root';
+    method full {
+        die with $!length;
+        Selector.new: :$!count, :3length, :$!parent
+    }
+}
+say Percent.new.full.length;
+--- expect
+3
+
+=== hk-08-like-relation-action
+from: DSL::English::DataQueryWorkflows 0.6.5 lib/DSL/English/DataQueryWorkflows/Actions/English/Predicate.rakumod:40
+license: Artistic-2.0
+feature: method make string
+--- code
+my grammar Like {
+    token TOP { <like-relation> }
+    token like-relation { 'like' }
+}
+my class LikeActions {
+    method like-relation($/) { make 'is similar to' }
+    method TOP($/) { make $<like-relation>.made }
+}
+say Like.parse('like', actions => LikeActions.new).made;
+--- expect
+is similar to
+
+=== hk-08-simplify-eqv
+from: Red 0.2.5 lib/Red/AST/Infixes.rakumod:173
+license: Artistic-2.0
+feature: infix eqv with .not
+--- code
+sub ast-value($v) { "ast($v)" }
+sub simplify($left, $right) {
+    return ast-value(False) if $left eqv $right.not;
+    'kept'
+}
+say simplify(True, False);
+say simplify(True, True);
+--- expect
+ast(False)
+kept
+
+=== hk-08-proto-localtime
+from: P5localtime 0.0.11 lib/P5localtime.rakumod:31
+license: Artistic-2.0
+feature: my proto sub with |
+--- code
+my proto sub stamp(|) {*}
+my multi sub stamp(Int $t) { "t$t" }
+say stamp(5);
+--- expect
+t5
+
+=== hk-08-msgpack-when-length
+from: Data::MessagePack 0.1.4 lib/Data/MessagePack/Packer.rakumod:92
+license: Artistic-2.0
+feature: when with infix < and **
+--- code
+my $length = 200;
+my @header;
+given $length {
+    when $length < 2**8 { @header.push( 0xc4, $length ) }
+    default { @header.push( 0xc5 ) }
+}
+say @header;
+--- expect
+[196 200]
+
+=== hk-08-seen-negated
+from: Config::TOML 0.1.3 lib/Config/TOML/Parser/Actions.rakumod:669
+license: Unlicense
+feature: named arguments with .not
+--- code
+my %key = a => 1;
+my @path = <x>;
+my sub seen(%k, :@path, :$recursive) { so %k<a> }
+say seen(%key, :@path, :recursive).not;
+--- expect
+False
+
+=== hk-08-red-stub-push
+from: Red 0.2.5 lib/Red/Cli.rakumod:27
+license: Artistic-2.0
+feature: string with escaped quotes and interpolation
+--- code
+my $driver = 'Pg';
+my %pars = host => 'x';
+my @stub;
+@stub.push: "\nred-defaults \"{ $driver }\", { %pars.map(*.raku) };";
+say @stub.join;
+--- expect
+
+red-defaults "Pg", :host("x");
+
+=== hk-08-length-trans-hyper
+from: Intl::CLDR 0.7.6 lib/Intl/CLDR/Types/SimpleUnits.rakumod:119
+license: Artistic-2.0
+feature: hyper >>.Int with .Slip
+--- code
+my @result;
+my $length-trans = <1 2 3>;
+@result.append: $length-trans>>.Int.Slip;
+say @result;
+--- expect
+[1 2 3]
+
+=== hk-08-uri-unescape-hash
+from: Bailador 0.0.19 lib/Bailador/Request.pm:83
+license: MIT
+feature: hash element assign from list-op call
+--- code
+my sub uri_unescape($s) { $s.subst('%20', ' ', :g) }
+my %ret;
+my @pair = 'name', 'a%20b';
+%ret{@pair[0]} = uri_unescape @pair[1];
+say %ret<name>;
+--- expect
+a b
+
+=== hk-08-set-pick-return
+from: Time::Crontab 1.0.0 lib/Time/Crontab/Set.pm6:92
+license: Artistic-2.0
+feature: return from for loop
+--- code
+my class Hits {
+    has %!value = 3 => True, 5 => True;
+    method first-hit(@candidates) {
+        for @candidates { return $_ if %!value{$_} }
+        Nil
+    }
+}
+say Hits.new.first-hit(<1 3 4>);
+--- expect
+3
+
+=== hk-08-serializer-attr-code
+from: MVC::Keayl 0.9.2 lib/MVC/Keayl/APIController.rakumod:10
+license: Artistic-2.0
+feature: code attribute call
+--- code
+my class Controller {
+    has &!serializer = -> $v { "json($v)" };
+    method render($value) {
+        return &!serializer($value) if &!serializer.defined;
+        $value
+    }
+}
+say Controller.new.render(42);
+--- expect
+json(42)
+
+=== hk-08-portmidi-send-hash
+from: Audio::PortMIDI 0.0.12 lib/Audio/PortMIDI.rakumod:926
+license: Artistic-2.0
+feature: channel send of hash with code
+--- code
+my sub Pm_Synchronize($p) { "sync $p" }
+my class Stream {
+    has $.ptr = [7];
+    has $.ev-chan = Channel.new;
+    method sync { $.ev-chan.send(%(call => &Pm_Synchronize, args => [$.ptr[0]])); $.ev-chan.receive }
+}
+my %m = Stream.new.sync;
+say %m<call>(|%m<args>);
+--- expect
+sync 7

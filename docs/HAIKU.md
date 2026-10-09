@@ -8,6 +8,7 @@ decide what is admitted. The model never writes into `glaze/`.
    rarest first: a row scores by the core method it calls that the suite has
    least of. "Core" is `corpus/core-methods.txt`, the methods Raku's own types
    have (`rakudo tools/core-methods.raku > corpus/core-methods.txt`).
+   `--random` skips the ranking and samples the corpus as it is.
 2. A Haiku session runs the prompt below on that batch and leaves a draft
    in `tmp/haiku/batch-NN.draft.glaze`.
 3. `rakupp tools/accept.raku --batch=tmp/haiku/batch-NN.tsv --name=batch-NN tmp/haiku/batch-NN.draft.glaze`
@@ -22,6 +23,13 @@ decide what is admitted. The model never writes into `glaze/`.
 | 03 | 250 | at random | 83 | 83 | 3 |
 | 04 | 250 | by coverage | 156 | 90 | 6 |
 | 05 | 250 | by coverage | 58 | 56 | 4 |
+| 06 | 250 | by coverage | 205 | 205 | 9 |
+| 07 | 250 | at random | 134 | 134 | 4 |
+| 08 | 250 | at random | 211 | 211 | 9 |
+| 09 | 250 | at random | 159 | 159 | 8 |
+| 10 | 250 | at random | 165 | 165 | 6 |
+| 11 | 250 | at random | 163 | 163 | 7 |
+| 12 | 150 | at random | 117 | 117 | 4 |
 
 Most rejections are snippets that do not compile, lost their row's
 construct, or throw where the row does not. "New core constructs" counts
@@ -29,6 +37,13 @@ methods, calls, operators, traits and declarations the rest of the suite
 does not have. Batches stop when one brings fewer than five: after batch 05
 the 534-dist corpus has little left that the suite lacks, and more batches
 would add variants of what is covered rather than coverage.
+
+Batches 06 to 12 went past that on purpose, to add a thousand variants of
+what modules write: 1,154 snippets. Each batch's count above is measured
+against the suite before batch 06, and they overlap (`method build`,
+`call min`): together they bring about 30 constructs. The drafters ran the
+`--dry` loop until nothing was rejected, so drafts and admitted agree.
+Variants still find engine bugs coverage does not: Raku++ fails 8 of them.
 
 ---
 
@@ -103,6 +118,8 @@ write a `--- expect` block** — the tooling records it.
      snippet should not either: an unintended exception means it is wrong.
    - `drifted: keeps none of …` — your snippet lost the row's construct; put
      it back.
+   - `prints only fixed text` — a `say 'done'` after the construct says
+     only that it ran; print the value the construct produced instead.
    - `prints nothing`, `Rakudo: crash/hang`, `output differs between two runs`
      — fix it or delete the snippet.
    - `a second snippet for the same row` — delete one.

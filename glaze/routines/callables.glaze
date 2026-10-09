@@ -618,6 +618,22 @@ say %m<a>;
 host => x port => 2
 1
 
+=== sig-our-sub-in-class-same-name
+from: HTTP::UserAgent 1.2.0 lib/HTTP/UserAgent.rakumod:448
+license: MIT
+feature: node Sub
+--- code
+my class UserAgent {
+    method get($target) { "GET $target" }
+    our sub get($target where Str) { UserAgent.new.get($target) }
+}
+my class Fetcher { our sub get($target where Str) { "fetch $target" } }
+say UserAgent::get('http://a.example/');
+say Fetcher::get('b');
+--- expect
+GET http://a.example/
+fetch b
+
 === sig-anon-sub-named
 from: Auth::SCRAM::Async 0.0.1 lib/Auth/SCRAM/Async.rakumod:12
 license: Artistic-2.0
